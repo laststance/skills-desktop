@@ -586,8 +586,9 @@ const skillsSlice = createSlice({
       state.selectedAddAgentIds.splice(existingIndex, 1)
     },
     /**
-     * Toggle a single skill in `selectedSkillNames` and update the anchor.
-     * Called by the checkbox onChange in SkillItem.
+     * Toggle a single skill in `selectedSkillNames` and make it the anchor.
+     * Called by SkillItem's row checkbox and by a ⌘-click on its card (or a
+     * ⇧-click while there is no anchor yet).
      */
     toggleSelection: (state, action: PayloadAction<SkillName>) => {
       const skillName = action.payload
@@ -600,9 +601,12 @@ const skillsSlice = createSlice({
       state.selectionAnchor = skillName
     },
     /**
-     * Extend `selectedSkillNames` with every visible name between the anchor
-     * and the target (inclusive). Payload is precomputed by the component
-     * because the slice does not know the ordered visible list.
+     * Extend `selectedSkillNames` with the eligible names between the anchor
+     * and the ⇧-clicked row (inclusive), in visible order. {@link SkillItem}
+     * precomputes the payload with {@link computeRangeSelection} because the
+     * slice does not know the ordered visible list. The anchor becomes the
+     * last payload name, which is not the clicked row when that row is
+     * ineligible or sits above the anchor.
      */
     selectRange: (state, action: PayloadAction<SkillName[]>) => {
       const namesInRange = action.payload
@@ -613,15 +617,17 @@ const skillsSlice = createSlice({
           existingSet.add(skillName)
         }
       }
-      // Anchor advances to the most recent shift-click target
+      // The anchor moves to the payload's last name, the span's far end in
+      // visible order (see the JSDoc for when that is not the clicked row).
       const lastTargetName = namesInRange[namesInRange.length - 1]
       if (lastTargetName) {
         state.selectionAnchor = lastTargetName
       }
     },
     /**
-     * Replace the selection with the given visible names (Cmd/Ctrl+A).
-     * Passing an empty array effectively clears the selection.
+     * Replace the selection with the given names. ⌘/Ctrl+A and the list
+     * header's master checkbox pass every visible eligible row. Passing an
+     * empty array effectively clears the selection.
      */
     selectAll: (state, action: PayloadAction<SkillName[]>) => {
       state.selectedSkillNames = [...action.payload]
@@ -931,7 +937,10 @@ export const selectBulkCopying = (state: RootState): boolean =>
 /**
  * True while any bulk Delete, Unlink or Copy runs. The list header, the row
  * checkboxes, card modifier clicks, card Delete buttons and the ⌘A / Esc
- * shortcuts all go inert then, so the selection cannot change under an op that is still settling.
+ * shortcuts all go inert then, so the user cannot change the selection under
+ * an op that is still settling. Context switches still can: the listener clears
+ * it mid-op on a tab or agent change, a sync preview or a failed scan, which is
+ * why the settle hand-off only ever narrows the selection.
  * @returns Whether a bulk op is in flight.
  * @example
  * const isBulkOpBusy = useAppSelector(selectIsBulkOpBusy) // => false

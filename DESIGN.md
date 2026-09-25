@@ -522,12 +522,26 @@ Rules:
   - Reserve overlay space with padding so revealing a corner action never
     shifts the row's content (zero-layout-shift); align overlays to the title
     row, not the card's raw top edge.
+- The Installed list is virtualized with computed row heights, so a card's
+  height must not depend on its width. One-line metadata (the status badges,
+  the "Not linked to any agent" note) stays on one line and runs into the
+  right gutter in a narrow column instead of wrapping. Space stacked blocks
+  with padding where a margin could collapse into a neighbor's, since a
+  collapsed margin quietly shortens the card against its row slot.
 
 ### Bulk Selection
 
 Selection is modeless: there is no Select/Cancel mode. A 36px list header sits
 above the list, outside its scroller, so it never scrolls away. (Linear, Gmail,
 Finder list view.)
+
+- The header shares the rows' columns. Its left inset is a card's 1px border
+  plus 16px padding, so the master box sits on the row checkbox column and
+  `N selected` / `Name` start on the title column. Its right edge reserves the
+  list's scrollbar gutter plus the row inset, so it ends where the cards end.
+  Inside a card, everything after the checkbox (title, description, source,
+  and the global-view status badges) stays in the title column; nothing wraps
+  back under the checkbox.
 
 - The header's tri-state master checkbox (unchecked / mixed / checked, the W3C
   APG mixed checkbox) lines up with the row checkbox column and shares the row
@@ -562,10 +576,14 @@ Finder list view.)
   label shortens to `Delete N` / `Unlink N`, and Clear becomes a 24px icon-only
   button. Accessible names stay the same in every tier, and a control that
   drops its visible label always has a tooltip naming the action.
+- In every tier the `N selected` count and the indicators' `+N` numbers stay
+  whole. When the row runs out of room, the indicator words give way first
+  (their `title` keeps the sentence), then the primary label truncates (its
+  tooltip keeps the whole action).
 - The tiers key off the header's content box, not the window. At the default
-  50/50 split that box is (window − 272px sidebar) / 2 − 45px, so the 1200px
+  50/50 split that box is (window − 272px sidebar) / 2 − 57px, so the 1200px
   default launch window is narrow, 1100px and the 800px minimum are compact,
-  and the full tier starts near a 1320px window. Check all three tiers when the
+  and the full tier starts near a 1350px window. Check all three tiers when the
   header's contents change.
 - Shortcuts: ⌘A selects every visible eligible row and Esc clears a non-empty
   selection (Esc at 0 selected is left to the rest of the app). Both stand down

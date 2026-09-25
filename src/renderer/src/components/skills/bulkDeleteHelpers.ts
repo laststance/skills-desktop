@@ -14,7 +14,7 @@ import type {
 import { toSymlinkCount } from '@/shared/types'
 
 /**
- * Which toolbar variant is rendering:
+ * Which list header variant is rendering:
  *  - 'global' = no agent filter active (Installed tab, viewing all skills);
  *    the primary action is DELETE (tombstones the skill + cascades symlinks).
  *  - 'agent'  = agent filter active (user clicked a sidebar agent);
@@ -24,11 +24,11 @@ import { toSymlinkCount } from '@/shared/types'
  * count=1 the button is allowed to show a single-item affordance, whereas
  * count>=2 surfaces the batch treatment (progress counter when >=10, etc.).
  */
-export type ToolbarView = 'global' | 'agent'
-type ToolbarCountKind = 'zero' | 'single' | 'multi'
+export type ListHeaderView = 'global' | 'agent'
+type PrimaryActionCountKind = 'zero' | 'single' | 'multi'
 
-export interface ToolbarStateInput {
-  view: ToolbarView
+export interface PrimaryActionStateInput {
+  view: ListHeaderView
   agentId: AgentId | null
   /** Number of items currently ticked (not intersected with visible). */
   count: SkillCount
@@ -42,7 +42,7 @@ export interface ToolbarStateInput {
   agentDisplayName?: string
 }
 
-export interface ToolbarStateOutput {
+export interface PrimaryActionState {
   /** Primary button text ("Delete 3 skills", "Unlink from Cursor", etc.). */
   primaryLabel: string
   /** Short primary text for the list header's compact tier ("Delete 3", "Unlink 1"). */
@@ -70,28 +70,28 @@ export interface ToolbarStateOutput {
  * never silently fall through to a default.
  *
  * @param input - view, agentId, count, visibleCount, agentDisplayName
- * @returns ToolbarStateOutput with labels, disabled, destructive, variant key
+ * @returns PrimaryActionState with labels, disabled, destructive, variant key
  * @example
- * getToolbarState({ view: 'global', agentId: null, count: 3, visibleCount: 3 })
+ * getPrimaryActionState({ view: 'global', agentId: null, count: 3, visibleCount: 3 })
  * // => { primaryLabel: 'Delete 3 skills', compactPrimaryLabel: 'Delete 3', isDestructive: true, variantKey: 'global-multi', ... }
  * @example
- * getToolbarState({ view: 'agent', agentId: 'cursor', count: 1, visibleCount: 1, agentDisplayName: 'Cursor' })
+ * getPrimaryActionState({ view: 'agent', agentId: 'cursor', count: 1, visibleCount: 1, agentDisplayName: 'Cursor' })
  * // => { primaryLabel: 'Unlink from Cursor', compactPrimaryLabel: 'Unlink 1', isDestructive: false, variantKey: 'agent-single', ... }
  */
-export const getToolbarState = ({
+export const getPrimaryActionState = ({
   view,
   agentId: _agentId,
   count,
   visibleCount,
   agentDisplayName,
-}: ToolbarStateInput): ToolbarStateOutput => {
+}: PrimaryActionStateInput): PrimaryActionState => {
   // The primary button acts only on selected rows that survived the current
   // filter, while the adjacent selection summary owns the total hidden count.
   const actionCount = visibleCount
-  // ToolbarCountKind exhaustively buckets every visible count into zero, single, or multi copy.
+  // PrimaryActionCountKind exhaustively buckets every visible count into zero, single, or multi copy.
   // Matched as `number`, not SkillCount: ts-pattern narrows a branded operand to
   // `never` after the first `.with`, which kills the 0 / 1 literal arms.
-  const countKind: ToolbarCountKind = match<number>(actionCount)
+  const countKind: PrimaryActionCountKind = match<number>(actionCount)
     .with(0, () => 'zero' as const)
     .with(1, () => 'single' as const)
     .with(P.number, () => 'multi' as const)

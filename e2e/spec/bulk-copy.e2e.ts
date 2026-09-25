@@ -168,7 +168,7 @@ test('the bulk Copy-to-Agents modal copies every selected skill into every ticke
     }
   }
 
-  // Act — tick both skills (global view is the default; the "Copy to..."
+  // Act — tick both skills (global view is the default; the "Copy to…"
   // button renders only there). Selection is modeless, so ticking is enough.
   await dispatchAction(appWindow, {
     type: 'skills/selectAll',

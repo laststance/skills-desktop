@@ -30,7 +30,7 @@ import { getEmptyListMessage } from './skillsListHelpers'
 const ROW_HEIGHT_BASE = 101
 /** Extra height for description (line-clamp-2, text-sm: ~40px + mt-1: 4px) */
 const ROW_HEIGHT_DESCRIPTION = 44
-/** Extra height for status badges row (mt-3: 12px + badge: 22px) */
+/** Extra height for status badges row (pt-3: 12px + badge: 22px) */
 const ROW_HEIGHT_BADGES = 34
 
 /** Props passed to SkillRow via rowProps */

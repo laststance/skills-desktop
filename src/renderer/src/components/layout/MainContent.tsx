@@ -194,7 +194,7 @@ type ExcludedSkillTypeToggleHandlers = Record<
 interface InstalledBulkKeyboardShortcutsOptions {
   activeTab: ActiveTab
   selectedCount: number
-  visibleNames: Skill['name'][]
+  eligibleNames: Skill['name'][]
   isBulkOpBusy: boolean
 }
 
@@ -209,22 +209,22 @@ interface InstalledBulkKeyboardShortcutsOptions {
  * @param options - Active tab, selected count, visible eligible names, and the bulk-op busy flag.
  * @returns Nothing; attaches Cmd/Ctrl+A and Escape handlers while Installed is active.
  * @example
- * useInstalledBulkKeyboardShortcuts({ activeTab: 'installed', selectedCount: 2, visibleNames: ['task'], isBulkOpBusy: false })
+ * useInstalledBulkKeyboardShortcuts({ activeTab: 'installed', selectedCount: 2, eligibleNames: ['task'], isBulkOpBusy: false })
  */
 function useInstalledBulkKeyboardShortcuts({
   activeTab,
   selectedCount,
-  visibleNames,
+  eligibleNames,
   isBulkOpBusy,
 }: InstalledBulkKeyboardShortcutsOptions): void {
   const dispatch = useAppDispatch()
-  const visibleNamesRef = useRef(visibleNames)
+  const eligibleNamesRef = useRef(eligibleNames)
   const selectedCountRef = useRef(selectedCount)
   const isBulkOpBusyRef = useRef(isBulkOpBusy)
 
   useRenderEffect(() => {
-    visibleNamesRef.current = visibleNames
-  }, [visibleNames])
+    eligibleNamesRef.current = eligibleNames
+  }, [eligibleNames])
   useRenderEffect(() => {
     selectedCountRef.current = selectedCount
   }, [selectedCount])
@@ -270,10 +270,10 @@ function useInstalledBulkKeyboardShortcuts({
         }
         event.preventDefault()
         // Like the disabled header checkbox: nothing to select, or an op is settling.
-        if (isBulkOpBusyRef.current || visibleNamesRef.current.length === 0) {
+        if (isBulkOpBusyRef.current || eligibleNamesRef.current.length === 0) {
           return
         }
-        dispatch(selectAll(visibleNamesRef.current))
+        dispatch(selectAll(eligibleNamesRef.current))
         return
       }
       event.preventDefault()
@@ -1081,7 +1081,7 @@ export const MainContent = function MainContent(): React.ReactElement {
   const skillTypeFilter = useAppSelector((state) => state.ui.skillTypeFilter)
   const { items: agents } = useAppSelector((state) => state.agents)
   const activeTab = useAppSelector((state) => state.ui.activeTab)
-  const visibleNames = useAppSelector(selectBulkSelectableVisibleSkillNames)
+  const eligibleNames = useAppSelector(selectBulkSelectableVisibleSkillNames)
   const selectedVisibleNames = useAppSelector(selectSelectedVisibleNames)
   const selectedAllNames = useAppSelector(selectSelectedSkillNames)
   const skills = useAppSelector(selectSkillsItems)
@@ -1119,7 +1119,7 @@ export const MainContent = function MainContent(): React.ReactElement {
   useInstalledBulkKeyboardShortcuts({
     activeTab,
     selectedCount: selectedAllNames.length,
-    visibleNames,
+    eligibleNames,
     isBulkOpBusy,
   })
   const {
@@ -1219,11 +1219,15 @@ export const MainContent = function MainContent(): React.ReactElement {
 
           {/* The header sits outside the list's scroller, so it never scrolls away. */}
           <div className="flex-1 min-h-0 overflow-hidden flex flex-col pt-3 pb-4 pl-4 pr-[5px]">
-            <InstalledListHeader
-              onPrimaryAction={handlePrimaryAction}
-              onCopyAction={handleCopyAction}
-              agentDisplayName={selectedAgent?.name}
-            />
+            {/* Reserves the list's scrollbar gutter and each row's pr-[5px], so
+                the header's right edge lines up with the cards below. */}
+            <div className="skills-list-scrollbar shrink-0 overflow-hidden [scrollbar-gutter:stable] pr-[5px]">
+              <InstalledListHeader
+                onPrimaryAction={handlePrimaryAction}
+                onCopyAction={handleCopyAction}
+                agentDisplayName={selectedAgent?.name}
+              />
+            </div>
             <div className="flex-1 min-h-0 pt-3">
               <SkillsList />
             </div>

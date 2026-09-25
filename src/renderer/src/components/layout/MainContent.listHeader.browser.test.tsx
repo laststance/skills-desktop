@@ -596,9 +596,7 @@ describe('MainContent list header integration', () => {
       fetchSkills.rejected(new Error('disk read failed'), 'refresh-failed'),
     )
     await expect
-      .element(
-        screen.getByRole('checkbox', { name: 'Select all 0 visible skills' }),
-      )
+      .element(screen.getByRole('checkbox', { name: 'No skills to select' }))
       .toBeDisabled()
     document.dispatchEvent(
       new KeyboardEvent('keydown', {

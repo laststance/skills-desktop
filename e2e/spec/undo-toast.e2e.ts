@@ -160,7 +160,7 @@ test('UI: clicking Undo on the bulk-delete toast restores staged source files an
   await expect(listHeader).toContainText('1 selected')
 
   // List header primary button — global view, single skill selected. The
-  // label is sourced from `getToolbarState({ view: 'global', ... })` in
+  // label is sourced from `getPrimaryActionState({ view: 'global', ... })` in
   // bulkDeleteHelpers.ts; matching the exact aria-label keeps the test
   // resilient to visual-label tweaks ("Delete skill" → "Remove skill") that
   // would not change the underlying intent.

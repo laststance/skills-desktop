@@ -23,7 +23,12 @@ import {
   storyTombstoneIds,
 } from '../fixtures'
 import { StoryCard, StoryGrid } from '../storybook-utils'
-import { toFileName, toFileSizeBytes, toIsoTimestamp } from '@/shared/types'
+import {
+  toFileName,
+  toFileSizeBytes,
+  toIsoTimestamp,
+  toSearchQuery,
+} from '@/shared/types'
 
 const meta = {
   title: 'Skills/Components',
@@ -84,6 +89,36 @@ export const SkillRowsAndSearch: Story = {
 
 const storySkillNames = storySkills.map((skill) => skill.name)
 const noopAction = (): void => undefined
+
+/** Center column at the default split of the 1200px launch window. */
+const LAUNCH_WINDOW_CENTER_COLUMN_PX = 464
+/** Center column at the default split of the 800px minimum window. */
+const MIN_WINDOW_CENTER_COLUMN_PX = 264
+
+/**
+ * Mimics MainContent's list column at a given center-column width: the
+ * column's own padding plus the header's scrollbar-gutter wrapper, so the
+ * header lands in the same container-query tier as in the real window.
+ * @param props - The center column width and the header to place in it.
+ * @returns The header inside a column shaped like the Installed tab's.
+ * @example
+ * <StoryListColumn widthPx={MIN_WINDOW_CENTER_COLUMN_PX}><InstalledListHeader onPrimaryAction={noopAction} /></StoryListColumn>
+ */
+function StoryListColumn({
+  widthPx,
+  children,
+}: {
+  widthPx: number
+  children: React.ReactNode
+}): React.ReactElement {
+  return (
+    <div className="pl-4 pr-[5px]" style={{ width: widthPx }}>
+      <div className="skills-list-scrollbar overflow-hidden [scrollbar-gutter:stable] pr-[5px]">
+        {children}
+      </div>
+    </div>
+  )
+}
 
 export const ListHeaderRest: Story = {
   render: () => (
@@ -159,16 +194,56 @@ export const ListHeaderAgentView: Story = {
   },
 }
 
-export const ListHeaderCompact: Story = {
+export const ListHeaderWithIndicators: Story = {
   render: () => (
-    <StoryCard label="InstalledListHeader / compact tier (264px column)">
-      {/* The 800px minimum window leaves a 264px center column at the default split. */}
-      <div className="w-[264px] pl-4 pr-[5px]">
+    <StoryCard label="InstalledListHeader / hidden-by-filter indicator (full tier)">
+      <InstalledListHeader
+        onPrimaryAction={noopAction}
+        onCopyAction={noopAction}
+      />
+    </StoryCard>
+  ),
+  parameters: {
+    skillsDesktop: {
+      state: {
+        // The search hides every ticked row but one, so the note appears.
+        ui: { searchQuery: toSearchQuery('review') },
+        skills: { selectedSkillNames: storySkillNames },
+      },
+    },
+  },
+}
+
+export const ListHeaderNarrow: Story = {
+  render: () => (
+    <StoryCard label="InstalledListHeader / narrow tier (1200px launch window)">
+      <StoryListColumn widthPx={LAUNCH_WINDOW_CENTER_COLUMN_PX}>
         <InstalledListHeader
           onPrimaryAction={noopAction}
           onCopyAction={noopAction}
         />
-      </div>
+      </StoryListColumn>
+    </StoryCard>
+  ),
+  parameters: {
+    skillsDesktop: {
+      state: {
+        ui: { searchQuery: toSearchQuery('review') },
+        skills: { selectedSkillNames: storySkillNames },
+      },
+    },
+  },
+}
+
+export const ListHeaderCompact: Story = {
+  render: () => (
+    <StoryCard label="InstalledListHeader / compact tier (800px minimum window)">
+      <StoryListColumn widthPx={MIN_WINDOW_CENTER_COLUMN_PX}>
+        <InstalledListHeader
+          onPrimaryAction={noopAction}
+          onCopyAction={noopAction}
+        />
+      </StoryListColumn>
     </StoryCard>
   ),
   parameters: {

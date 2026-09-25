@@ -450,7 +450,7 @@ test('copying to one occupied and one free agent skips the occupied one and stil
  *   1. Set `state.ui.selectedAgentId` so the modal can derive `sourcePath`
  *      from `skillToCopy.symlinks[selectedAgentId].linkPath`.
  *   2. Dispatch `skills/setSkillToCopy` with the azure-ai snapshot — this is
- *      what the right-click "Copy to..." menu item dispatches in production.
+ *      what the right-click "Copy to…" menu item dispatches in production.
  *   3. Tick the target agent's checkbox by `aria-label` (mirrors the modal's
  *      `<Checkbox aria-label={agent.name} />`).
  *   4. Click the primary "Copy to N agent(s)" button.

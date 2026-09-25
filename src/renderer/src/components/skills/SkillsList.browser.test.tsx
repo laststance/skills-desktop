@@ -15,6 +15,9 @@ import {
 
 const mockGetAll = vi.fn()
 
+/** The list column in the 800px minimum window at the default split: (800 - 272px sidebar) / 2. */
+const MIN_WINDOW_LIST_COLUMN_WIDTH_PX = 264
+
 beforeEach(() => {
   // Stub the IPC bridge so the SkillsList useEffect dispatch of fetchSkills
   // does not throw. The thunk fires on mount; tests assert the *render branch*
@@ -140,14 +143,19 @@ async function renderSkillsList(skillsState: {
 /**
  * Render SkillsList in the same scroll shell used by the Installed tab.
  * @param skillsState - Skill slice fields needed for the visible rows.
+ * @param widthPx - Width of the list column; defaults to a roomy 800px.
  * @returns vitest-browser-react screen for locator queries.
  * @example
  * await renderInstalledListShell({ items: [makeSkill()] })
+ * await renderInstalledListShell({ items: [makeSkill()] }, MIN_WINDOW_LIST_COLUMN_WIDTH_PX)
  */
-async function renderInstalledListShell(skillsState: {
-  loading?: boolean
-  items?: Skill[]
-}) {
+async function renderInstalledListShell(
+  skillsState: {
+    loading?: boolean
+    items?: Skill[]
+  },
+  widthPx = 800,
+) {
   const store = await createStore(skillsState)
   const { SkillsList } = await import('./SkillsList')
   return render(
@@ -156,7 +164,7 @@ async function renderInstalledListShell(skillsState: {
         <div
           data-testid="installed-list-shell"
           className="overflow-hidden py-4 pl-4 pr-[5px]"
-          style={{ height: 360, width: 800 }}
+          style={{ height: 360, width: widthPx }}
         >
           <SkillsList />
         </div>
@@ -323,6 +331,70 @@ describe('SkillsList scrollbar gutter layout', () => {
     expect(metrics.rightGutterPx).toBe(16)
     expect(metrics.reservedGutterLeftSpacingPx).toBe(5)
     expect(metrics.reservedGutterRightSpacingPx).toBe(5)
+  })
+})
+
+describe('SkillsList global card spacing', () => {
+  test('keeps the full 20px gap between a Local source label and the status badges instead of collapsing it to 12px', async () => {
+    // Arrange
+    mockGetAll.mockReturnValue(new Promise(() => {}))
+    // No `source`, so SourceLink renders the block "Local" label, whose mb-2
+    // sits right above the status badges.
+    const localSkill = makeSkill({
+      name: toSkillName('local-skill'),
+      description: 'A skill with no recorded source repository.',
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          status: 'valid',
+          linkPath: toAbsolutePath('/home/user/.cursor/skills/local-skill'),
+          targetPath: toAbsolutePath('/home/user/.agents/skills/local-skill'),
+          isLocal: false,
+        },
+      ],
+    })
+
+    // Act
+    const screen = await renderInstalledListShell({ items: [localSkill] })
+    const localLabel = screen.getByText('Local', { exact: true })
+    const validBadge = screen.getByLabelText('Valid: 1')
+    await expect.element(localLabel).toBeVisible()
+    await expect.element(validBadge).toBeVisible()
+
+    // Assert
+    // The label's 8px mb-2 plus the badge row's 12px top spacing. If that
+    // spacing were a margin, the two would collapse to 12px and the card
+    // would lose 8px of the row slot {@link SkillsList} reserves for it.
+    const gapPx = Math.round(
+      validBadge.element().getBoundingClientRect().top -
+        localLabel.element().getBoundingClientRect().bottom,
+    )
+    expect(gapPx).toBe(20)
+  })
+
+  test('keeps the "Not linked to any agent" note on one line in the minimum window, so the card does not outgrow its row slot', async () => {
+    // Arrange
+    mockGetAll.mockReturnValue(new Promise(() => {}))
+    const unlinkedSkill = makeSkill({
+      name: toSkillName('unlinked-skill'),
+      description: 'A skill no agent links to yet.',
+      symlinks: [],
+    })
+
+    // Act
+    const screen = await renderInstalledListShell(
+      { items: [unlinkedSkill] },
+      MIN_WINDOW_LIST_COLUMN_WIDTH_PX,
+    )
+    const unlinkedNote = screen.getByText('Not linked to any agent')
+    await expect.element(unlinkedNote).toBeVisible()
+
+    // Assert
+    // One text-xs line is 16px tall; a wrapped note would be 32px.
+    expect(
+      Math.round(unlinkedNote.element().getBoundingClientRect().height),
+    ).toBe(16)
   })
 })
 

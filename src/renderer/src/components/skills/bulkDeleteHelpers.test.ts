@@ -17,13 +17,13 @@ import {
   countOrphanSymlinksRemoved,
   formatCascadeSummary,
   formatUnlinkSummary,
-  getToolbarState,
+  getPrimaryActionState,
 } from './bulkDeleteHelpers'
 
-describe('getToolbarState', () => {
+describe('getPrimaryActionState', () => {
   test('offers a destructive "Delete skill" button for one skill in global view', () => {
     // Arrange / Act
-    const result = getToolbarState({
+    const result = getPrimaryActionState({
       view: 'global',
       agentId: null,
       count: toSkillCount(1),
@@ -39,7 +39,7 @@ describe('getToolbarState', () => {
 
   test('shows the selected count in the "Delete N skills" button in global view', () => {
     // Arrange / Act
-    const result = getToolbarState({
+    const result = getPrimaryActionState({
       view: 'global',
       agentId: null,
       count: toSkillCount(7),
@@ -55,7 +55,7 @@ describe('getToolbarState', () => {
 
   test('offers a non-destructive unlink button with a generic agent label when the display name is unknown', () => {
     // Arrange / Act
-    const result = getToolbarState({
+    const result = getPrimaryActionState({
       view: 'agent',
       agentId: 'cursor',
       count: toSkillCount(1),
@@ -70,7 +70,7 @@ describe('getToolbarState', () => {
 
   test('names the agent in the single-skill unlink button when a display name is given', () => {
     // Arrange / Act
-    const result = getToolbarState({
+    const result = getPrimaryActionState({
       view: 'agent',
       agentId: 'cursor',
       count: toSkillCount(1),
@@ -85,7 +85,7 @@ describe('getToolbarState', () => {
 
   test('shows the selected count in a non-destructive multi-skill unlink button with a generic agent label', () => {
     // Arrange / Act
-    const result = getToolbarState({
+    const result = getPrimaryActionState({
       view: 'agent',
       agentId: 'cursor',
       count: toSkillCount(4),
@@ -100,7 +100,7 @@ describe('getToolbarState', () => {
 
   test('names the agent in the multi-skill unlink button when a display name is given', () => {
     // Arrange / Act
-    const result = getToolbarState({
+    const result = getPrimaryActionState({
       view: 'agent',
       agentId: 'cursor',
       count: toSkillCount(4),
@@ -115,7 +115,7 @@ describe('getToolbarState', () => {
 
   test('disables the delete button when a search filter hides every selected skill in global view', () => {
     // Arrange / Act
-    const result = getToolbarState({
+    const result = getPrimaryActionState({
       view: 'global',
       agentId: null,
       count: toSkillCount(5), // user has 5 selected globally
@@ -131,7 +131,7 @@ describe('getToolbarState', () => {
 
   test('disables the button with unlink-specific copy when no selected skill is visible in agent view', () => {
     // Arrange / Act
-    const result = getToolbarState({
+    const result = getPrimaryActionState({
       view: 'agent',
       agentId: 'cursor',
       count: toSkillCount(3),
@@ -150,13 +150,13 @@ describe('getToolbarState', () => {
 
   test('shortens the primary label to the verb and count for the compact header tier', () => {
     // Arrange / Act
-    const deleteState = getToolbarState({
+    const deleteState = getPrimaryActionState({
       view: 'global',
       agentId: null,
       count: toSkillCount(28),
       visibleCount: toSkillCount(28),
     })
-    const unlinkState = getToolbarState({
+    const unlinkState = getPrimaryActionState({
       view: 'agent',
       agentId: 'cursor',
       count: toSkillCount(1),
@@ -177,13 +177,13 @@ describe('getToolbarState', () => {
 
   test('keeps the verb with a zero count on the disabled compact header button when a search hides every selected skill', () => {
     // Arrange / Act
-    const deleteState = getToolbarState({
+    const deleteState = getPrimaryActionState({
       view: 'global',
       agentId: null,
       count: toSkillCount(4),
       visibleCount: toSkillCount(0),
     })
-    const unlinkState = getToolbarState({
+    const unlinkState = getPrimaryActionState({
       view: 'agent',
       agentId: 'cursor',
       count: toSkillCount(2),
@@ -201,7 +201,7 @@ describe('getToolbarState', () => {
 
   test('counts only the visible selected skills in the delete button when filters hide some rows', () => {
     // Arrange / Act
-    const result = getToolbarState({
+    const result = getPrimaryActionState({
       view: 'global',
       agentId: null,
       count: toSkillCount(5),

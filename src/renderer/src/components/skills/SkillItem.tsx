@@ -270,7 +270,9 @@ const GlobalStatusBadges = function GlobalStatusBadges({
     buckets.inaccessibleCount === 0
 
   return (
-    <div className="flex items-center gap-2 mt-3">
+    // pt-3, not mt-3: a margin would collapse into the "Local" source
+    // label's mb-2, leaving that card 8px shorter than its row slot.
+    <div className="flex items-center gap-2 pt-3">
       {buckets.validCount > 0 && (
         <StatusBadge
           status="valid"
@@ -293,7 +295,9 @@ const GlobalStatusBadges = function GlobalStatusBadges({
         />
       )}
       {hasNoLinks && (
-        <span className="text-xs text-muted-foreground">
+        // nowrap: a second line would outgrow the row slot {@link SkillsList}
+        // reserves; in a narrow column the note runs into the right gutter.
+        <span className="whitespace-nowrap text-xs text-muted-foreground">
           Not linked to any agent
         </span>
       )}
@@ -820,20 +824,21 @@ export const SkillItem = function SkillItem({
                   </p>
                 )}
                 <SourceLink source={skill.source} sourceUrl={skill.sourceUrl} />
+
+                {/* Status badges — global view only. They sit in the text
+                    column so they start under the title, not the checkbox. */}
+                {!selectedAgentId && (
+                  <GlobalStatusBadges buckets={symlinkStatusBuckets} />
+                )}
               </div>
             </div>
-
-            {/* Status badges — only shown in global view (no agent selected) */}
-            {!selectedAgentId && (
-              <GlobalStatusBadges buckets={symlinkStatusBuckets} />
-            )}
           </CardContent>
         </Card>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         <DropdownMenuItem onClick={handleCopyClick}>
           <Copy className="h-4 w-4 mr-2" />
-          Copy to...
+          Copy to…
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -1033,7 +1038,9 @@ const BulkSelectionCheckbox = function BulkSelectionCheckbox({
     // react-doctor-disable-next-line react-doctor/label-has-associated-control, react-doctor/no-noninteractive-element-interactions -- the label wraps a Radix <Checkbox> (renders a real <input>) that react-doctor can't see as the control; the onClick is a stopPropagation guard, not an interactive handler.
     <label
       className={cn(
-        'shrink-0 size-7 -mt-1.5 -ml-1.5 flex items-center justify-center cursor-pointer',
+        // -mt-0.5 centers the 16px box on the title's first line.
+        'shrink-0 size-7 -mt-0.5 -ml-1.5 flex items-center justify-center',
+        isDisabled ? 'cursor-not-allowed' : 'cursor-pointer',
         // A disabled box cannot take focus, so it only needs the hover reveal.
         // It lives on the label because the checkbox's own
         // `disabled:opacity-50` would outrank an `opacity-0` on the box.

@@ -779,7 +779,7 @@ describe('skillsSlice bulkCopyToAgents thunk', () => {
     expect(mockCopyToAgents).not.toHaveBeenCalled()
   })
 
-  test('releases the toolbar and surfaces the error message when the whole copy batch rejects', async () => {
+  test('re-enables the list header and surfaces the error message when the whole copy batch rejects', async () => {
     // Arrange — drive the slice into its in-flight pending state first, then
     // reject the same request (a thrown payload creator, not a per-skill catch).
     const store = await createTestStore()
@@ -1023,12 +1023,12 @@ describe('skillsSlice bulk selection reducers (v2.4)', () => {
     expect(store.getState().skills.bulkProgress).toBeNull()
   })
 
-  test('opens the bulk Copy-to-agents modal from the toolbar and closes it on dismiss', async () => {
+  test('opens the bulk Copy-to-agents modal from the list header and closes it on dismiss', async () => {
     // Arrange
     const { setBulkCopyModalOpen } = await import('./skillsSlice')
     const store = await createTestStore()
 
-    // Act — the toolbar "Copy to…" opens the BulkCopyToAgentsModal
+    // Act — the list header's "Copy to…" opens the BulkCopyToAgentsModal
     store.dispatch(setBulkCopyModalOpen(true))
 
     // Assert
@@ -1822,7 +1822,7 @@ describe('skillsSlice named selectors', () => {
     expect(error).toBeNull()
   })
 
-  test('reads the bulk-select state (ticked rows, copy-agent ticks, and range anchor) for the toolbar', async () => {
+  test('reads the bulk-select state (ticked rows, copy-agent ticks, and range anchor) for the list header', async () => {
     // Arrange
     const store = await createTestStore()
     const {

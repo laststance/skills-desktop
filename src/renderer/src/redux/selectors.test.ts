@@ -1754,7 +1754,7 @@ describe('selectSelectedVisibleSkillObjects', () => {
     const result = selectSelectedVisibleSkillObjects(state as never)
 
     // Assert — only the visible-and-ticked skill survives; hidden beta is dropped,
-    // matching the bulk delete/unlink behavior the toolbar badge advertises
+    // matching the bulk delete/unlink behavior the list header's hidden note advertises
     expect(result.map((skill) => skill.name)).toEqual(['alpha'])
   })
 })

@@ -27,9 +27,10 @@ const WIDE_HEADER_WIDTH_PX = 640
 const NARROW_HEADER_WIDTH_PX = 440
 /**
  * The header's width at the supported floor: a 264px center column (the 800px
- * minimum window) minus the list column's 16px left and 5px right padding.
+ * minimum window) minus the list column's 16px left and 5px right padding, and
+ * the 6px scrollbar gutter plus 5px row inset it reserves to end with the cards.
  */
-const FLOOR_HEADER_WIDTH_PX = 243
+const FLOOR_HEADER_WIDTH_PX = 232
 /** Radix opens a tooltip 700ms after hover by default; wait past that. */
 const TOOLTIP_OPEN_TIMEOUT_MS = 3_000
 
@@ -73,7 +74,7 @@ function makeCursorSkill(
  * @param options.protectedNames - Skills locked against bulk actions.
  * @param options.countDisplay - Where the visible-skill count lives; `tab` by default.
  * @param options.headerWidthPx - The header's own width, which picks its layout tier.
- * @param options.onCopyAction - Optional copy callback; omit to hide Copy to...
+ * @param options.onCopyAction - Optional copy callback; omit to hide Copy to…
  * @param options.agentDisplayName - Display name for the agent-view Unlink label.
  * @returns Browser screen, Redux store, and the primary-action spy.
  * @example
@@ -472,9 +473,7 @@ describe('InstalledListHeader master checkbox', () => {
 
     // Assert
     await expect
-      .element(
-        screen.getByRole('checkbox', { name: 'Select all 0 visible skills' }),
-      )
+      .element(screen.getByRole('checkbox', { name: 'No skills to select' }))
       .toBeDisabled()
     await expect.element(screen.getByText('0 skills')).toBeVisible()
   })
@@ -494,9 +493,7 @@ describe('InstalledListHeader master checkbox', () => {
 
     // Assert
     await expect
-      .element(
-        screen.getByRole('checkbox', { name: 'Select all 0 visible skills' }),
-      )
+      .element(screen.getByRole('checkbox', { name: 'No skills to select' }))
       .toBeDisabled()
   })
 
@@ -545,9 +542,7 @@ describe('InstalledListHeader master checkbox', () => {
 
     // Assert — the list draws only its error text, so nothing is selectable
     await expect
-      .element(
-        screen.getByRole('checkbox', { name: 'Select all 0 visible skills' }),
-      )
+      .element(screen.getByRole('checkbox', { name: 'No skills to select' }))
       .toBeDisabled()
   })
 
@@ -607,16 +602,14 @@ describe('InstalledListHeader master checkbox', () => {
     })
 
     // Act
-    await screen
-      .getByRole('checkbox', { name: 'Select all 0 visible skills' })
-      .hover()
+    await screen.getByRole('checkbox', { name: 'No skills to select' }).hover()
 
     // Assert — the whole tooltip text is the label, with no key after it
     await expect
       .element(screen.getByRole('tooltip'), {
         timeout: TOOLTIP_OPEN_TIMEOUT_MS,
       })
-      .toHaveTextContent('Select all 0 visible skills')
+      .toHaveTextContent('No skills to select')
   })
 
   test('drops ticks the search hides when the master checkbox selects the visible rows', async () => {
@@ -823,7 +816,7 @@ describe('InstalledListHeader selected state', () => {
     expect(screen.getByText('+1 hidden by filter').query()).toBeNull()
   })
 
-  test('offers a Copy to... button in global view when a copy handler is wired', async () => {
+  test('offers a Copy to… button in global view when a copy handler is wired', async () => {
     // Arrange — global view with a copy callback supplied
     const onCopyAction = vi.fn()
     const { screen } = await renderHeader({
@@ -843,7 +836,7 @@ describe('InstalledListHeader selected state', () => {
     expect(onCopyAction).toHaveBeenCalledTimes(1)
   })
 
-  test('hides Copy to... in agent view even when a copy handler is wired', async () => {
+  test('hides Copy to… in agent view even when a copy handler is wired', async () => {
     // Arrange
     const onCopyAction = vi.fn()
 
@@ -953,6 +946,29 @@ describe('InstalledListHeader selected state', () => {
         screen.getByRole('checkbox', { name: 'Select all 2 visible skills' }),
       )
       .toBeDisabled()
+  })
+
+  test('drops the Esc hint from Clear while a bulk op settles, since Esc cannot clear then', async () => {
+    // Arrange — global view, one row ticked, Clear teaching Esc
+    const { screen, store } = await renderHeader({
+      skills: [makeCursorSkill(toSkillName('alpha'), 'valid')],
+      selectedNames: [toSkillName('alpha')],
+      agentId: null,
+      onCopyAction: vi.fn(),
+    })
+    const clearButton = screen.getByRole('button', { name: 'Clear selection' })
+    await expect.element(clearButton).toHaveTextContent('ClearEsc')
+    const { bulkCopyToAgents } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+
+    // Act
+    store.dispatch(
+      bulkCopyToAgents.pending('copy-req', { items: [], agentIds: [] }),
+    )
+
+    // Assert — the disabled Clear no longer advertises a key that does nothing
+    await expect.element(clearButton).toBeDisabled()
+    await expect.element(clearButton).toHaveTextContent('Clear')
   })
 })
 
@@ -1080,7 +1096,7 @@ describe('InstalledListHeader layout tiers', () => {
     })
     await expect.element(copyButton).toBeVisible()
     expect(copyButton.element().getBoundingClientRect().width).toBe(24)
-    await expect.element(screen.getByText('Copy to...')).not.toBeVisible()
+    await expect.element(screen.getByText('Copy to…')).not.toBeVisible()
   })
 
   test('names the action in a tooltip once Copy shrinks to an icon in the narrow header', async () => {
@@ -1136,6 +1152,57 @@ describe('InstalledListHeader layout tiers', () => {
       .getByText(`Unlink 2 from ${agentDisplayName}`)
       .element()
     expect(label.scrollWidth).toBeGreaterThan(label.clientWidth)
+  })
+
+  test('keeps the selected count and the hidden-row number whole when a long agent name crowds the narrow header', async () => {
+    // Arrange — 13 ticked in Cursor's view, one of them about to be hidden by
+    // the search, so the count, the `+1` note and a long Unlink label compete
+    const agentDisplayName = 'Extremely Long Agent Display Name For Layout'
+    const visibleNames = Array.from({ length: 12 }, (_, index) =>
+      toSkillName(`alpha-${String(index + 1).padStart(2, '0')}`),
+    )
+    const tickedNames = [...visibleNames, toSkillName('zeta')]
+    const { screen, store } = await renderHeader({
+      skills: tickedNames.map((name) => makeCursorSkill(name, 'valid')),
+      selectedNames: tickedNames,
+      agentId: 'cursor',
+      agentDisplayName,
+      headerWidthPx: NARROW_HEADER_WIDTH_PX,
+    })
+    const { setSearchQuery } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+
+    // Act
+    store.dispatch(setSearchQuery(toSearchQuery('alpha')))
+
+    // Assert — the count and `+1` end before the Unlink button starts, and the
+    // Unlink label is the one that gave up its room
+    const unlinkButton = screen.getByRole('button', {
+      name: `Unlink 12 visible selected skills from ${agentDisplayName}`,
+    })
+    await expect.element(unlinkButton).toBeVisible()
+    const unlinkLeft = unlinkButton.element().getBoundingClientRect().left
+    const countText = document.createRange()
+    countText.selectNodeContents(
+      screen.getByText('13 selected', { exact: true }).element(),
+    )
+    expect(countText.getBoundingClientRect().right).toBeLessThanOrEqual(
+      unlinkLeft,
+    )
+    const hiddenNumber = screen
+      .getByText('+1', { exact: true })
+      .element()
+      .getBoundingClientRect()
+    expect(hiddenNumber.width).toBeGreaterThan(0)
+    expect(hiddenNumber.right).toBeLessThanOrEqual(unlinkLeft)
+    const label = screen
+      .getByText(`Unlink 12 from ${agentDisplayName}`)
+      .element()
+    expect(label.scrollWidth).toBeGreaterThan(label.clientWidth)
+    expectInsideHeader(
+      screen.getByRole('button', { name: 'Clear selection' }),
+      screen.getByRole('group', { name: 'List header' }),
+    )
   })
 
   test('fits the compact header on one 36px row at the 800px window floor in global view', async () => {

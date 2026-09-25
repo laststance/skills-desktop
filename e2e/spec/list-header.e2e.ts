@@ -17,9 +17,10 @@ const WINDOW_CONTENT_HEIGHT_PX = 800
 /**
  * Window content widths and the header tier each one lands in at the default
  * 50/50 split. The tiers key off the header's content box, the center column
- * minus 45px of column and header padding: the 1200px launch size gives it
- * about 419px (narrow, below 30rem), while 1100px (about 369px) and the 800px
- * minimum (about 219px) fall below 24rem into the compact tier.
+ * minus 57px of column padding, the list's scrollbar gutter and row inset, and
+ * header padding: the 1200px launch size gives it about 407px (narrow, below
+ * 30rem), while 1100px (about 357px) and the 800px minimum (about 207px) fall
+ * below 24rem into the compact tier.
  */
 const WINDOW_TIERS = [
   { widthPx: 1200, tier: 'narrow' },
@@ -141,9 +142,33 @@ async function expectOneRowWithControlsInside(
 }
 
 /**
- * Run the per-width layout checks: the first tick leaves the list where it
- * was, and a full selection still fits the header's one row with the tier's
- * primary label on screen.
+ * Assert the header spans exactly the cards' columns, so it reads as the
+ * list's own top row: the same left edge, and a right edge that clears the
+ * list's scrollbar gutter just as the cards do.
+ * @param listHeader - The `List header` group.
+ * @param card - Any rendered skill card.
+ * @example await expectHeaderSharesCardEdges(listHeader, firstCard)
+ */
+async function expectHeaderSharesCardEdges(
+  listHeader: Locator,
+  card: Locator,
+): Promise<void> {
+  const headerBox = await listHeader.boundingBox()
+  const cardBox = await card.boundingBox()
+  if (headerBox === null || cardBox === null) {
+    throw new Error('Expected the list header and a card to render')
+  }
+  expect(headerBox.x, 'header left edge').toBeCloseTo(cardBox.x, 0)
+  expect(headerBox.x + headerBox.width, 'header right edge').toBeCloseTo(
+    cardBox.x + cardBox.width,
+    0,
+  )
+}
+
+/**
+ * Run the per-width layout checks: the header spans the cards' columns, the
+ * first tick leaves the list where it was, and a full selection still fits the
+ * header's one row with the tier's primary label on screen.
  * @param appWindow - Main window page.
  * @param primaryAction - The header's Delete/Unlink name and per-tier label.
  * @param tier - The tier the current window width puts the header in.
@@ -159,6 +184,7 @@ async function expectSelectionKeepsLayout(
     `[data-skill-name="${STAGED_SKILL_PREFIX}01"]`,
   )
   await expect(firstCard).toBeVisible()
+  await expectHeaderSharesCardEdges(listHeader, firstCard)
   await expectOneRowWithControlsInside(listHeader)
   const listTopBeforeTick = await readTopEdge(firstCard)
 
@@ -196,13 +222,14 @@ async function expectSelectionKeepsLayout(
 }
 
 /**
- * The list header's Rule 6 layout, checked in the real app window, where the
- * sidebar and the panel split give the header its true width. At the 1200px
- * launch size it shows the narrow tier, and at 1100px and the 800px minimum
- * the compact tier. In each it stays one 36px row with every control inside
- * it, and the first tick never moves the list.
+ * The list header's container-query tiers, checked in the real app window,
+ * where the sidebar, the panel split and the real scrollbar give the header its
+ * true width. At the 1200px launch size it shows the narrow tier, and at 1100px
+ * and the 800px minimum the compact tier. In each it spans the cards' columns
+ * and stays one 36px row with every control inside it, and the first tick
+ * never moves the list.
  */
-test('keeps the list header one 36px row at 1200px, 1100px and 800px windows in the global view', async ({
+test('keeps the list header one 36px row aligned with the cards at 1200px, 1100px and 800px windows in the global view', async ({
   electronApp,
   appWindow,
   isolatedHome,
@@ -235,7 +262,7 @@ test('keeps the list header one 36px row at 1200px, 1100px and 800px windows in 
   }
 })
 
-test('keeps the list header one 36px row at 1200px, 1100px and 800px windows in the Cursor view', async ({
+test('keeps the list header one 36px row aligned with the cards at 1200px, 1100px and 800px windows in the Cursor view', async ({
   electronApp,
   appWindow,
   isolatedHome,

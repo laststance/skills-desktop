@@ -1334,7 +1334,7 @@ describe('SkillItem G-Stack badge click', () => {
 })
 
 describe('SkillItem copy context menu', () => {
-  test('stages the skill for copy when "Copy to..." is chosen from the right-click menu', async () => {
+  test('stages the skill for copy when "Copy to…" is chosen from the right-click menu', async () => {
     // Arrange
     // Copy is only offered in agent view for a usable (valid, non-local) skill.
     const validSkill = makeSkill({

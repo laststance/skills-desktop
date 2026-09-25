@@ -747,10 +747,11 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
     await waitForBulkOpBusy(screen)
 
     // Act
-    dispatchKey({ key: 'a', metaKey: true })
+    const keydown = dispatchKey({ key: 'a', metaKey: true })
 
-    // Assert
+    // Assert — nothing ticks, and the page's own select-all stays off too
     expect(store.getState().skills.selectedSkillNames).toEqual([])
+    expect(keydown.defaultPrevented).toBe(true)
   })
 
   test('keeps a tick the search hides when Cmd+A finds no visible rows to select', async () => {
@@ -790,10 +791,11 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
     await waitForSelectedCount(screen, 1)
 
     // Act
-    dispatchKey({ key: 'a', metaKey: true })
+    const keydown = dispatchKey({ key: 'a', metaKey: true })
 
-    // Assert
+    // Assert — the hidden tick survives, and the page's own select-all stays off
     expect(store.getState().skills.selectedSkillNames).toEqual(['task'])
+    expect(keydown.defaultPrevented).toBe(true)
   })
 
   test('leaves Cmd+A to the page on the Marketplace tab instead of ticking installed rows', async () => {
@@ -974,10 +976,11 @@ describe('MainContent keyboard shortcuts (Esc)', () => {
     await waitForBulkOpBusy(screen)
 
     // Act
-    dispatchKey({ key: 'Escape' })
+    const keydown = dispatchKey({ key: 'Escape' })
 
-    // Assert
+    // Assert — the selection stays, and the key is still claimed by the list
     expect(store.getState().skills.selectedSkillNames).toEqual(['task'])
+    expect(keydown.defaultPrevented).toBe(true)
   })
 
   test('does not clear the selection when Escape closes an open install modal overlaying the Installed tab', async () => {
@@ -3602,6 +3605,87 @@ describe('MainContent selection hand-off after a bulk op settles', () => {
     // Assert — the red edge marks each row that failed, as a per-item error does
     await expect.poll(() => mockRefreshAllData.mock.calls.length).toBe(1)
     expect(flashedNames).toEqual(['task-one', 'task-two'])
+  })
+
+  test('flashes every attempted row when a header Delete rejects', async () => {
+    // Arrange — global view with two ticked rows; the delete IPC rejects
+    mockListHeaderState.enabled = true
+    const { screen, store } = await renderMainContent()
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [makeGlobalSkill('task'), makeGlobalSkill('tdd')],
+        'req-id',
+      ),
+    )
+    store.dispatch(toggleSelection(toSkillName('task')))
+    store.dispatch(toggleSelection(toSkillName('tdd')))
+    mockSkillsDeleteSkills.mockRejectedValue(new Error('Socket closed'))
+    const flashedNames: SkillName[] = []
+    const recordFlash = (
+      event: WindowEventMap[typeof BULK_ITEM_FAILED_EVENT],
+    ): void => {
+      flashedNames.push(event.detail.skillName)
+    }
+    window.addEventListener(BULK_ITEM_FAILED_EVENT, recordFlash)
+    onTestFinished(() => {
+      window.removeEventListener(BULK_ITEM_FAILED_EVENT, recordFlash)
+    })
+    await screen.getByRole('button', { name: 'Open bulk confirm' }).click()
+
+    // Act
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+
+    // Assert — the red edge marks each row the rejected Delete attempted
+    await expect.poll(() => mockRefreshAllData.mock.calls.length).toBe(1)
+    expect(flashedNames).toEqual(['task', 'tdd'])
+  })
+
+  test('flashes only its own row when a card Delete rejects, leaving the other ticks alone', async () => {
+    // Arrange — 'task' and 'tdd' are ticked; the card's own Delete on 'task'
+    // opens the dialog with a row origin, and the delete IPC rejects
+    const { screen, store } = await renderMainContent()
+    const { setBulkConfirm } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const taskSkill = makeGlobalSkill('task')
+    store.dispatch(
+      fetchSkills.fulfilled([taskSkill, makeGlobalSkill('tdd')], 'req-id'),
+    )
+    store.dispatch(toggleSelection(toSkillName('task')))
+    store.dispatch(toggleSelection(toSkillName('tdd')))
+    mockSkillsDeleteSkills.mockRejectedValue(new Error('Socket closed'))
+    const flashedNames: SkillName[] = []
+    const recordFlash = (
+      event: WindowEventMap[typeof BULK_ITEM_FAILED_EVENT],
+    ): void => {
+      flashedNames.push(event.detail.skillName)
+    }
+    window.addEventListener(BULK_ITEM_FAILED_EVENT, recordFlash)
+    onTestFinished(() => {
+      window.removeEventListener(BULK_ITEM_FAILED_EVENT, recordFlash)
+    })
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        origin: 'row',
+        skillNames: [toSkillName('task')],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+        ...partitionGlobalDeleteTargets([taskSkill], [toSkillName('task')]),
+      }),
+    )
+
+    // Act
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+
+    // Assert — the card's row flashes; the selection is not the card's to change
+    await expect.poll(() => mockRefreshAllData.mock.calls.length).toBe(1)
+    expect(flashedNames).toEqual(['task'])
+    expect(store.getState().skills.selectedSkillNames).toEqual(['task', 'tdd'])
   })
 
   test('leaves the other ticks alone after a card Delete succeeds', async () => {
