@@ -129,7 +129,7 @@ async function getPresentSkillNames(
  * vs directory branch, realpath round-trip, per-target `Already exists`) is
  * already locked by copy.e2e.ts; a `createAsyncThunk` cannot be dispatched from
  * `page.evaluate` anyway. What #198 ADDS — and what only an E2E can prove — is
- * (1) the multi-skill fan-out and (2) the SelectionToolbar → modal → thunk →
+ * (1) the multi-skill fan-out and (2) the list header → modal → thunk →
  * IPC → filesystem wiring. So we drive the real click path and assert on the
  * filesystem (deterministic) rather than the toast (timing-sensitive).
  *
@@ -168,16 +168,14 @@ test('the bulk Copy-to-Agents modal copies every selected skill into every ticke
     }
   }
 
-  // Act — enter bulk-select mode and tick both skills (global view is the
-  // default; the "Copy to..." button renders only there). enterBulkSelectMode
-  // first so selectAll is the last selection-affecting dispatch.
-  await dispatchAction(appWindow, { type: 'ui/enterBulkSelectMode' })
+  // Act — tick both skills (global view is the default; the "Copy to..."
+  // button renders only there). Selection is modeless, so ticking is enough.
   await dispatchAction(appWindow, {
     type: 'skills/selectAll',
     payload: skillNames,
   })
 
-  // Open the modal from the toolbar's non-destructive bulk-copy button.
+  // Open the modal from the list header's non-destructive bulk-copy button.
   await appWindow
     .getByRole('button', { name: 'Copy selected skills to agents' })
     .click()
@@ -188,7 +186,7 @@ test('the bulk Copy-to-Agents modal copies every selected skill into every ticke
     .waitFor({ state: 'visible', timeout: 5_000 })
 
   // Tick both target agents (checkbox aria-label is the agent display name).
-  // Scope to the dialog: bulk mode also renders per-row skill checkboxes.
+  // Scope to the dialog: the list also renders per-row skill checkboxes.
   for (const agent of targetAgents) {
     await dialog.getByRole('checkbox', { name: agent.name }).check()
   }
@@ -250,7 +248,6 @@ test('a bulk copy keeps copying the rest when one skill already exists in one ag
   writeFileSync(join(sentinelDir, 'SKILL.md'), sentinelContent)
 
   // Act — select both skills, open the modal, tick both agents, copy.
-  await dispatchAction(appWindow, { type: 'ui/enterBulkSelectMode' })
   await dispatchAction(appWindow, {
     type: 'skills/selectAll',
     payload: skillNames,

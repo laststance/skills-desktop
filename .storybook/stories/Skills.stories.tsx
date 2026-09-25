@@ -7,8 +7,8 @@ import { CodePreview } from '@/renderer/src/components/skills/CodePreview'
 import { CopyToAgentsModal } from '@/renderer/src/components/skills/CopyToAgentsModal'
 import { FileContent } from '@/renderer/src/components/skills/FileContent'
 import { FileTabs } from '@/renderer/src/components/skills/FileTabs'
+import { InstalledListHeader } from '@/renderer/src/components/skills/InstalledListHeader'
 import { SearchBox } from '@/renderer/src/components/skills/SearchBox'
-import { SelectionToolbar } from '@/renderer/src/components/skills/InstalledListHeader'
 import { SkillDetail } from '@/renderer/src/components/skills/SkillDetail'
 import { SkillItem } from '@/renderer/src/components/skills/SkillItem'
 import { SkillsList } from '@/renderer/src/components/skills/SkillsList'
@@ -54,8 +54,8 @@ export const SkillRowsAndSearch: Story = {
       <StoryCard label="SearchBox">
         <SearchBox />
       </StoryCard>
-      <StoryCard label="SelectionToolbar">
-        <SelectionToolbar
+      <StoryCard label="InstalledListHeader">
+        <InstalledListHeader
           agentDisplayName="Claude Code"
           onPrimaryAction={() => undefined}
         />
@@ -72,12 +72,109 @@ export const SkillRowsAndSearch: Story = {
       state: {
         ui: {
           selectedAgentId: 'claude-code',
-          bulkSelectMode: true,
         },
         skills: {
           selectedSkill: storySkills[0],
           selectedSkillNames: [storySkills[0]!.name, storySkills[1]!.name],
         },
+      },
+    },
+  },
+}
+
+const storySkillNames = storySkills.map((skill) => skill.name)
+const noopAction = (): void => undefined
+
+export const ListHeaderRest: Story = {
+  render: () => (
+    <StoryCard label="InstalledListHeader / rest (inline count)">
+      <InstalledListHeader
+        onPrimaryAction={noopAction}
+        onCopyAction={noopAction}
+      />
+    </StoryCard>
+  ),
+  parameters: {
+    skillsDesktop: {
+      state: {
+        skills: { selectedSkill: null, selectedSkillNames: [] },
+        settings: { installedSearchCountDisplay: 'inline' },
+      },
+    },
+  },
+}
+
+export const ListHeaderSomeSelected: Story = {
+  render: () => (
+    <StoryCard label="InstalledListHeader / some selected (mixed master)">
+      <InstalledListHeader
+        onPrimaryAction={noopAction}
+        onCopyAction={noopAction}
+      />
+    </StoryCard>
+  ),
+  parameters: {
+    skillsDesktop: {
+      state: {
+        skills: { selectedSkillNames: storySkillNames.slice(0, 2) },
+      },
+    },
+  },
+}
+
+export const ListHeaderAllSelected: Story = {
+  render: () => (
+    <StoryCard label="InstalledListHeader / all selected">
+      <InstalledListHeader
+        onPrimaryAction={noopAction}
+        onCopyAction={noopAction}
+      />
+    </StoryCard>
+  ),
+  parameters: {
+    skillsDesktop: {
+      state: {
+        skills: { selectedSkillNames: storySkillNames },
+      },
+    },
+  },
+}
+
+export const ListHeaderAgentView: Story = {
+  render: () => (
+    <StoryCard label="InstalledListHeader / agent view (Unlink)">
+      <InstalledListHeader
+        agentDisplayName="Claude Code"
+        onPrimaryAction={noopAction}
+      />
+    </StoryCard>
+  ),
+  parameters: {
+    skillsDesktop: {
+      state: {
+        ui: { selectedAgentId: 'claude-code' },
+        skills: { selectedSkillNames: storySkillNames.slice(0, 2) },
+      },
+    },
+  },
+}
+
+export const ListHeaderCompact: Story = {
+  render: () => (
+    <StoryCard label="InstalledListHeader / compact tier (264px column)">
+      {/* The 800px minimum window leaves a 264px center column at the default split. */}
+      <div className="w-[264px] pl-4 pr-[5px]">
+        <InstalledListHeader
+          onPrimaryAction={noopAction}
+          onCopyAction={noopAction}
+        />
+      </div>
+    </StoryCard>
+  ),
+  parameters: {
+    skillsDesktop: {
+      state: {
+        skills: { selectedSkillNames: storySkillNames },
       },
     },
   },

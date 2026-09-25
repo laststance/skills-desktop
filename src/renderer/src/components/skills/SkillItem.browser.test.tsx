@@ -108,46 +108,24 @@ async function renderSkillItem(skill: Skill) {
   return { screen, store }
 }
 
-describe('SkillItem bulk-select checkbox visibility', () => {
-  test('hides the bulk-select checkbox in a normal clean list', async () => {
+describe('SkillItem bulk-select checkbox', () => {
+  test('keeps a bulk-select checkbox on the row with nothing selected, so no mode is needed to tick it', async () => {
     // Arrange
-    const { screen } = await renderSkillItem(makeSkill())
+    const skill = makeSkill({ name: toSkillName('task') })
 
     // Act
-    // (no interaction — bulk select mode is off by default)
+    const { screen } = await renderSkillItem(skill)
 
-    // Assert
-    // `.query()` returns the matched element or null synchronously. Using
-    // this over `getBy(...).not.toBeInTheDocument()` avoids the strict-single-
-    // match locator resolution error path, so a future regression that
-    // accidentally renders a checkbox produces a clean "element is present"
-    // failure instead of a locator-throw stack trace.
-    expect(screen.getByRole('checkbox').query()).toBeNull()
-  })
-
-  test('reveals the bulk-select checkbox after entering bulk select mode', async () => {
-    // Arrange
-    const { screen, store } = await renderSkillItem(makeSkill())
-    const { enterBulkSelectMode } =
-      await import('@/renderer/src/redux/slices/uiSlice')
-
-    // Act
-    store.dispatch(enterBulkSelectMode())
-
-    // Assert
+    // Assert — the box is always in the DOM; hover or Tab reveals it at rest
     await expect.element(screen.getByRole('checkbox')).toBeInTheDocument()
   })
 
   test('labels the unticked bulk checkbox "Select {name}" for screen readers', async () => {
     // Arrange
-    const { screen, store } = await renderSkillItem(
-      makeSkill({ name: toSkillName('task') }),
-    )
-    const { enterBulkSelectMode } =
-      await import('@/renderer/src/redux/slices/uiSlice')
+    const skill = makeSkill({ name: toSkillName('task') })
 
     // Act
-    store.dispatch(enterBulkSelectMode())
+    const { screen } = await renderSkillItem(skill)
 
     // Assert
     await expect
@@ -160,13 +138,10 @@ describe('SkillItem bulk-select checkbox visibility', () => {
     const { screen, store } = await renderSkillItem(
       makeSkill({ name: toSkillName('task') }),
     )
-    const { enterBulkSelectMode } =
-      await import('@/renderer/src/redux/slices/uiSlice')
     const { toggleSelection } =
       await import('@/renderer/src/redux/slices/skillsSlice')
 
     // Act
-    store.dispatch(enterBulkSelectMode())
     store.dispatch(toggleSelection(toSkillName('task')))
 
     // Assert
@@ -175,21 +150,44 @@ describe('SkillItem bulk-select checkbox visibility', () => {
       .toBeInTheDocument()
   })
 
-  test('removes the bulk-select checkbox when exiting bulk select mode', async () => {
+  test('keeps the checkbox after the last tick is cleared, so the card content never shifts back', async () => {
     // Arrange
-    const { screen, store } = await renderSkillItem(makeSkill())
-    const { enterBulkSelectMode, exitBulkSelectMode } =
-      await import('@/renderer/src/redux/slices/uiSlice')
-    store.dispatch(enterBulkSelectMode())
-    await expect.element(screen.getByRole('checkbox')).toBeInTheDocument()
+    const { screen, store } = await renderSkillItem(
+      makeSkill({ name: toSkillName('task') }),
+    )
+    const { clearSelection, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    store.dispatch(toggleSelection(toSkillName('task')))
+    await expect
+      .element(screen.getByRole('checkbox', { name: 'Deselect task' }))
+      .toBeInTheDocument()
 
     // Act
-    store.dispatch(exitBulkSelectMode())
+    store.dispatch(clearSelection())
 
     // Assert
-    // Poll until the checkbox unmounts — exit dispatch is sync but the
-    // re-render that removes the node happens on the next commit cycle.
-    await expect.poll(() => screen.getByRole('checkbox').query()).toBeNull()
+    await expect
+      .element(screen.getByRole('checkbox', { name: 'Select task' }))
+      .toBeInTheDocument()
+  })
+
+  test('disables the row checkbox while a bulk operation runs', async () => {
+    // Arrange
+    const { screen, store } = await renderSkillItem(
+      makeSkill({ name: toSkillName('task') }),
+    )
+    const { bulkCopyToAgents } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+
+    // Act
+    store.dispatch(
+      bulkCopyToAgents.pending('copy-req', { items: [], agentIds: [] }),
+    )
+
+    // Assert
+    await expect
+      .element(screen.getByRole('checkbox', { name: 'Select task' }))
+      .toBeDisabled()
   })
 })
 
@@ -341,12 +339,10 @@ describe('SkillItem symlink status badges', () => {
       isOrphan: true,
     })
     const { screen, store } = await renderSkillItem(brokenSkill)
-    const { enterBulkSelectMode, selectAgent } =
-      await import('@/renderer/src/redux/slices/uiSlice')
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
 
     // Act
     store.dispatch(selectAgent('cursor'))
-    store.dispatch(enterBulkSelectMode())
 
     // Assert — the slot stays rendered (so titles stay aligned) but the row is
     // marked out-of-scope via a disabled checkbox and an "is not eligible"
@@ -419,6 +415,8 @@ describe('SkillItem delete button', () => {
     // match what BulkConfirmDialog expects (kind='delete', no agent).
     expect(store.getState().ui.bulkConfirm).toEqual({
       kind: 'delete',
+      // A card's own Delete leaves the other ticked rows alone when it settles.
+      origin: 'row',
       skillNames: ['brainstorming'],
       agentId: null,
       agentName: null,
@@ -450,6 +448,7 @@ describe('SkillItem delete button', () => {
     // Assert
     expect(store.getState().ui.bulkConfirm).toEqual({
       kind: 'delete',
+      origin: 'row',
       skillNames: ['local-skill'],
       agentId: null,
       agentName: null,
@@ -485,6 +484,33 @@ describe('SkillItem delete button', () => {
     // and the inspector pane would open on the very skill we're deleting — an
     // obvious UX sin. The handler calls `e.stopPropagation()` specifically to
     // prevent this.
+    expect(store.getState().skills.selectedSkill).toBeNull()
+  })
+})
+
+describe('SkillItem card Delete while a bulk operation runs', () => {
+  test('ignores the card Delete button while a bulk operation is running', async () => {
+    // Arrange — a header bulk op holds the shared busy flag
+    const { screen, store } = await renderSkillItem(
+      makeSkill({ name: toSkillName('brainstorming') }),
+    )
+    const { bulkCopyToAgents } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    store.dispatch(
+      bulkCopyToAgents.pending('copy-req', { items: [], agentIds: [] }),
+    )
+    await expect
+      .element(screen.getByRole('checkbox', { name: 'Select brainstorming' }))
+      .toBeDisabled()
+
+    // Act
+    await screen
+      .getByRole('button', { name: /^Delete brainstorming$/i })
+      .click()
+
+    // Assert — no second confirmation opens behind the running op, and the
+    // click still stays off the card
+    expect(store.getState().ui.bulkConfirm).toBeNull()
     expect(store.getState().skills.selectedSkill).toBeNull()
   })
 })
@@ -722,11 +748,8 @@ describe('SkillItem bulk-select checkbox stopPropagation', () => {
     const { screen, store } = await renderSkillItem(
       makeSkill({ name: toSkillName('task') }),
     )
-    const { enterBulkSelectMode } =
-      await import('@/renderer/src/redux/slices/uiSlice')
 
     // Act
-    store.dispatch(enterBulkSelectMode())
     await screen.getByRole('checkbox', { name: /Select task/i }).click()
 
     // Assert
@@ -744,8 +767,6 @@ describe('SkillItem bulk-select checkbox stopPropagation', () => {
     const { screen, store } = await renderSkillItem(
       makeSkill({ name: toSkillName('task') }),
     )
-    const { enterBulkSelectMode } =
-      await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills, toggleSelection } =
       await import('@/renderer/src/redux/slices/skillsSlice')
     store.dispatch(
@@ -758,30 +779,55 @@ describe('SkillItem bulk-select checkbox stopPropagation', () => {
         'req-id',
       ),
     )
-    store.dispatch(enterBulkSelectMode())
     store.dispatch(toggleSelection(toSkillName('alpha')))
     // Precondition: anchor planted, so the shift branch will actually run.
     expect(store.getState().skills.selectionAnchor).toBe('alpha')
 
-    // Act
-    // `.click()` can't carry the shift modifier and Radix swallows it before
-    // onClick, so fire the raw pointerdown the handler captures.
-    const checkboxLocator = screen.getByRole('checkbox', {
-      name: /^Select task$/i,
-    })
-    await expect.element(checkboxLocator).toBeInTheDocument()
-    checkboxLocator
-      .element()
-      .dispatchEvent(
-        new PointerEvent('pointerdown', { bubbles: true, shiftKey: true }),
-      )
+    // Act — a real ⇧-click, so Radix's own toggle has to stay out of the way
+    await screen
+      .getByRole('checkbox', { name: /^Select task$/i })
+      .click({ modifiers: ['Shift'] })
 
     // Assert
     // Range covers alpha (anchor) through task (clicked) inclusive — zeta is
-    // outside the slice. alpha was already ticked, task is newly added.
+    // outside the slice. alpha was already ticked, task is newly added (a
+    // double toggle would have flipped task straight back off).
     await expect
       .poll(() => store.getState().skills.selectedSkillNames)
       .toEqual(['alpha', 'task'])
+    expect(store.getState().skills.selectedSkill).toBeNull()
+  })
+
+  test('ticks just the clicked row on a shift-click of its checkbox when nothing is anchored yet', async () => {
+    // Arrange — three visible rows and an empty selection, so there is no
+    // anchor to measure a range from.
+    const { screen, store } = await renderSkillItem(
+      makeSkill({ name: toSkillName('task') }),
+    )
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [
+          makeSkill({ name: toSkillName('alpha') }),
+          makeSkill({ name: toSkillName('task') }),
+          makeSkill({ name: toSkillName('zeta') }),
+        ],
+        'req-id',
+      ),
+    )
+
+    // Act — a real ⇧-click with no anchor falls through to the plain toggle
+    await screen
+      .getByRole('checkbox', { name: /^Select task$/i })
+      .click({ modifiers: ['Shift'] })
+
+    // Assert — only the clicked row, which becomes the next ⇧-click's anchor
+    await expect
+      .poll(() => store.getState().skills.selectedSkillNames)
+      .toEqual(['task'])
+    expect(store.getState().skills.selectionAnchor).toBe('task')
+    expect(store.getState().skills.selectedSkill).toBeNull()
   })
 })
 
@@ -930,6 +976,306 @@ describe('SkillItem card click', () => {
     // Act
     // Click a non-button part of the card so the Card's onClick (not a child
     // action) is what fires.
+    await screen.getByText('Task management skill').click()
+
+    // Assert
+    expect(store.getState().skills.selectedSkill?.name).toBe('task')
+  })
+})
+
+describe('SkillItem card modifier clicks', () => {
+  test('⌘-click on the card ticks the row without opening the inspector', async () => {
+    // Arrange
+    const { screen, store } = await renderSkillItem(
+      makeSkill({
+        name: toSkillName('task'),
+        description: 'Task management skill',
+      }),
+    )
+
+    // Act
+    await screen
+      .getByText('Task management skill')
+      .click({ modifiers: ['Meta'] })
+
+    // Assert
+    expect(store.getState().skills.selectedSkillNames).toEqual(['task'])
+    expect(store.getState().skills.selectedSkill).toBeNull()
+  })
+
+  test('⌘-click on a ticked card unticks it', async () => {
+    // Arrange
+    const { screen, store } = await renderSkillItem(
+      makeSkill({
+        name: toSkillName('task'),
+        description: 'Task management skill',
+      }),
+    )
+    const { toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    store.dispatch(toggleSelection(toSkillName('task')))
+
+    // Act
+    await screen
+      .getByText('Task management skill')
+      .click({ modifiers: ['Meta'] })
+
+    // Assert
+    expect(store.getState().skills.selectedSkillNames).toEqual([])
+  })
+
+  test('⇧-click on the card selects the range from the anchor without opening the inspector', async () => {
+    // Arrange — three visible rows, anchor on 'alpha', rendered row 'task'
+    const { screen, store } = await renderSkillItem(
+      makeSkill({
+        name: toSkillName('task'),
+        description: 'Task management skill',
+      }),
+    )
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [
+          makeSkill({ name: toSkillName('alpha') }),
+          makeSkill({ name: toSkillName('beta') }),
+          makeSkill({ name: toSkillName('task') }),
+        ],
+        'req-id',
+      ),
+    )
+    store.dispatch(toggleSelection(toSkillName('alpha')))
+
+    // Act
+    await screen
+      .getByText('Task management skill')
+      .click({ modifiers: ['Shift'] })
+
+    // Assert
+    expect(store.getState().skills.selectedSkillNames).toEqual([
+      'alpha',
+      'beta',
+      'task',
+    ])
+    expect(store.getState().skills.selectedSkill).toBeNull()
+  })
+
+  test('⇧-click with no anchor ticks just the clicked card, like a ⌘-click', async () => {
+    // Arrange
+    const { screen, store } = await renderSkillItem(
+      makeSkill({
+        name: toSkillName('task'),
+        description: 'Task management skill',
+      }),
+    )
+
+    // Act
+    await screen
+      .getByText('Task management skill')
+      .click({ modifiers: ['Shift'] })
+
+    // Assert
+    expect(store.getState().skills.selectedSkillNames).toEqual(['task'])
+  })
+
+  test('⇧-click on an ineligible row selects only the eligible rows up to it', async () => {
+    // Arrange — Cursor view: alpha and beta are linked, the rendered 'task'
+    // has a broken link, so it cannot be unlinked in bulk.
+    const linkedTo = (name: string): Skill['symlinks'] => [
+      {
+        agentId: 'cursor',
+        agentName: 'Cursor',
+        status: 'valid',
+        linkPath: toAbsolutePath(`/home/user/.cursor/skills/${name}`),
+        targetPath: toAbsolutePath(`/home/user/.agents/skills/${name}`),
+        isLocal: false,
+      },
+    ]
+    const brokenTask = makeSkill({
+      name: toSkillName('task'),
+      description: 'Task management skill',
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          status: 'broken',
+          linkPath: toAbsolutePath('/home/user/.cursor/skills/task'),
+          targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
+          isLocal: false,
+        },
+      ],
+    })
+    const { screen, store } = await renderSkillItem(brokenTask)
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [
+          makeSkill({
+            name: toSkillName('alpha'),
+            symlinks: linkedTo('alpha'),
+          }),
+          makeSkill({ name: toSkillName('beta'), symlinks: linkedTo('beta') }),
+          brokenTask,
+        ],
+        'req-id',
+      ),
+    )
+    store.dispatch(selectAgent('cursor'))
+    store.dispatch(toggleSelection(toSkillName('alpha')))
+
+    // Act
+    await screen
+      .getByText('Task management skill')
+      .click({ modifiers: ['Shift'] })
+
+    // Assert — the span stops short of the broken row itself
+    expect(store.getState().skills.selectedSkillNames).toEqual([
+      'alpha',
+      'beta',
+    ])
+  })
+
+  test('⌘-click on an ineligible, unticked row changes nothing', async () => {
+    // Arrange — Cursor view, the rendered row's link is broken
+    const brokenTask = makeSkill({
+      name: toSkillName('task'),
+      description: 'Task management skill',
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          status: 'broken',
+          linkPath: toAbsolutePath('/home/user/.cursor/skills/task'),
+          targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
+          isLocal: false,
+        },
+      ],
+    })
+    const { screen, store } = await renderSkillItem(brokenTask)
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+    store.dispatch(fetchSkills.fulfilled([brokenTask], 'req-id'))
+    store.dispatch(selectAgent('cursor'))
+
+    // Act
+    await screen
+      .getByText('Task management skill')
+      .click({ modifiers: ['Meta'] })
+
+    // Assert — not ticked, and the inspector stays closed as well
+    expect(store.getState().skills.selectedSkillNames).toEqual([])
+    expect(store.getState().skills.selectedSkill).toBeNull()
+  })
+
+  test('⌘-click on a ticked row that is no longer eligible unticks it', async () => {
+    // Arrange — Cursor view: 'task' is still ticked, but a rescan found its
+    // link broken. It cannot be picked up again, yet it must be let go.
+    const brokenTask = makeSkill({
+      name: toSkillName('task'),
+      description: 'Task management skill',
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          status: 'broken',
+          linkPath: toAbsolutePath('/home/user/.cursor/skills/task'),
+          targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
+          isLocal: false,
+        },
+      ],
+    })
+    const { screen, store } = await renderSkillItem(brokenTask)
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+    store.dispatch(fetchSkills.fulfilled([brokenTask], 'req-id'))
+    store.dispatch(selectAgent('cursor'))
+    store.dispatch(toggleSelection(toSkillName('task')))
+    await expect
+      .element(screen.getByRole('checkbox', { name: 'Deselect task' }))
+      .toBeEnabled()
+
+    // Act
+    await screen
+      .getByText('Task management skill')
+      .click({ modifiers: ['Meta'] })
+
+    // Assert — unticked, and the inspector stays closed as well
+    expect(store.getState().skills.selectedSkillNames).toEqual([])
+    expect(store.getState().skills.selectedSkill).toBeNull()
+  })
+
+  test('stops a ⇧-click on the card from dragging a text selection across cards', async () => {
+    // Arrange
+    const { screen } = await renderSkillItem(
+      makeSkill({
+        name: toSkillName('task'),
+        description: 'Task management skill',
+      }),
+    )
+    const cardText = screen.getByText('Task management skill').element()
+    const shiftMouseDown = new MouseEvent('mousedown', {
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true,
+    })
+    const plainMouseDown = new MouseEvent('mousedown', {
+      bubbles: true,
+      cancelable: true,
+    })
+
+    // Act
+    cardText.dispatchEvent(shiftMouseDown)
+    cardText.dispatchEvent(plainMouseDown)
+
+    // Assert — only the ⇧ press cancels the browser's text-selection default,
+    // so a plain press can still select text in the card.
+    expect(shiftMouseDown.defaultPrevented).toBe(true)
+    expect(plainMouseDown.defaultPrevented).toBe(false)
+  })
+
+  test('ignores ⌘-click and ⇧-click on the card while a bulk operation runs', async () => {
+    // Arrange
+    const { screen, store } = await renderSkillItem(
+      makeSkill({
+        name: toSkillName('task'),
+        description: 'Task management skill',
+      }),
+    )
+    const { bulkCopyToAgents } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    store.dispatch(
+      bulkCopyToAgents.pending('copy-req', { items: [], agentIds: [] }),
+    )
+    const cardText = screen.getByText('Task management skill')
+
+    // Act
+    await cardText.click({ modifiers: ['Meta'] })
+    await cardText.click({ modifiers: ['Shift'] })
+
+    // Assert — neither click reaches the selection or the inspector
+    expect(store.getState().skills.selectedSkillNames).toEqual([])
+    expect(store.getState().skills.selectedSkill).toBeNull()
+  })
+
+  test('still opens the inspector on a plain click while a bulk operation runs', async () => {
+    // Arrange
+    const { screen, store } = await renderSkillItem(
+      makeSkill({
+        name: toSkillName('task'),
+        description: 'Task management skill',
+      }),
+    )
+    const { bulkCopyToAgents } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    store.dispatch(
+      bulkCopyToAgents.pending('copy-req', { items: [], agentIds: [] }),
+    )
+
+    // Act
     await screen.getByText('Task management skill').click()
 
     // Assert

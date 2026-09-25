@@ -202,3 +202,32 @@ export function getCardContentPaddingClass(flags: {
   if (overlayCount === 1) return 'pr-8'
   return 'pr-4'
 }
+
+/**
+ * What a click on a skill card means once its modifier keys are read.
+ * Follows Finder and the macOS HIG: ⇧ range > ⌘ toggle > plain open.
+ */
+export type CardClickIntent = 'open' | 'toggle' | 'range'
+
+/**
+ * Read a card click's modifiers into an intent, so {@link SkillItem} can route
+ * a ⌘-click into the bulk selection instead of opening the inspector.
+ * Ctrl-click is not a toggle: on macOS it is the secondary click, which fires
+ * `contextmenu` (the card's Copy to... menu) and never reaches `onClick` in Blink.
+ * @param event - The click's modifier flags.
+ * @returns
+ * - `'range'` when ⇧ is held (⇧ wins over ⌘, so ⇧⌘-click is a range)
+ * - `'toggle'` when only ⌘ is held
+ * - `'open'` for a plain click
+ * @example
+ * getCardClickIntent({ metaKey: false, shiftKey: false }) // => 'open'
+ * getCardClickIntent({ metaKey: true, shiftKey: false }) // => 'toggle'
+ * getCardClickIntent({ metaKey: true, shiftKey: true }) // => 'range'
+ */
+export function getCardClickIntent(
+  event: Pick<MouseEvent, 'metaKey' | 'shiftKey'>,
+): CardClickIntent {
+  if (event.shiftKey) return 'range'
+  if (event.metaKey) return 'toggle'
+  return 'open'
+}

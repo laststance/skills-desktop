@@ -19,7 +19,12 @@ export const DetailPanel = function DetailPanel(): React.ReactElement {
   const selectedSkill = useAppSelector((state) => state.skills.selectedSkill)
 
   return (
-    <aside className="h-full border-l border-border bg-card flex flex-col overflow-hidden">
+    // `data-inspector-pane` lets the Installed tab's ⌘A leave this pane's text to
+    // native select-all ({@link isInspectorFocused}).
+    <aside
+      data-inspector-pane=""
+      className="h-full border-l border-border bg-card flex flex-col overflow-hidden"
+    >
       <div className="h-8 drag-region shrink-0 flex items-center justify-end pr-2">
         {activeTab !== 'marketplace' && selectedSkill && (
           <button

@@ -315,7 +315,6 @@ function createDefaultStoryState(): StoryRootState {
       activeTab: 'installed',
       sourceStats: storySourceStats,
       selectedAgentId: null,
-      bulkSelectMode: true,
       searchQuery: '',
       syncPreview: null,
       syncResult: null,

@@ -29,9 +29,11 @@ import { toAgentCount } from '@/shared/types'
  * Bulk selection fields model the user's checkbox selection, the anchor for
  * Shift+click range extension, and per-name in-flight sets that the list
  * consults to render rows at 50% opacity during an IPC round-trip. The
- * coarse `bulkDeleting` / `bulkUnlinking` booleans gate the toolbar's
- * buttons; `bulkProgress` is populated by the `skills:deleteProgress` event
- * when the batch is large enough to warrant a live counter.
+ * coarse `bulkDeleting` / `bulkUnlinking` / `bulkCopying` booleans, read
+ * together through {@link selectIsBulkOpBusy}, gate the list header's buttons
+ * and every selection input; `bulkProgress` is populated by the
+ * `skills:deleteProgress` event when the batch is large enough to warrant a
+ * live counter.
  */
 interface SkillsState {
   /** All skills discovered under ~/.agents/skills/. */
@@ -59,7 +61,7 @@ interface SkillsState {
   /** true while copyToAgents is in flight. */
   copying: boolean
 
-  /** Names of skills currently ticked in the list. Source of truth for toolbar visibility. */
+  /** Names of skills currently ticked in the list. Source of truth for the list header's selected state. */
   selectedSkillNames: SkillName[]
   /** Last single-click origin used for Shift+click range selection. */
   selectionAnchor: SkillName | null
@@ -565,7 +567,7 @@ const skillsSlice = createSlice({
     },
     /**
      * Open/close the BulkCopyToAgentsModal (global-view multi-skill copy).
-     * The toolbar's "Copy to…" opens it; the modal dispatches false on
+     * The list header's "Copy to…" opens it; the modal dispatches false on
      * dismiss/Cancel/completion. List selection is untouched (non-destructive).
      */
     setBulkCopyModalOpen: (state, action: PayloadAction<boolean>) => {
@@ -635,6 +637,30 @@ const skillsSlice = createSlice({
     clearSelection: (state) => {
       state.selectedSkillNames = []
       state.selectionAnchor = null
+    },
+    /**
+     * Keep only the selected names that are also in the payload — the
+     * selection hand-off after a header-started Delete/Unlink settles.
+     * MainContent calls it with the rows the user can retry (or the attempted
+     * targets when the thunk rejects). It can only shrink the selection, so a
+     * tab, agent or sync switch that cleared it mid-op is never undone.
+     * @param action.payload - Names allowed to stay selected; `[]` clears.
+     * @example
+     * // selected: ['a', 'b', 'c'], anchor 'c'
+     * dispatch(narrowSelection(['b', 'z'])) // selected: ['b'], anchor null
+     */
+    narrowSelection: (state, action: PayloadAction<SkillName[]>) => {
+      const allowedNames = new Set(action.payload)
+      state.selectedSkillNames = state.selectedSkillNames.filter((skillName) =>
+        allowedNames.has(skillName),
+      )
+      // The anchor survives only while its row is still ticked.
+      const isAnchorStillSelected =
+        state.selectionAnchor !== null &&
+        state.selectedSkillNames.includes(state.selectionAnchor)
+      if (!isAnchorStillSelected) {
+        state.selectionAnchor = null
+      }
     },
     /**
      * Update the bulk progress counter. Dispatched by the MainContent effect
@@ -734,7 +760,7 @@ const skillsSlice = createSlice({
       })
       .addCase(deleteSelectedSkills.fulfilled, (state, action) => {
         // Refetch happens via the component (thunks.ts refreshAllData); the
-        // slice only clears the in-flight fade and releases the toolbar.
+        // slice only clears the in-flight fade and the busy flag.
         state.inFlightDeleteNames = []
         state.bulkDeleting = false
         state.bulkProgress = null
@@ -879,6 +905,7 @@ export const {
   selectRange,
   selectAll,
   clearSelection,
+  narrowSelection,
   setBulkProgress,
   setBulkCopyModalOpen,
 } = skillsSlice.actions
@@ -899,11 +926,19 @@ export const selectSelectionAnchor = (state: RootState): SkillName | null =>
   state.skills.selectionAnchor
 export const selectInFlightDeleteNames = (state: RootState): SkillName[] =>
   state.skills.inFlightDeleteNames
-export const selectBulkDeleting = (state: RootState): boolean =>
-  state.skills.bulkDeleting
-export const selectBulkUnlinking = (state: RootState): boolean =>
-  state.skills.bulkUnlinking
 export const selectBulkCopying = (state: RootState): boolean =>
+  state.skills.bulkCopying
+/**
+ * True while any bulk Delete, Unlink or Copy runs. The list header, the row
+ * checkboxes, card modifier clicks, card Delete buttons and the ⌘A / Esc
+ * shortcuts all go inert then, so the selection cannot change under an op that is still settling.
+ * @returns Whether a bulk op is in flight.
+ * @example
+ * const isBulkOpBusy = useAppSelector(selectIsBulkOpBusy) // => false
+ */
+export const selectIsBulkOpBusy = (state: RootState): boolean =>
+  state.skills.bulkDeleting ||
+  state.skills.bulkUnlinking ||
   state.skills.bulkCopying
 export const selectBulkCopyModalOpen = (state: RootState): boolean =>
   state.skills.bulkCopyModalOpen

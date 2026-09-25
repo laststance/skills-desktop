@@ -6,6 +6,7 @@ import { render } from 'vitest-browser-react'
 import { selectSkill } from '@/renderer/src/redux/slices/skillsSlice'
 import { setActiveTab } from '@/renderer/src/redux/slices/uiSlice'
 import '@/renderer/src/styles/globals.css'
+import { isInspectorFocused } from '@/renderer/src/utils/isInspectorFocused'
 import {
   DEFAULT_BACKGROUND_CROP,
   type BackgroundSnapshot,
@@ -170,6 +171,25 @@ describe('DetailPanel routing and close affordance', () => {
     expect(
       screen.getByRole('button', { name: 'Close detail panel' }).query(),
     ).toBeNull()
+  })
+})
+
+describe('DetailPanel keyboard select-all', () => {
+  test('marks the Inspector so Cmd+A inside it keeps native select-all', async () => {
+    // Arrange — a selected skill routes to SkillDetail and shows the close button
+    const { screen, store } = await renderDetailPanel()
+    store.dispatch(selectSkill(makeSelectableSkill()))
+    const closeButton = screen.getByRole('button', {
+      name: 'Close detail panel',
+    })
+    await expect.element(closeButton).toBeVisible()
+
+    // Act
+    closeButton.element().focus()
+
+    // Assert — the Installed tab's Cmd+A reads this as Inspector focus and
+    // leaves the pane's text to the browser
+    expect(isInspectorFocused(document.activeElement, null)).toBe(true)
   })
 })
 

@@ -4,6 +4,7 @@ import type { AgentId, Skill, SymlinkInfo } from '@/shared/types'
 import { toAbsolutePath } from '@/shared/types'
 
 import {
+  getCardClickIntent,
   getCardContentPaddingClass,
   getSkillItemVisibility,
   type SkillVisibilityInput,
@@ -862,5 +863,51 @@ describe('getCardContentPaddingClass', () => {
 
     // Assert — pr-8 (32px) clears a single 28px button.
     expect(paddingClass).toBe('pr-8')
+  })
+})
+
+describe('getCardClickIntent', () => {
+  test('opens the inspector on a plain card click', () => {
+    // Arrange
+    const modifiers = { metaKey: false, shiftKey: false }
+
+    // Act
+    const intent = getCardClickIntent(modifiers)
+
+    // Assert
+    expect(intent).toBe('open')
+  })
+
+  test('toggles the row into the selection on a ⌘-click instead of opening it', () => {
+    // Arrange
+    const modifiers = { metaKey: true, shiftKey: false }
+
+    // Act
+    const intent = getCardClickIntent(modifiers)
+
+    // Assert
+    expect(intent).toBe('toggle')
+  })
+
+  test('extends the selection as a range on a ⇧-click', () => {
+    // Arrange
+    const modifiers = { metaKey: false, shiftKey: true }
+
+    // Act
+    const intent = getCardClickIntent(modifiers)
+
+    // Assert
+    expect(intent).toBe('range')
+  })
+
+  test('treats ⇧⌘-click as a range, like Finder, rather than a single toggle', () => {
+    // Arrange
+    const modifiers = { metaKey: true, shiftKey: true }
+
+    // Act
+    const intent = getCardClickIntent(modifiers)
+
+    // Assert — ⇧ wins over ⌘
+    expect(intent).toBe('range')
   })
 })

@@ -1,11 +1,27 @@
-import { Copy, Loader2, Trash2, Unlink, X } from 'lucide-react'
-import React from 'react'
+import {
+  ArrowDownAZ,
+  ArrowDownZA,
+  Copy,
+  Loader2,
+  Trash2,
+  Unlink,
+  X,
+} from 'lucide-react'
+import React, { useRef } from 'react'
 
 import { Button } from '@/renderer/src/components/ui/button'
+import { Checkbox } from '@/renderer/src/components/ui/checkbox'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/renderer/src/components/ui/tooltip'
+import { useUpdateEffect } from '@/renderer/src/hooks/useUpdateEffect'
 import { cn } from '@/renderer/src/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   selectBulkSelectableVisibleSkillNames,
+  selectFilteredSkillCount,
   selectHiddenSelectedCount,
   selectSelectedCount,
   selectSelectedVisibleCount,
@@ -14,25 +30,40 @@ import {
 import {
   clearSelection,
   selectAll,
-  selectBulkCopying,
-  selectBulkDeleting,
   selectBulkProgress,
-  selectBulkUnlinking,
+  selectIsBulkOpBusy,
 } from '@/renderer/src/redux/slices/skillsSlice'
 import {
-  selectBulkSelectMode,
   selectSelectedAgentId,
+  selectSortOrder,
+  toggleSortOrder,
 } from '@/renderer/src/redux/slices/uiSlice'
+import { formatInstalledSearchCount } from '@/renderer/src/utils/formatInstalledSearchCount'
+import { pluralize } from '@/renderer/src/utils/pluralize'
 import { BULK_PROGRESS_THRESHOLD } from '@/shared/constants'
 import { toSkillCount } from '@/shared/types'
 
 import { getToolbarState } from './bulkDeleteHelpers'
 
-interface SelectionToolbarProps {
+/** Shared `<kbd>` hint styling (DESIGN.md "Keyboard Shortcut Hints"). */
+const KBD_HINT_CLASS =
+  'ml-1.5 text-[10px] opacity-50 bg-muted px-1 py-0.5 rounded font-mono leading-none'
+
+/**
+ * `<kbd>` hint styling inside a tooltip. The tooltip is always slate-700 with
+ * white text, so the hint uses white alphas instead of the theme's muted tokens.
+ */
+const TOOLTIP_KBD_HINT_CLASS =
+  'ml-1.5 rounded border border-white/20 bg-white/10 px-1 py-0.5 font-mono text-[10px] leading-none text-white/80'
+
+/** Radix checkbox value: unchecked, checked, or the mixed state. */
+type MasterCheckedState = boolean | 'indeterminate'
+
+interface InstalledListHeaderProps {
   /**
-   * Callback fired when the primary destructive action is confirmed.
-   * MainContent passes the actual dispatch (deleteSelectedSkills /
-   * unlinkSelectedFromAgent) so the toolbar stays presentation-only.
+   * Callback fired when the primary destructive action is clicked.
+   * MainContent opens the Delete/Unlink confirmation, so the header stays
+   * presentation-only.
    */
   onPrimaryAction: () => void
   /**
@@ -49,213 +80,463 @@ interface SelectionToolbarProps {
 }
 
 /**
- * Sticky selection band above the skills list. Renders whenever bulk select
- * mode is active — including the zero-selection state where only "Select all
- * visible ⌘A" is shown so users can bulk-select without first manually ticking
- * a row. Shows:
- *   - `N selected` (aria-live="polite") — hidden at 0 selections
- *   - `+K hidden by filter` badge when some ticked names are outside the filter
- *   - `+K not eligible` badge when visible rows cannot use the bulk action
- *   - Primary action button (Delete / Unlink) whose label varies by view — hidden at 0
- *   - "Select all visible ⌘A" always; "Clear Esc" and Copy only when ≥1 selected
- *   - Progress counter ("3 of 12") during active bulk op when total >= 10
+ * The Installed list's 36px header row, rendered above `SkillsList` and outside
+ * its scroller so it never scrolls away. Selection is modeless: the tri-state
+ * master checkbox is always here, and the rest of the row swaps on the
+ * selection alone.
+ *   - Rest (0 selected): the `Name` sort toggle and, with the `inline` count
+ *     setting, the visible-skill count.
+ *   - Selected: `N selected`, the `+N hidden` / `+N not eligible` indicators
+ *     (or the bulk progress), then Copy to… (global view), the primary
+ *     Delete/Unlink action and Clear.
+ * The row is a container: below a 30rem content width Copy turns icon-only and
+ * the indicators show only their numbers (their words stay for screen readers);
+ * below 24rem the summary becomes screen-reader-only and every action shrinks,
+ * so the row never wraps. Accessible names and tooltips are identical in every
+ * tier.
  *
- * The component is presentation-only — it never dispatches the actual bulk op.
- * The caller (MainContent) owns the confirmation + dispatch flow.
+ * When the swap removes the control that had keyboard focus (Clear, or ⌘A/Esc
+ * pressed from a header button), focus moves to the master checkbox, the one
+ * control both states share, instead of dropping to the page.
  *
- * @param onPrimaryAction - Callback when the user clicks the destructive button
+ * The component never dispatches the bulk op itself; MainContent owns the
+ * confirmation + dispatch flow.
+ *
+ * @param onPrimaryAction - Callback when the user clicks Delete / Unlink
  * @param agentDisplayName - For the "Unlink from {agent}" label
- * @returns Rendered toolbar or null when not in bulk select mode
+ * @param onCopyAction - Opens the bulk copy modal; omit to hide Copy to…
+ * @returns The list header row
+ * @example
+ * <InstalledListHeader onPrimaryAction={openConfirm} onCopyAction={openCopy} agentDisplayName="Cursor" />
  */
-export const SelectionToolbar = function SelectionToolbar({
+export const InstalledListHeader = function InstalledListHeader({
   onPrimaryAction,
   agentDisplayName,
   onCopyAction,
-}: SelectionToolbarProps): React.ReactElement | null {
-  const dispatch = useAppDispatch()
-
+}: InstalledListHeaderProps): React.ReactElement {
   const selectedCount = useAppSelector(selectSelectedCount)
-  const visibleSelectedCount = useAppSelector(selectSelectedVisibleCount)
-  const hiddenSelectedCount = useAppSelector(selectHiddenSelectedCount)
-  const visibleIneligibleSelectedCount = useAppSelector(
-    selectVisibleIneligibleSelectedCount,
-  )
-  const visibleNames = useAppSelector(selectBulkSelectableVisibleSkillNames)
-  const selectedAgentId = useAppSelector(selectSelectedAgentId)
-  const bulkSelectMode = useAppSelector(selectBulkSelectMode)
-  const bulkDeleting = useAppSelector(selectBulkDeleting)
-  const bulkUnlinking = useAppSelector(selectBulkUnlinking)
-  const bulkCopying = useAppSelector(selectBulkCopying)
-  const bulkProgress = useAppSelector(selectBulkProgress)
+  const isBulkOpBusy = useAppSelector(selectIsBulkOpBusy)
+  const hasSelection = selectedCount > 0
+  const masterCheckboxRef = useRef<HTMLButtonElement | null>(null)
+  // The control that held focus when its half of the row unmounted, if any.
+  const focusedBeforeSwapRef = useRef<Element | null>(null)
 
-  const handleSelectAllVisible = (): void => {
-    dispatch(selectAll(visibleNames))
+  // React detaches this ref before it removes the swapped-out half, so the
+  // focused control is still in the DOM when the cleanup reads it. The latest
+  // cleanup always overwrites, so a stale record can never steal focus later.
+  const rememberFocusBeforeSwap = (
+    swappedContent: HTMLDivElement | null,
+  ): (() => void) | undefined => {
+    if (swappedContent === null) return undefined
+    return (): void => {
+      const { activeElement } = document
+      focusedBeforeSwapRef.current =
+        activeElement !== null && swappedContent.contains(activeElement)
+          ? activeElement
+          : null
+    }
   }
 
-  const handleClear = (): void => {
-    dispatch(clearSelection())
-  }
-
-  // Belt-and-suspenders: the listener middleware already clears selection on
-  // any context switch that exits bulkSelectMode, but gating here enforces the
-  // invariant at the render boundary too. The destructive Delete/Unlink action
-  // must only be reachable while the selection is visually auditable (i.e. the
-  // per-row checkboxes are rendered). If selection were ever to outlive mode,
-  // this gate prevents a Delete click over invisible state.
-  if (!bulkSelectMode) return null
-
-  // Computed only when items are selected; null in the zero-selection state.
-  const toolbarState =
-    selectedCount > 0
-      ? getToolbarState({
-          view: selectedAgentId ? 'agent' : 'global',
-          agentId: selectedAgentId,
-          count: toSkillCount(selectedCount),
-          visibleCount: toSkillCount(visibleSelectedCount),
-          agentDisplayName,
-        })
-      : null
-  const isBusy = bulkDeleting || bulkUnlinking || bulkCopying
-
-  const showProgress =
-    bulkProgress !== null && bulkProgress.total >= BULK_PROGRESS_THRESHOLD
+  useUpdateEffect(() => {
+    const focusedBeforeSwap = focusedBeforeSwapRef.current
+    focusedBeforeSwapRef.current = null
+    // Only a control the swap removed strands focus; one that survived keeps it.
+    if (focusedBeforeSwap === null || focusedBeforeSwap.isConnected) return
+    // Focus the user already moved elsewhere is theirs to keep.
+    const { activeElement } = document
+    if (activeElement !== null && activeElement !== document.body) return
+    masterCheckboxRef.current?.focus()
+  }, [hasSelection])
 
   return (
     <div
-      // Sticky below the search/filter row; matches the border styling of
-      // MainContent's neighbouring bars for visual continuity. `gap-y-2` gives
-      // the action cluster breathing room on the rare second row at narrow
-      // widths; `gap-x-3` keeps the count↔cluster horizontal rhythm.
-      className="px-4 py-2 border-b border-border bg-primary/5 flex items-center gap-x-3 gap-y-2 flex-wrap"
+      // `@container` lets the tiers key off this row's own width, not the window.
+      className={cn(
+        '@container h-9 shrink-0 flex flex-nowrap items-center gap-2 pl-4 pr-2 border-b border-border rounded-t-md transition-colors duration-150 motion-reduce:transition-none',
+        hasSelection && 'bg-primary/5',
+      )}
       // `role="group"` rather than `role="toolbar"`: the WAI-ARIA toolbar
       // pattern requires roving-tabindex arrow-key navigation between its
       // children, which we do not implement. `group` keeps the labelled
       // container semantics without overclaiming behaviour we don't provide.
       // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- role="group" is the correct labelled-container semantic; <address> (react-doctor's suggestion) is for contact info, not a toolbar group.
       role="group"
-      aria-label="Bulk selection actions"
+      aria-label="List header"
     >
-      {/* Count text — only shown once ≥1 item is ticked. */}
-      {selectedCount > 0 && (
-        <span
-          aria-live="polite"
-          className="text-sm font-medium tabular-nums shrink-0"
-        >
-          {selectedCount === 1 ? '1 selected' : `${selectedCount} selected`}
-        </span>
-      )}
-
-      {/* Hidden-by-filter indicator — warns the user that not all ticked rows
-           will be affected when the filter hides some of them. */}
-      {selectedCount > 0 && hiddenSelectedCount > 0 && (
-        <span
-          className="text-xs text-muted-foreground shrink-0"
-          title={`${hiddenSelectedCount} selected ${hiddenSelectedCount === 1 ? 'row is' : 'rows are'} hidden by the current filter and will not be affected`}
-        >
-          +{hiddenSelectedCount} hidden by filter
-        </span>
-      )}
-
-      {/* Visible-but-ineligible indicator — separates on-screen manual-review
-           rows from genuinely hidden filtered selections. */}
-      {selectedCount > 0 && visibleIneligibleSelectedCount > 0 && (
-        <span
-          className="text-xs text-muted-foreground shrink-0"
-          title={`${visibleIneligibleSelectedCount} selected ${visibleIneligibleSelectedCount === 1 ? 'row is' : 'rows are'} visible but cannot use this bulk action`}
-        >
-          +{visibleIneligibleSelectedCount} not eligible
-        </span>
-      )}
-
-      {/* Progress counter — only during large batches to reduce noise. */}
-      {selectedCount > 0 && showProgress && (
-        <span
-          aria-live="polite"
-          className="text-xs text-muted-foreground tabular-nums shrink-0"
-        >
-          {bulkProgress.current} of {bulkProgress.total}
-        </span>
-      )}
-
-      {/* Action cluster — kept as one `ml-auto` right-aligned group so that
-           when the count + buttons exceed the panel width the whole cluster
-           wraps to a second row as a cohesive, right-aligned block, rather than
-           the toolbar's own flex-wrap orphaning the trailing primary button on a
-           lone left-aligned row. Also absorbs agent-view's long "Unlink from
-           {agent}" label without disturbing the count on the left. */}
-      <div className="ml-auto flex items-center gap-2 flex-wrap justify-end">
-        {/* Always visible — the zero-selection entry point (Fixes #227 / #230). */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleSelectAllVisible}
-          disabled={isBusy}
-          aria-label="Select all visible"
-          className="shrink-0"
-        >
-          Select all visible
-          <kbd className="ml-1.5 text-[10px] opacity-50 bg-muted px-1 py-0.5 rounded font-mono leading-none">
-            ⌘A
-          </kbd>
-        </Button>
-
-        {/* Clear + Esc badge — only once something is selected. */}
-        {selectedCount > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleClear}
-            disabled={isBusy}
-            aria-label="Clear"
-            className="shrink-0"
-          >
-            <X className="h-3 w-3 mr-1" />
-            Clear
-            <kbd className="ml-1.5 text-[10px] opacity-50 bg-muted px-1 py-0.5 rounded font-mono leading-none">
-              Esc
-            </kbd>
-          </Button>
-        )}
-
-        {/* Non-destructive bulk copy — global view only, ≥1 selected. */}
-        {selectedCount > 0 && selectedAgentId === null && onCopyAction && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onCopyAction}
-            disabled={isBusy}
-            aria-label="Copy selected skills to agents"
-            className="shrink-0"
-          >
-            <Copy className="h-4 w-4" />
-            Copy to...
-          </Button>
-        )}
-
-        {/* Primary destructive / Unlink action — only when ≥1 selected. */}
-        {selectedCount > 0 && toolbarState && (
-          <Button
-            variant={toolbarState.isDestructive ? 'destructive' : 'default'}
-            size="sm"
-            onClick={onPrimaryAction}
-            disabled={toolbarState.isPrimaryDisabled || isBusy}
-            aria-label={toolbarState.primaryAriaLabel}
-            className={cn(
-              'shrink-0 gap-1.5',
-              toolbarState.isDestructive && 'font-medium',
-            )}
-          >
-            {isBusy ? (
-              <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
-            ) : toolbarState.isDestructive ? (
-              <Trash2 className="h-4 w-4" />
-            ) : (
-              <Unlink className="h-4 w-4" />
-            )}
-            {toolbarState.primaryLabel}
-          </Button>
+      <MasterSelectionCheckbox
+        ref={masterCheckboxRef}
+        isBulkOpBusy={isBulkOpBusy}
+      />
+      {/* `contents` keeps the row's flex layout; the key remounts it per state. */}
+      <div
+        key={hasSelection ? 'selected' : 'rest'}
+        ref={rememberFocusBeforeSwap}
+        className="contents"
+      >
+        {hasSelection ? (
+          <SelectedHeaderContent
+            selectedCount={selectedCount}
+            isBulkOpBusy={isBulkOpBusy}
+            onPrimaryAction={onPrimaryAction}
+            onCopyAction={onCopyAction}
+            agentDisplayName={agentDisplayName}
+          />
+        ) : (
+          <RestHeaderContent isBulkOpBusy={isBulkOpBusy} />
         )}
       </div>
     </div>
+  )
+}
+
+/**
+ * Maps how many eligible visible rows are ticked onto the master checkbox state.
+ * @param tickedCount - Selected names that are visible and bulk-eligible.
+ * @param eligibleCount - Visible bulk-eligible names.
+ * @returns
+ * - `false` when none are ticked (an empty list included)
+ * - `true` when every eligible visible row is ticked
+ * - `'indeterminate'` otherwise
+ * @example
+ * getMasterCheckedState(0, 5) // => false
+ * getMasterCheckedState(5, 5) // => true
+ * getMasterCheckedState(2, 5) // => 'indeterminate'
+ */
+function getMasterCheckedState(
+  tickedCount: number,
+  eligibleCount: number,
+): MasterCheckedState {
+  if (tickedCount === 0) return false
+  return tickedCount === eligibleCount ? true : 'indeterminate'
+}
+
+/**
+ * Picks the keyboard shortcut the master checkbox tooltip advertises, so the
+ * hint always names the key that does what a click would do right now.
+ * @param checkedState - The master checkbox's current state.
+ * @param isDisabled - True with nothing eligible to select or while a bulk op settles.
+ * @returns
+ * - `null` when disabled, since neither key does anything then
+ * - `'Esc'` when checked, because a click clears the selection
+ * - `'⌘A'` when unchecked or mixed, because a click selects every eligible row
+ * @example
+ * getMasterShortcutHint(false, false) // => '⌘A'
+ * getMasterShortcutHint(true, false) // => 'Esc'
+ * getMasterShortcutHint('indeterminate', true) // => null
+ */
+function getMasterShortcutHint(
+  checkedState: MasterCheckedState,
+  isDisabled: boolean,
+): '⌘A' | 'Esc' | null {
+  if (isDisabled) return null
+  return checkedState === true ? 'Esc' : '⌘A'
+}
+
+interface MasterSelectionCheckboxProps {
+  isBulkOpBusy: boolean
+  /** The header moves focus here when a state swap removes the focused control. */
+  ref?: React.Ref<HTMLButtonElement>
+}
+
+/**
+ * Tri-state select-all checkbox (W3C APG mixed checkbox) aligned with the row
+ * checkbox column: unchecked or mixed selects every eligible visible row,
+ * checked clears the whole selection. Disabled with nothing eligible to select
+ * (empty, loading, or errored list) and while a bulk op settles.
+ * @param props - Bulk-op busy flag and the focus ref from the header.
+ * @returns The master checkbox in a 28px hit area, with its shortcut tooltip.
+ * @example
+ * <MasterSelectionCheckbox ref={masterCheckboxRef} isBulkOpBusy={false} />
+ */
+const MasterSelectionCheckbox = function MasterSelectionCheckbox({
+  isBulkOpBusy,
+  ref,
+}: MasterSelectionCheckboxProps): React.ReactElement {
+  const dispatch = useAppDispatch()
+  const eligibleVisibleNames = useAppSelector(
+    selectBulkSelectableVisibleSkillNames,
+  )
+  const tickedEligibleCount = useAppSelector(selectSelectedVisibleCount)
+  const eligibleCount = eligibleVisibleNames.length
+  const checkedState = getMasterCheckedState(tickedEligibleCount, eligibleCount)
+  const isDisabled = eligibleCount === 0 || isBulkOpBusy
+  const label =
+    checkedState === true
+      ? 'Deselect all'
+      : `Select all ${eligibleCount} visible ${pluralize(eligibleCount, 'skill')}`
+  const shortcutHint = getMasterShortcutHint(checkedState, isDisabled)
+
+  const handleCheckedChange = (nextChecked: MasterCheckedState): void => {
+    // Radix moves unchecked and mixed to true, and checked to false.
+    if (nextChecked === true) {
+      dispatch(selectAll(eligibleVisibleNames))
+      return
+    }
+    dispatch(clearSelection())
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        {/* react-doctor-disable-next-line react-doctor/label-has-associated-control -- the label wraps a Radix <Checkbox> (a real <button role="checkbox">) that react-doctor can't see as the control. */}
+        <label
+          className={cn(
+            // -ml-1.5 lines the box up with the row checkboxes below.
+            'shrink-0 size-7 -ml-1.5 flex items-center justify-center',
+            isDisabled ? 'cursor-not-allowed' : 'cursor-pointer',
+          )}
+        >
+          <Checkbox
+            ref={ref}
+            checked={checkedState}
+            disabled={isDisabled}
+            aria-label={label}
+            onCheckedChange={handleCheckedChange}
+            // Keeps the row boxes' `border-primary` (3:1 at rest). ui/checkbox.tsx
+            // only fills the checked state; these fill mixed too.
+            className="data-[state=indeterminate]:bg-primary data-[state=indeterminate]:text-primary-foreground transition-colors motion-reduce:transition-none"
+          />
+        </label>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">
+        {label}
+        {shortcutHint !== null ? (
+          <kbd className={TOOLTIP_KBD_HINT_CLASS}>{shortcutHint}</kbd>
+        ) : null}
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
+interface RestHeaderContentProps {
+  isBulkOpBusy: boolean
+}
+
+/**
+ * The header's rest state (nothing selected): the `Name` sort toggle, plus the
+ * visible-skill count when the user keeps it in the list header rather than the
+ * Installed tab badge.
+ * @param props - Bulk-op busy flag; a per-row Delete can run with 0 selected.
+ * @returns Sort button and the optional live count.
+ * @example
+ * <RestHeaderContent isBulkOpBusy={false} />
+ */
+const RestHeaderContent = function RestHeaderContent({
+  isBulkOpBusy,
+}: RestHeaderContentProps): React.ReactElement {
+  const dispatch = useAppDispatch()
+  const sortOrder = useAppSelector(selectSortOrder)
+  const filteredSkillCount = useAppSelector(selectFilteredSkillCount)
+  const countDisplay = useAppSelector(
+    (state) => state.settings.installedSearchCountDisplay,
+  )
+
+  const handleToggleSortOrder = (): void => {
+    dispatch(toggleSortOrder())
+  }
+
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="xs"
+        onClick={handleToggleSortOrder}
+        disabled={isBulkOpBusy}
+        // Starts with the visible "Name" so voice control can target it (WCAG 2.5.3).
+        aria-label={
+          sortOrder === 'asc'
+            ? 'Name, sorted A to Z, click to reverse'
+            : 'Name, sorted Z to A, click to reverse'
+        }
+        // Ghost hover supplies `text-accent-foreground`, readable on `bg-accent`.
+        className="-ml-2 gap-1 text-xs text-muted-foreground [&_svg]:size-3"
+      >
+        Name
+        {sortOrder === 'asc' ? <ArrowDownAZ /> : <ArrowDownZA />}
+      </Button>
+      {/* The `tab` setting moves this count onto the Installed tab badge. */}
+      {countDisplay === 'inline' ? (
+        <p
+          className="ml-auto shrink-0 whitespace-nowrap text-xs tabular-nums text-muted-foreground"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          {formatInstalledSearchCount(filteredSkillCount)}
+        </p>
+      ) : null}
+    </>
+  )
+}
+
+interface SelectedHeaderContentProps {
+  selectedCount: number
+  isBulkOpBusy: boolean
+  onPrimaryAction: () => void
+  onCopyAction?: () => void
+  agentDisplayName?: string
+}
+
+/**
+ * The header's selected state: the selection summary on the left and the bulk
+ * actions on the right. Every button is disabled while a bulk op settles.
+ * @param props - Selected count, busy flag, and the header's action callbacks.
+ * @returns Summary text plus the Copy to… / primary / Clear cluster.
+ * @example
+ * <SelectedHeaderContent selectedCount={3} isBulkOpBusy={false} onPrimaryAction={openConfirm} />
+ */
+const SelectedHeaderContent = function SelectedHeaderContent({
+  selectedCount,
+  isBulkOpBusy,
+  onPrimaryAction,
+  onCopyAction,
+  agentDisplayName,
+}: SelectedHeaderContentProps): React.ReactElement {
+  const dispatch = useAppDispatch()
+  const visibleSelectedCount = useAppSelector(selectSelectedVisibleCount)
+  const hiddenSelectedCount = useAppSelector(selectHiddenSelectedCount)
+  const visibleIneligibleSelectedCount = useAppSelector(
+    selectVisibleIneligibleSelectedCount,
+  )
+  const selectedAgentId = useAppSelector(selectSelectedAgentId)
+  const bulkProgress = useAppSelector(selectBulkProgress)
+
+  const toolbarState = getToolbarState({
+    view: selectedAgentId ? 'agent' : 'global',
+    agentId: selectedAgentId,
+    count: toSkillCount(selectedCount),
+    visibleCount: toSkillCount(visibleSelectedCount),
+    agentDisplayName,
+  })
+  // Only large batches get a counter, to keep small ops quiet.
+  const progressText =
+    bulkProgress !== null && bulkProgress.total >= BULK_PROGRESS_THRESHOLD
+      ? `${bulkProgress.current} of ${bulkProgress.total}`
+      : null
+
+  const handleClear = (): void => {
+    dispatch(clearSelection())
+  }
+
+  return (
+    <>
+      {/* Truncates rather than wraps; below 24rem it stays for screen readers only. */}
+      <p className="min-w-0 truncate text-sm @max-[24rem]:sr-only">
+        <span aria-live="polite" className="font-medium tabular-nums">
+          {selectedCount} selected
+        </span>
+        {/* While a large batch runs, its progress replaces the indicators. */}
+        {progressText !== null ? (
+          <span
+            aria-live="polite"
+            className="ml-2 text-xs tabular-nums text-muted-foreground"
+          >
+            {progressText}
+          </span>
+        ) : (
+          <>
+            {/* Warns that ticked rows outside the filter will not be affected. */}
+            {hiddenSelectedCount > 0 ? (
+              <span
+                className="ml-2 text-xs tabular-nums text-muted-foreground"
+                title={`${hiddenSelectedCount} selected ${pluralize(hiddenSelectedCount, 'row is', 'rows are')} hidden by the current filter and will not be affected`}
+              >
+                +{hiddenSelectedCount}
+                {/* Narrow widths hide the words visually, not from screen readers. */}
+                <span className="@max-[30rem]:sr-only"> hidden by filter</span>
+              </span>
+            ) : null}
+            {/* Separates on-screen rows the action skips from hidden ones. */}
+            {visibleIneligibleSelectedCount > 0 ? (
+              <span
+                className="ml-2 text-xs tabular-nums text-muted-foreground"
+                title={`${visibleIneligibleSelectedCount} selected ${pluralize(visibleIneligibleSelectedCount, 'row is', 'rows are')} visible but cannot use this bulk action`}
+              >
+                +{visibleIneligibleSelectedCount}
+                <span className="@max-[30rem]:sr-only"> not eligible</span>
+              </span>
+            ) : null}
+          </>
+        )}
+      </p>
+
+      <div className="ml-auto flex shrink-0 items-center gap-1.5">
+        {/* Non-destructive bulk copy — global view only. The tooltip names the
+            action once narrow widths reduce it to a 24px icon. */}
+        {selectedAgentId === null && onCopyAction ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="xs"
+                onClick={onCopyAction}
+                disabled={isBulkOpBusy}
+                aria-label="Copy selected skills to agents"
+                className="shrink-0 @max-[30rem]:size-6 @max-[30rem]:px-0"
+              >
+                <Copy />
+                <span className="@max-[30rem]:hidden">Copy to...</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              Copy selected skills to agents
+            </TooltipContent>
+          </Tooltip>
+        ) : null}
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={toolbarState.isDestructive ? 'destructive' : 'default'}
+              size="xs"
+              onClick={onPrimaryAction}
+              disabled={toolbarState.isPrimaryDisabled || isBulkOpBusy}
+              aria-label={toolbarState.primaryAriaLabel}
+              className="shrink-0"
+            >
+              {isBulkOpBusy ? (
+                <Loader2 className="animate-spin motion-reduce:animate-none" />
+              ) : toolbarState.isDestructive ? (
+                <Trash2 />
+              ) : (
+                <Unlink />
+              )}
+              {/* A long agent name truncates instead of wrapping the row. */}
+              <span className="max-w-48 truncate @max-[24rem]:hidden">
+                {toolbarState.primaryLabel}
+              </span>
+              <span className="hidden @max-[24rem]:inline">
+                {toolbarState.compactPrimaryLabel}
+              </span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            {toolbarState.primaryAriaLabel}
+          </TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="xs"
+              onClick={handleClear}
+              disabled={isBulkOpBusy}
+              aria-label="Clear selection"
+              className="shrink-0 @max-[24rem]:size-6 @max-[24rem]:px-0"
+            >
+              <X className="hidden @max-[24rem]:block" />
+              <span className="@max-[24rem]:hidden">Clear</span>
+              <kbd className={cn(KBD_HINT_CLASS, '@max-[24rem]:hidden')}>
+                Esc
+              </kbd>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            Clear selection
+            <kbd className={TOOLTIP_KBD_HINT_CLASS}>Esc</kbd>
+          </TooltipContent>
+        </Tooltip>
+      </div>
+    </>
   )
 }
