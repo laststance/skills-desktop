@@ -98,7 +98,7 @@ function filesystemIdentityForPath(path: string): E2EFilesystemIdentity {
  *
  * 1. Selection clear on tab/agent switch (commit 2f05684) — `redux/listener.ts`
  *    bridges `setActiveTab` / `selectAgent` to `clearSelection()`. Without it
- *    the SelectionToolbar commits Delete/Unlink against invisible ticks the
+ *    the list header commits Delete/Unlink against invisible ticks the
  *    user can no longer audit.
  *
  * 2. Cline/Warp aliasing fix (commit 3d20085) — pre-fix `cline.path === SOURCE_DIR`

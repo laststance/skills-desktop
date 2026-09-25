@@ -1138,7 +1138,7 @@ export const BUILTIN_BACKGROUND_IDS = [
 
 /**
  * Batch size at which bulk ops surface a live per-item progress counter in the
- * toolbar. Below this, the final `.fulfilled` toast is a better UX than a
+ * list header. Below this, the final `.fulfilled` toast is a better UX than a
  * flashing "k of n". Main-process `emitProgress` and renderer-side display
  * gate must read the same threshold.
  */

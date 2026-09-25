@@ -109,12 +109,15 @@ export interface SourceFilterSummary {
 }
 
 /**
- * Pending bulk confirmation payload. Populated by the SelectionToolbar's
- * primary-action handler when the user clicks Delete/Unlink; the
- * `BulkConfirmDialog` in MainContent reads this to render the Radix
- * AlertDialog equivalent of the old `window.confirm` call (which is
- * discouraged in Electron renderers and blocks the event loop).
+ * Pending bulk confirmation payload. Populated by the InstalledListHeader's
+ * primary-action handler when the user clicks Delete/Unlink, or by a card's
+ * own Delete button; the `BulkConfirmDialog` in MainContent reads this to
+ * render the Radix AlertDialog equivalent of the old `window.confirm` call
+ * (which is discouraged in Electron renderers and blocks the event loop).
  * - `kind`: drives copy and which thunk to dispatch on confirm.
+ * - `origin`: where the op started. Only `'selection'` (the header's primary
+ *   action) hands the selection off after the op settles; a card's own
+ *   Delete (`'row'`) leaves the other ticks alone.
  * - `skillNames`: the exact argument to pass to the thunk on confirm.
  * - `agentId` / `agentName`: carried through so the unlink thunk knows which
  *   agent to target, and the dialog copy can mention the agent by name.
@@ -122,6 +125,7 @@ export interface SourceFilterSummary {
  *   filter is active and no local skills are hidden.
  */
 interface BulkConfirmBase {
+  origin: 'selection' | 'row'
   skillNames: SkillName[]
   sourceSummary: SourceFilterSummary | null
 }
@@ -207,14 +211,6 @@ interface UiState {
    */
   bulkConfirm: BulkConfirmState | null
   /**
-   * When true, skill cards render a checkbox and bulk selection shortcuts
-   * (Cmd/Ctrl+A, Esc) are active. Default false so the list is clean for
-   * users who never perform bulk operations. Cleared atomically alongside
-   * `undoToast` / `bulkConfirm` / selection on any context switch that makes
-   * the current selection stale (tab, agent, sync op, competing bulk op).
-   */
-  bulkSelectMode: boolean
-  /**
    * Agent currently targeted by the per-agent Cleanup dialog (right-click
    * menu in `AgentItem` → "Cleanup missing skills..."). Null when no
    * cleanup dialog is open. Distinct from `selectedAgentId` because the
@@ -265,7 +261,6 @@ const initialState: UiState = {
   selectedBookmarkForDetail: null,
   undoToast: null,
   bulkConfirm: null,
-  bulkSelectMode: false,
   cleanupAgentTarget: null,
   symlinkCleanupDialogOpen: false,
   lockPruneDialogOpen: false,
@@ -357,8 +352,6 @@ const uiSlice = createSlice({
       // Same reasoning for an open bulk confirm — the ticked rows belong to
       // the previous tab's list.
       state.bulkConfirm = null
-      // The bulk-select affordance is list-scoped; leaving the list exits mode.
-      state.bulkSelectMode = false
       // The Dashboard cleanup dialog belongs to the current dashboard context.
       state.symlinkCleanupDialogOpen = false
     },
@@ -416,8 +409,6 @@ const uiSlice = createSlice({
       state.undoToast = null
       // The pending confirm may target a different agent; abandon it.
       state.bulkConfirm = null
-      // Selection is agent-scoped in skillsSlice; mode should follow.
-      state.bulkSelectMode = false
       // Agent switches replace the symlink graph under review; close the dialog.
       state.symlinkCleanupDialogOpen = false
     },
@@ -578,27 +569,6 @@ const uiSlice = createSlice({
       state.failedBackgroundUrl = action.payload
     },
     /**
-     * Enter bulk-select mode. Reveals checkboxes on skill cards and activates
-     * Cmd/Ctrl+A and Esc keyboard shortcuts. Does not touch selection state —
-     * the user starts with an empty tick set and explicitly builds it up.
-     * @example dispatch(enterBulkSelectMode())
-     */
-    enterBulkSelectMode: (state) => {
-      state.bulkSelectMode = true
-    },
-    /**
-     * Exit bulk-select mode. Hides checkboxes and deactivates the shortcuts.
-     * The caller (MainContent) is responsible for also dispatching
-     * `clearSelection()` from skillsSlice — we intentionally do not
-     * cross-dispatch across slices here, keeping each slice self-contained.
-     * @example
-     *   dispatch(exitBulkSelectMode())
-     *   dispatch(clearSelection())
-     */
-    exitBulkSelectMode: (state) => {
-      state.bulkSelectMode = false
-    },
-    /**
      * Open the per-agent Cleanup dialog targeting `agentId`. Called from
      * AgentItem's right-click "Cleanup missing skills..." menu item. The
      * caller is expected to dispatch `fetchSyncPreview({ agentId })`
@@ -673,8 +643,6 @@ const uiSlice = createSlice({
         state.undoToast = null
         // Close an open bulk confirm — sync conflict dialog will render on top.
         state.bulkConfirm = null
-        // Sync preview supersedes bulk affordance; user's attention shifts.
-        state.bulkSelectMode = false
         // Sync is another filesystem plan; do not overlap with symlink cleanup.
         state.symlinkCleanupDialogOpen = false
       })
@@ -718,6 +686,12 @@ const uiSlice = createSlice({
           survivingSources.has(id),
         )
       })
+      // A failed refresh leaves the list drawing only its error text, and the
+      // listener clears the selection. An open bulk confirm would then act on
+      // rows the user can no longer see, so it closes too.
+      .addCase(fetchSkills.rejected, (state) => {
+        state.bulkConfirm = null
+      })
       // ── Bulk delete/unlink: clear stale undo toast atomically ──────────
       // A new bulk operation supersedes any in-flight undo affordance. The
       // fresh fulfilled outcome will dispatch `setUndoToast` from MainContent.
@@ -731,9 +705,6 @@ const uiSlice = createSlice({
         (state) => {
           state.undoToast = null
           state.bulkConfirm = null
-          // Bulk op committed — leaving mode ON would strand a checkbox column
-          // over a fresh post-delete list the user is now observing for result.
-          state.bulkSelectMode = false
         },
       )
   },
@@ -767,8 +738,6 @@ export const {
   resetBackgroundGallery,
   setBackgroundUploadRemoval,
   setFailedBackgroundUrl,
-  enterBulkSelectMode,
-  exitBulkSelectMode,
   setCleanupAgentTarget,
   clearCleanupAgentTarget,
   openSymlinkCleanupDialog,
@@ -822,8 +791,6 @@ export const selectAgentFoldersDeleteReview = (
 export const selectBackgroundGallery = (
   state: Pick<RootState, 'ui'>,
 ): UiState['backgroundGallery'] => state.ui.backgroundGallery
-export const selectBulkSelectMode = (state: RootState): boolean =>
-  state.ui.bulkSelectMode
 /**
  * Currently-targeted agent for the per-agent Cleanup dialog. Null when
  * the dialog is closed. Components subscribe to this to mount/unmount

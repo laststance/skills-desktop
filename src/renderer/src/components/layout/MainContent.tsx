@@ -1,12 +1,4 @@
-import {
-  AlertTriangle,
-  ArrowDownAZ,
-  ArrowUpAZ,
-  CheckSquare,
-  ChevronDown,
-  GitBranch,
-  X,
-} from 'lucide-react'
+import { AlertTriangle, ChevronDown, GitBranch } from 'lucide-react'
 import React, { useRef } from 'react'
 import { toast } from 'sonner'
 
@@ -27,13 +19,13 @@ import {
   formatUnlinkSummary,
 } from '@/renderer/src/components/skills/bulkDeleteHelpers'
 import { CopyToAgentsModal } from '@/renderer/src/components/skills/CopyToAgentsModal'
+import { InstalledListHeader } from '@/renderer/src/components/skills/InstalledListHeader'
 import {
   buildAgentUnlinkTargets,
   type PartitionedGlobalDeleteTargets,
   partitionGlobalDeleteTargets,
 } from '@/renderer/src/components/skills/reviewedDestructiveTargets'
 import { SearchBox } from '@/renderer/src/components/skills/SearchBox'
-import { SelectionToolbar } from '@/renderer/src/components/skills/SelectionToolbar'
 import { SkillsList } from '@/renderer/src/components/skills/SkillsList'
 import { UndoToast } from '@/renderer/src/components/skills/UndoToast'
 import { UnlinkDialog } from '@/renderer/src/components/skills/UnlinkDialog'
@@ -84,7 +76,9 @@ import {
   clearSelection,
   clearSelectedOrphanSymlinks,
   deleteSelectedSkills,
+  narrowSelection,
   selectAll,
+  selectIsBulkOpBusy,
   selectSelectedSkillNames,
   selectSkillsItems,
   setBulkCopyModalOpen,
@@ -98,12 +92,9 @@ import {
   clearSelectedSources,
   clearUndoToast,
   clearUndoToastIfCurrent,
-  enterBulkSelectMode,
-  exitBulkSelectMode,
   getAvailableExcludeTypes,
   selectAgent,
   selectBulkConfirm,
-  selectBulkSelectMode,
   selectExcludedSkillTypeFilters,
   setActiveTab,
   setBulkConfirm,
@@ -111,7 +102,6 @@ import {
   setSkillTypeFilter,
   setUndoToast,
   toggleExcludedSkillTypeFilter,
-  toggleSortOrder,
   toggleSource,
 } from '@/renderer/src/redux/slices/uiSlice'
 import type {
@@ -119,13 +109,13 @@ import type {
   BulkConfirmState,
   ExcludableSkillTypeFilter,
   SkillTypeFilter,
-  SortOrder,
 } from '@/renderer/src/redux/slices/uiSlice'
 import { refreshAllData } from '@/renderer/src/redux/thunks'
 import { flashFailedRows } from '@/renderer/src/utils/bulkOpVisuals'
 import { errorToastDescription } from '@/renderer/src/utils/errorToastDescription'
+import { formatInstalledSearchCount } from '@/renderer/src/utils/formatInstalledSearchCount'
 import { isEditableTarget } from '@/renderer/src/utils/isEditableTarget'
-import { isSearchInput } from '@/renderer/src/utils/isSearchInput'
+import { isInspectorFocused } from '@/renderer/src/utils/isInspectorFocused'
 import { pluralize } from '@/renderer/src/utils/pluralize'
 import {
   SOURCE_FILTER_MAX_VISIBLE_REPOS,
@@ -201,86 +191,112 @@ type ExcludedSkillTypeToggleHandlers = Record<
   () => void
 >
 
+/** Open overlays that own Escape and Cmd/Ctrl+A while they are up. */
+const OPEN_OVERLAY_SELECTOR =
+  '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"], [role="menu"][data-state="open"], [role="listbox"][data-state="open"]'
+
 interface InstalledBulkKeyboardShortcutsOptions {
   activeTab: ActiveTab
-  bulkSelectMode: boolean
   selectedCount: number
-  visibleNames: Skill['name'][]
+  eligibleNames: Skill['name'][]
+  isBulkOpBusy: boolean
 }
 
 /**
- * Registers Installed bulk-selection shortcuts when MainContent renders the tab host.
- * @param options - Active tab, selection mode, selected count, and visible names.
+ * Registers the Installed tab's selection shortcuts while that tab is active.
+ * Selection is modeless, so they are always on there: ⌘/Ctrl+A selects every
+ * visible eligible row and Esc clears a non-empty selection. Both stand down
+ * inside editable targets (the search box keeps native text select-all), under
+ * open dialogs and menus, for a key an overlay already handled (the Esc that
+ * dismisses it, unless that overlay was only a tooltip), and while a bulk op
+ * settles. ⌘A also leaves the Inspector's text to native select-all.
+ * @param options - Active tab, selected count, visible eligible names, and the bulk-op busy flag.
  * @returns Nothing; attaches Cmd/Ctrl+A and Escape handlers while Installed is active.
  * @example
- * useInstalledBulkKeyboardShortcuts({ activeTab: 'installed', bulkSelectMode: true, selectedCount: 2, visibleNames: ['task'] })
+ * useInstalledBulkKeyboardShortcuts({ activeTab: 'installed', selectedCount: 2, eligibleNames: ['task'], isBulkOpBusy: false })
  */
 function useInstalledBulkKeyboardShortcuts({
   activeTab,
-  bulkSelectMode,
   selectedCount,
-  visibleNames,
+  eligibleNames,
+  isBulkOpBusy,
 }: InstalledBulkKeyboardShortcutsOptions): void {
   const dispatch = useAppDispatch()
-  const visibleNamesRef = useRef(visibleNames)
+  const eligibleNamesRef = useRef(eligibleNames)
   const selectedCountRef = useRef(selectedCount)
-  const bulkSelectModeRef = useRef(bulkSelectMode)
+  const isBulkOpBusyRef = useRef(isBulkOpBusy)
 
   useRenderEffect(() => {
-    visibleNamesRef.current = visibleNames
-  }, [visibleNames])
+    eligibleNamesRef.current = eligibleNames
+  }, [eligibleNames])
   useRenderEffect(() => {
     selectedCountRef.current = selectedCount
   }, [selectedCount])
   useRenderEffect(() => {
-    bulkSelectModeRef.current = bulkSelectMode
-  }, [bulkSelectMode])
+    isBulkOpBusyRef.current = isBulkOpBusy
+  }, [isBulkOpBusy])
 
   useCycleEffect(() => {
     if (activeTab !== 'installed') return
+    // Radix tooltips prevent the Esc that closes them as well. The master
+    // checkbox and Clear tooltips advertise Esc themselves, so when a tooltip
+    // was the only overlay up, that Esc still clears. Recorded in the window
+    // capture phase, before Radix's document listener closes the tooltip.
+    let isTooltipOnlyEscape = false
+    const recordTooltipOnlyEscape = (event: KeyboardEvent): void => {
+      isTooltipOnlyEscape =
+        event.key === 'Escape' &&
+        document.querySelector('[role="tooltip"]') !== null &&
+        document.querySelector(OPEN_OVERLAY_SELECTOR) === null
+    }
     const handleKey = (event: KeyboardEvent): void => {
-      if (!bulkSelectModeRef.current) return
+      // Radix prevents the Esc that dismisses a dialog or menu. By the time a
+      // real keypress bubbles here React has already closed the overlay, so the
+      // open-overlay query below would miss it and wipe the selection too.
+      if (event.defaultPrevented && !isTooltipOnlyEscape) return
 
-      // Open dialogs and menus own Escape/Cmd+A, so bulk selection stands down.
-      if (
-        document.querySelector(
-          '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"], [role="menu"][data-state="open"]',
-        )
-      )
-        return
-
-      const activeElement = document.activeElement
+      // ⌘⇧A is Deselect All in other Mac apps, so Shift opts out.
       const isSelectAllChord =
-        (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'a'
+        (event.metaKey || event.ctrlKey) &&
+        !event.shiftKey &&
+        event.key.toLowerCase() === 'a'
+      // With nothing selected, Esc is left alone.
+      const isClearKey = event.key === 'Escape' && selectedCountRef.current > 0
+      // Cheap key checks first: every other keystroke skips the DOM queries.
+      if (!isSelectAllChord && !isClearKey) return
 
-      // Search keeps focus during filtered selection; blur it before select-all.
-      if (isSelectAllChord && isSearchInput(activeElement)) {
-        activeElement.blur()
-        event.preventDefault()
-        dispatch(selectAll(visibleNamesRef.current))
-        return
-      }
+      // Open dialogs, menus and listboxes own Escape/Cmd+A, so bulk selection stands down.
+      if (document.querySelector(OPEN_OVERLAY_SELECTOR)) return
 
-      // Other editable surfaces keep native keyboard behavior.
-      if (isEditableTarget(activeElement)) return
+      // Editable surfaces, the search box included, keep native keyboard behavior.
+      if (isEditableTarget(document.activeElement)) return
 
       if (isSelectAllChord) {
-        event.preventDefault()
-        dispatch(selectAll(visibleNamesRef.current))
-        return
-      }
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        if (selectedCountRef.current > 0) {
-          dispatch(clearSelection())
-        } else {
-          dispatch(exitBulkSelectMode())
+        // The Inspector's file text keeps native select-all.
+        if (
+          isInspectorFocused(
+            document.activeElement,
+            document.getSelection()?.anchorNode ?? null,
+          )
+        ) {
+          return
         }
+        event.preventDefault()
+        // Like the disabled header checkbox: nothing to select, or an op is settling.
+        if (isBulkOpBusyRef.current || eligibleNamesRef.current.length === 0) {
+          return
+        }
+        dispatch(selectAll(eligibleNamesRef.current))
         return
       }
+      event.preventDefault()
+      if (isBulkOpBusyRef.current) return
+      dispatch(clearSelection())
     }
+    window.addEventListener('keydown', recordTooltipOnlyEscape, true)
     document.addEventListener('keydown', handleKey)
     return (): void => {
+      window.removeEventListener('keydown', recordTooltipOnlyEscape, true)
       document.removeEventListener('keydown', handleKey)
     }
   }, [dispatch, activeTab])
@@ -337,6 +353,7 @@ function createPrimaryBulkAction({
       kind: 'confirm',
       confirm: {
         kind: 'unlink',
+        origin: 'selection',
         skillNames: targets.map((target) => target.skillName),
         agentId: selectedAgentId,
         agentName: selectedAgentName,
@@ -361,6 +378,7 @@ function createPrimaryBulkAction({
     kind: 'confirm',
     confirm: {
       kind: 'delete',
+      origin: 'selection',
       skillNames: selectedVisibleNames,
       agentId: null,
       agentName: null,
@@ -375,7 +393,7 @@ function createPrimaryBulkAction({
 }
 
 /**
- * Creates the SelectionToolbar primary action callback when MainContent renders.
+ * Creates the InstalledListHeader primary action callback when MainContent renders.
  * @param options - Current selection, agent, source filter, skills, and protected names.
  * @returns Callback that opens a bulk confirmation or reports stale unlink rows.
  * @example
@@ -416,19 +434,20 @@ function usePrimaryBulkAction({
 type BulkUnlinkConfirm = Extract<BulkConfirmState, { kind: 'unlink' }>
 type BulkDeleteConfirm = Extract<BulkConfirmState, { kind: 'delete' }>
 type UndoDeleteHandler = (tombstoneIds: TombstoneId[]) => Promise<void>
-type RestoreUnresolvedMixedDeleteSelection = (
+type HandOffRejectedDeleteSelection = (
   deleteNames: readonly Skill['name'][],
   cleanupReadyOrphanNames: readonly Skill['name'][],
+  shouldHandOffSelection: boolean,
 ) => void
-type ReconcileMixedDeleteSelection = (
+type ReconcileDeleteSelection = (
   deleteItems: readonly BulkDeleteItemResult[],
-  hasOrphanCleanupRows: boolean,
   orphanCleanupNames: ReadonlySet<Skill['name']>,
+  shouldHandOffSelection: boolean,
 ) => { rescanRequiredNames: Skill['name'][] }
 
-interface MixedDeleteSelectionHandlers {
-  restoreUnresolvedMixedDeleteSelection: RestoreUnresolvedMixedDeleteSelection
-  reconcileMixedDeleteSelection: ReconcileMixedDeleteSelection
+interface DeleteSelectionHandoff {
+  handOffRejectedDeleteSelection: HandOffRejectedDeleteSelection
+  reconcileDeleteSelection: ReconcileDeleteSelection
 }
 
 /**
@@ -468,33 +487,35 @@ function useUndoDeleteHandler(): UndoDeleteHandler {
 }
 
 /**
- * Keeps mixed delete failures selectable after source delete and orphan cleanup settle.
+ * Hands the selection off after a delete settles: failed rows flash, and for a
+ * header-started delete the selection narrows to the rows the user can retry.
+ * Narrowing only removes names, so a tab/agent/sync switch that cleared the
+ * selection while the delete ran is never undone.
  * @param none - Reads dispatch from Redux hooks when MainContent mounts.
- * @returns Restore and reconcile callbacks used by the delete confirmation hook.
+ * @returns Hand-off (rejected thunk) and reconcile (settled run) callbacks used by the delete confirmation hook.
  * @example
- * const { reconcileMixedDeleteSelection } = useMixedDeleteSelectionHandlers()
+ * const { reconcileDeleteSelection } = useDeleteSelectionHandoff()
  */
-function useMixedDeleteSelectionHandlers(): MixedDeleteSelectionHandlers {
+function useDeleteSelectionHandoff(): DeleteSelectionHandoff {
   const dispatch = useAppDispatch()
 
-  const restoreUnresolvedMixedDeleteSelection = (
+  const handOffRejectedDeleteSelection = (
     deleteNames: readonly Skill['name'][],
     cleanupReadyOrphanNames: readonly Skill['name'][],
+    shouldHandOffSelection: boolean,
   ): void => {
     const unresolvedNames = Array.from(
       new Set([...deleteNames, ...cleanupReadyOrphanNames]),
     )
     flashFailedRows(unresolvedNames)
-    /* v8 ignore next -- callers pass non-empty source or orphan sets. */
-    if (unresolvedNames.length === 0) return
-    dispatch(enterBulkSelectMode())
-    dispatch(selectAll(unresolvedNames))
+    // A rejected thunk keeps its attempted targets ticked for a retry.
+    if (shouldHandOffSelection) dispatch(narrowSelection(unresolvedNames))
   }
 
-  const reconcileMixedDeleteSelection = (
+  const reconcileDeleteSelection = (
     deleteItems: readonly BulkDeleteItemResult[],
-    hasOrphanCleanupRows: boolean,
     orphanCleanupNames: ReadonlySet<Skill['name']>,
+    shouldHandOffSelection: boolean,
   ): { rescanRequiredNames: Skill['name'][] } => {
     const failedNames = deleteItems
       .filter((item) => item.outcome === 'error')
@@ -514,26 +535,23 @@ function useMixedDeleteSelectionHandlers(): MixedDeleteSelectionHandlers {
     )
 
     flashFailedRows(uniqueFailedNames)
-    if (!hasOrphanCleanupRows) return { rescanRequiredNames }
-    // Mixed source+orphan cleanup keeps retryable rows selected for one retry.
-    if (retryableFailedNames.length > 0) {
-      dispatch(enterBulkSelectMode())
-      dispatch(selectAll(retryableFailedNames))
-    } else {
-      dispatch(clearSelection())
-      dispatch(exitBulkSelectMode())
+    // Only the retryable failures stay ticked; an all-success run clears.
+    if (shouldHandOffSelection) {
+      dispatch(narrowSelection(retryableFailedNames))
     }
     return { rescanRequiredNames }
   }
 
   return {
-    restoreUnresolvedMixedDeleteSelection,
-    reconcileMixedDeleteSelection,
+    handOffRejectedDeleteSelection,
+    reconcileDeleteSelection,
   }
 }
 
 /**
  * Executes reviewed agent-view unlink confirmations after the dialog closes.
+ * A header-started unlink then narrows the selection to its failed rows (or to
+ * its attempted targets when the thunk rejects), so a retry needs no re-tick.
  * @param none - Reads dispatch from Redux hooks when MainContent mounts.
  * @returns Async callback for a narrowed unlink confirmation payload.
  * @example
@@ -544,6 +562,7 @@ function useConfirmBulkUnlink(): (confirm: BulkUnlinkConfirm) => Promise<void> {
 
   return async (confirm: BulkUnlinkConfirm): Promise<void> => {
     const { agentId, agentName } = confirm
+    const shouldHandOffSelection = confirm.origin === 'selection'
     const action = await dispatch(
       unlinkSelectedFromAgent({
         agentId,
@@ -556,6 +575,7 @@ function useConfirmBulkUnlink(): (confirm: BulkUnlinkConfirm) => Promise<void> {
         .map((item) => item.skillName)
       const unlinkedCount = action.payload.items.length - failedNames.length
       flashFailedRows(failedNames)
+      if (shouldHandOffSelection) dispatch(narrowSelection(failedNames))
       if (unlinkedCount === 0) {
         toast.error('Bulk unlink failed', {
           description: formatUnlinkSummary(
@@ -567,6 +587,13 @@ function useConfirmBulkUnlink(): (confirm: BulkUnlinkConfirm) => Promise<void> {
         toast.success(formatUnlinkSummary(action.payload, agentName ?? 'agent'))
       }
     } else {
+      const attemptedNames = confirm.unlinkTargets.map(
+        (target) => target.skillName,
+      )
+      // Every attempted row failed, so each one flashes like a per-item failure.
+      flashFailedRows(attemptedNames)
+      // A rejected thunk keeps its attempted targets ticked for a retry.
+      if (shouldHandOffSelection) dispatch(narrowSelection(attemptedNames))
       toast.error('Bulk unlink failed', {
         description: errorToastDescription(action),
       })
@@ -577,35 +604,36 @@ function useConfirmBulkUnlink(): (confirm: BulkUnlinkConfirm) => Promise<void> {
 
 interface ConfirmBulkDeleteOptions {
   handleUndoDelete: UndoDeleteHandler
-  reconcileMixedDeleteSelection: ReconcileMixedDeleteSelection
-  restoreUnresolvedMixedDeleteSelection: RestoreUnresolvedMixedDeleteSelection
+  reconcileDeleteSelection: ReconcileDeleteSelection
+  handOffRejectedDeleteSelection: HandOffRejectedDeleteSelection
 }
 
 /**
  * Executes reviewed global delete confirmations including orphan cleanup and undo.
- * @param options - Undo, restore, and selection-reconciliation callbacks.
+ * @param options - Undo, rejected-delete hand-off, and selection-reconciliation callbacks.
  * @returns Async callback for a narrowed delete confirmation payload.
  * @example
- * const confirmBulkDelete = useConfirmBulkDelete({ handleUndoDelete, reconcileMixedDeleteSelection, restoreUnresolvedMixedDeleteSelection })
+ * const confirmBulkDelete = useConfirmBulkDelete({ handleUndoDelete, reconcileDeleteSelection, handOffRejectedDeleteSelection })
  */
 function useConfirmBulkDelete({
   handleUndoDelete,
-  reconcileMixedDeleteSelection,
-  restoreUnresolvedMixedDeleteSelection,
+  reconcileDeleteSelection,
+  handOffRejectedDeleteSelection,
 }: ConfirmBulkDeleteOptions): (confirm: BulkDeleteConfirm) => Promise<void> {
   const dispatch = useAppDispatch()
 
   return async (confirm: BulkDeleteConfirm): Promise<void> => {
     const { deleteTargets, orphanRecords, staleDeleteErrors, orphanErrors } =
       confirm
+    // Only the header's Delete hands off the selection; a card's own Delete
+    // leaves the other ticked rows to the reducers.
+    const shouldHandOffSelection = confirm.origin === 'selection'
     // Protected entries are skips, so deleteItems only tracks attempted work.
     const deleteItems: BulkDeleteItemResult[] = [
       ...staleDeleteErrors,
       ...orphanErrors,
     ]
 
-    const hasOrphanCleanupRows =
-      orphanRecords.length > 0 || orphanErrors.length > 0
     const cleanupReadyOrphanNames = orphanRecords.map(
       (record) => record.skillName,
     )
@@ -619,12 +647,11 @@ function useConfirmBulkDelete({
       if (deleteSelectedSkills.fulfilled.match(action)) {
         deleteItems.push(...action.payload.items)
       } else {
-        if (hasOrphanCleanupRows) {
-          restoreUnresolvedMixedDeleteSelection(
-            deleteTargets.map((target) => target.skillName),
-            cleanupReadyOrphanNames,
-          )
-        }
+        handOffRejectedDeleteSelection(
+          deleteTargets.map((target) => target.skillName),
+          cleanupReadyOrphanNames,
+          shouldHandOffSelection,
+        )
         toast.error('Bulk delete failed', {
           description: errorToastDescription(action),
         })
@@ -640,7 +667,11 @@ function useConfirmBulkDelete({
       } else {
         const message = errorToastDescription(action)
         if (deleteItems.length === 0) {
-          restoreUnresolvedMixedDeleteSelection([], cleanupReadyOrphanNames)
+          handOffRejectedDeleteSelection(
+            [],
+            cleanupReadyOrphanNames,
+            shouldHandOffSelection,
+          )
           toast.error('Bulk delete failed', { description: message })
           refreshAllData(dispatch)
           return
@@ -662,10 +693,10 @@ function useConfirmBulkDelete({
           item.outcome === 'deleted',
       )
       .map((item) => item.tombstoneId)
-    const { rescanRequiredNames } = reconcileMixedDeleteSelection(
+    const { rescanRequiredNames } = reconcileDeleteSelection(
       deleteItems,
-      hasOrphanCleanupRows,
       orphanCleanupNames,
+      shouldHandOffSelection,
     )
     refreshAllData(dispatch)
     const summary = appendDeleteRescanSummary(
@@ -742,15 +773,13 @@ function useBulkConfirmActions(
 ): BulkConfirmActions {
   const dispatch = useAppDispatch()
   const handleUndoDelete = useUndoDeleteHandler()
-  const {
-    restoreUnresolvedMixedDeleteSelection,
-    reconcileMixedDeleteSelection,
-  } = useMixedDeleteSelectionHandlers()
+  const { handOffRejectedDeleteSelection, reconcileDeleteSelection } =
+    useDeleteSelectionHandoff()
   const confirmBulkUnlink = useConfirmBulkUnlink()
   const confirmBulkDelete = useConfirmBulkDelete({
     handleUndoDelete,
-    reconcileMixedDeleteSelection,
-    restoreUnresolvedMixedDeleteSelection,
+    reconcileDeleteSelection,
+    handOffRejectedDeleteSelection,
   })
 
   const handleConfirmBulk = async (): Promise<void> => {
@@ -773,7 +802,6 @@ function useBulkConfirmActions(
 }
 
 interface MainContentEventHandlerOptions {
-  bulkSelectMode: boolean
   repoFacetOptions: RepoFacetOption[]
 }
 
@@ -781,8 +809,6 @@ interface MainContentEventHandlers {
   handleClearFilter: () => void
   handleClearSourceFilter: () => void
   handleTabChange: (value: ActiveTab) => void
-  handleToggleSortOrder: () => void
-  handleToggleBulkSelectMode: () => void
   handleSkillTypeFilterChange: (value: SkillTypeFilter) => void
   handleToggleSource: (source: RepositoryId) => void
   handleSelectShowAllRepos: (event: Event) => void
@@ -795,13 +821,12 @@ interface MainContentEventHandlers {
 
 /**
  * Builds stable event callbacks for MainContent toolbar, tab, and copy controls.
- * @param options - Current bulk mode and source facet rows for select-all behavior.
+ * @param options - Source facet rows for the repo menu's select-all behavior.
  * @returns Event handlers that dispatch UI slice actions for MainContent children.
  * @example
- * const handlers = useMainContentEventHandlers({ bulkSelectMode: false, repoFacetOptions: [] })
+ * const handlers = useMainContentEventHandlers({ repoFacetOptions: [] })
  */
 function useMainContentEventHandlers({
-  bulkSelectMode,
   repoFacetOptions,
 }: MainContentEventHandlerOptions): MainContentEventHandlers {
   const dispatch = useAppDispatch()
@@ -817,20 +842,6 @@ function useMainContentEventHandlers({
   const handleTabChange = (value: ActiveTab): void => {
     dispatch(setActiveTab(value))
     dispatch(setPreviewSkill(null))
-  }
-
-  const handleToggleSortOrder = (): void => {
-    dispatch(toggleSortOrder())
-  }
-
-  const handleToggleBulkSelectMode = (): void => {
-    if (bulkSelectMode) {
-      // Clear first so subscribers never observe mode=false with stale names.
-      dispatch(clearSelection())
-      dispatch(exitBulkSelectMode())
-      return
-    }
-    dispatch(enterBulkSelectMode())
   }
 
   const handleSkillTypeFilterChange = (value: SkillTypeFilter): void => {
@@ -898,8 +909,6 @@ function useMainContentEventHandlers({
     handleClearFilter,
     handleClearSourceFilter,
     handleTabChange,
-    handleToggleSortOrder,
-    handleToggleBulkSelectMode,
     handleSkillTypeFilterChange,
     handleToggleSource,
     handleSelectShowAllRepos,
@@ -909,18 +918,6 @@ function useMainContentEventHandlers({
     handleSelectClearExcludedSkillTypeFilters,
     handleCopyAction,
   }
-}
-
-/**
- * Formats the Installed visible count for tab and toolbar UI in MainContent.
- * @param count - Current `selectFilteredSkills.length` after all Installed filters.
- * @returns Short count label with singular/plural skill copy.
- * @example
- * formatInstalledSearchCount(1) // => "1 skill"
- * formatInstalledSearchCount(24) // => "24 skills"
- */
-function formatInstalledSearchCount(count: number): string {
-  return `${count} ${pluralize(count, 'skill')}`
 }
 
 interface InstalledTabLabelProps {
@@ -961,35 +958,6 @@ const InstalledTabLabel = function InstalledTabLabel({
         </span>
       )}
     </TabsTrigger>
-  )
-}
-
-interface InstalledInlineCountProps {
-  countText: string
-  display: Settings['installedSearchCountDisplay']
-}
-
-/**
- * Search toolbar count used when the user prefers inline Installed counts.
- * @param props - Count text and placement setting read by MainContent.
- * @returns Muted toolbar count, or null when tab-badge mode is active.
- * @example
- * <InstalledInlineCount countText="24 skills" display="inline" />
- */
-const InstalledInlineCount = function InstalledInlineCount({
-  countText,
-  display,
-}: InstalledInlineCountProps): React.ReactElement | null {
-  if (display !== 'inline') return null
-
-  return (
-    <p
-      className="min-w-20 shrink-0 whitespace-nowrap text-xs tabular-nums text-muted-foreground"
-      aria-live="polite"
-      aria-atomic="true"
-    >
-      {countText}
-    </p>
   )
 }
 
@@ -1115,7 +1083,7 @@ function appendDeleteRescanSummary(
 
 /**
  * Main content area (flexible width).
- * Owns the Installed / Marketplace tabs, the bulk selection toolbar, and the
+ * Owns the Installed / Marketplace tabs, the Installed list header, and the
  * global keyboard shortcuts that back the bulk-delete flow (Cmd/Ctrl+A, Esc).
  */
 export const MainContent = function MainContent(): React.ReactElement {
@@ -1125,16 +1093,15 @@ export const MainContent = function MainContent(): React.ReactElement {
   // active, but bookmark installs fire from the always-visible sidebar.
   useMarketplaceProgress()
   const selectedAgentId = useAppSelector((state) => state.ui.selectedAgentId)
-  const sortOrder = useAppSelector((state) => state.ui.sortOrder)
   const skillTypeFilter = useAppSelector((state) => state.ui.skillTypeFilter)
   const { items: agents } = useAppSelector((state) => state.agents)
   const activeTab = useAppSelector((state) => state.ui.activeTab)
-  const visibleNames = useAppSelector(selectBulkSelectableVisibleSkillNames)
+  const eligibleNames = useAppSelector(selectBulkSelectableVisibleSkillNames)
   const selectedVisibleNames = useAppSelector(selectSelectedVisibleNames)
   const selectedAllNames = useAppSelector(selectSelectedSkillNames)
   const skills = useAppSelector(selectSkillsItems)
   const bulkConfirm = useAppSelector(selectBulkConfirm)
-  const bulkSelectMode = useAppSelector(selectBulkSelectMode)
+  const isBulkOpBusy = useAppSelector(selectIsBulkOpBusy)
   const sourceFilter = useAppSelector(selectSourceFilterViewModel)
   const repoFacetOptions = useAppSelector(selectRepoFacetOptions)
   const filteredSkillCount = useAppSelector(selectFilteredSkillCount)
@@ -1166,16 +1133,14 @@ export const MainContent = function MainContent(): React.ReactElement {
       : `${selectedSkillTypeLabel} · ${excludedSkillTypeFilters.length} excluded`
   useInstalledBulkKeyboardShortcuts({
     activeTab,
-    bulkSelectMode,
     selectedCount: selectedAllNames.length,
-    visibleNames,
+    eligibleNames,
+    isBulkOpBusy,
   })
   const {
     handleClearFilter,
     handleClearSourceFilter,
     handleTabChange,
-    handleToggleSortOrder,
-    handleToggleBulkSelectMode,
     handleSkillTypeFilterChange,
     handleToggleSource,
     handleSelectShowAllRepos,
@@ -1184,7 +1149,7 @@ export const MainContent = function MainContent(): React.ReactElement {
     handleKeepDropdownOpen,
     handleSelectClearExcludedSkillTypeFilters,
     handleCopyAction,
-  } = useMainContentEventHandlers({ bulkSelectMode, repoFacetOptions })
+  } = useMainContentEventHandlers({ repoFacetOptions })
 
   // Wire the main-process `skills:deleteProgress` event into Redux. Fires
   // only for batches large enough to warrant a counter (see main handler).
@@ -1241,11 +1206,7 @@ export const MainContent = function MainContent(): React.ReactElement {
           className="flex-1 m-0 data-[state=active]:flex data-[state=active]:flex-col min-h-0 overflow-hidden"
         >
           <InstalledToolbar
-            countText={installedSearchCountText}
-            countDisplay={installedSearchCountDisplay}
-            sortOrder={sortOrder}
             sourceFilter={sourceFilter}
-            bulkSelectMode={bulkSelectMode}
             selectedAgentId={selectedAgentId}
             selectedSkillTypeLabel={selectedSkillTypeLabel}
             skillTypeFilter={skillTypeFilter}
@@ -1253,12 +1214,10 @@ export const MainContent = function MainContent(): React.ReactElement {
             availableExcludeTypes={availableExcludeTypes}
             skillTypeTriggerLabel={skillTypeTriggerLabel}
             excludedSkillTypeToggleHandlers={excludedSkillTypeToggleHandlers}
-            onToggleSortOrder={handleToggleSortOrder}
             onSelectShowAllRepos={handleSelectShowAllRepos}
             onSelectAllRepos={handleSelectAllRepos}
             onToggleSource={handleToggleSource}
             onKeepDropdownOpen={handleKeepDropdownOpen}
-            onToggleBulkSelectMode={handleToggleBulkSelectMode}
             onSkillTypeFilterChange={handleSkillTypeFilterChange}
             onSelectClearExcludedSkillTypeFilters={
               handleSelectClearExcludedSkillTypeFilters
@@ -1273,15 +1232,20 @@ export const MainContent = function MainContent(): React.ReactElement {
             onToggleSource={handleToggleSource}
           />
 
-          {/* Renders only when at least one skill is ticked. */}
-          <SelectionToolbar
-            onPrimaryAction={handlePrimaryAction}
-            onCopyAction={handleCopyAction}
-            agentDisplayName={selectedAgent?.name}
-          />
-
-          <div className="flex-1 min-h-0 overflow-hidden py-4 pl-4 pr-[5px]">
-            <SkillsList />
+          {/* The header sits outside the list's scroller, so it never scrolls away. */}
+          <div className="flex-1 min-h-0 overflow-hidden flex flex-col pt-3 pb-4 pl-4 pr-[5px]">
+            {/* Reserves the list's scrollbar gutter and each row's pr-[5px], so
+                the header's right edge lines up with the cards below. */}
+            <div className="skills-list-scrollbar shrink-0 overflow-hidden [scrollbar-gutter:stable] pr-[5px]">
+              <InstalledListHeader
+                onPrimaryAction={handlePrimaryAction}
+                onCopyAction={handleCopyAction}
+                agentDisplayName={selectedAgent?.name}
+              />
+            </div>
+            <div className="flex-1 min-h-0 pt-3">
+              <SkillsList />
+            </div>
           </div>
         </TabsContent>
 
@@ -1326,11 +1290,7 @@ export const MainContent = function MainContent(): React.ReactElement {
 }
 
 interface InstalledToolbarProps {
-  countText: string
-  countDisplay: Settings['installedSearchCountDisplay']
-  sortOrder: SortOrder
   sourceFilter: SourceFilterViewModel
-  bulkSelectMode: boolean
   selectedAgentId: Agent['id'] | null
   selectedSkillTypeLabel: string
   skillTypeFilter: SkillTypeFilter
@@ -1338,29 +1298,24 @@ interface InstalledToolbarProps {
   availableExcludeTypes: ExcludableSkillTypeFilter[]
   skillTypeTriggerLabel: string
   excludedSkillTypeToggleHandlers: ExcludedSkillTypeToggleHandlers
-  onToggleSortOrder: () => void
   onSelectShowAllRepos: (event: Event) => void
   onSelectAllRepos: (event: Event) => void
   onToggleSource: (source: RepositoryId) => void
   onKeepDropdownOpen: (event: Event) => void
-  onToggleBulkSelectMode: () => void
   onSkillTypeFilterChange: (value: SkillTypeFilter) => void
   onSelectClearExcludedSkillTypeFilters: (event: Event) => void
 }
 
 /**
  * Renders the Installed tab controls after MainContent wires their Redux handlers.
- * @param props - Toolbar labels, filter state, and event handlers from MainContent.
- * @returns Search, count, sort, source, select, and type filter controls.
+ * Sort and the inline count live in {@link InstalledListHeader}, above the list.
+ * @param props - Filter state and event handlers from MainContent.
+ * @returns Search, source, and (agent view) skill type filter controls.
  * @example
- * <InstalledToolbar countText="3 skills" countDisplay="inline" sortOrder="asc" {...handlers} />
+ * <InstalledToolbar sourceFilter={sourceFilter} selectedAgentId={null} {...handlers} />
  */
 const InstalledToolbar = function InstalledToolbar({
-  countText,
-  countDisplay,
-  sortOrder,
   sourceFilter,
-  bulkSelectMode,
   selectedAgentId,
   selectedSkillTypeLabel,
   skillTypeFilter,
@@ -1368,12 +1323,10 @@ const InstalledToolbar = function InstalledToolbar({
   availableExcludeTypes,
   skillTypeTriggerLabel,
   excludedSkillTypeToggleHandlers,
-  onToggleSortOrder,
   onSelectShowAllRepos,
   onSelectAllRepos,
   onToggleSource,
   onKeepDropdownOpen,
-  onToggleBulkSelectMode,
   onSkillTypeFilterChange,
   onSelectClearExcludedSkillTypeFilters,
 }: InstalledToolbarProps): React.ReactElement {
@@ -1383,24 +1336,12 @@ const InstalledToolbar = function InstalledToolbar({
         <SearchBox />
       </div>
 
-      <InstalledInlineCount countText={countText} display={countDisplay} />
-
-      <SortOrderButton
-        sortOrder={sortOrder}
-        onToggleSortOrder={onToggleSortOrder}
-      />
-
       <SourceRepositoryFilterMenu
         sourceFilter={sourceFilter}
         onSelectShowAllRepos={onSelectShowAllRepos}
         onSelectAllRepos={onSelectAllRepos}
         onToggleSource={onToggleSource}
         onKeepDropdownOpen={onKeepDropdownOpen}
-      />
-
-      <BulkSelectModeButton
-        bulkSelectMode={bulkSelectMode}
-        onToggleBulkSelectMode={onToggleBulkSelectMode}
       />
 
       {selectedAgentId ? (
@@ -1419,43 +1360,6 @@ const InstalledToolbar = function InstalledToolbar({
         />
       ) : null}
     </div>
-  )
-}
-
-interface SortOrderButtonProps {
-  sortOrder: SortOrder
-  onToggleSortOrder: () => void
-}
-
-/**
- * Shows the Installed sort toggle after the parent chooses the active order.
- * @param props - Current sort order and callback that flips it.
- * @returns Icon-only sort button labelled for assistive tech.
- * @example
- * <SortOrderButton sortOrder="asc" onToggleSortOrder={toggle} />
- */
-const SortOrderButton = function SortOrderButton({
-  sortOrder,
-  onToggleSortOrder,
-}: SortOrderButtonProps): React.ReactElement {
-  return (
-    <Button
-      variant="ghost"
-      size="icon"
-      aria-label={
-        sortOrder === 'asc'
-          ? 'Sorted A to Z, click to reverse'
-          : 'Sorted Z to A, click to reverse'
-      }
-      onClick={onToggleSortOrder}
-      className="shrink-0 text-muted-foreground hover:text-foreground"
-    >
-      {sortOrder === 'asc' ? (
-        <ArrowDownAZ className="h-4 w-4" />
-      ) : (
-        <ArrowUpAZ className="h-4 w-4" />
-      )}
-    </Button>
   )
 }
 
@@ -1539,48 +1443,6 @@ const SourceRepositoryFilterMenu = function SourceRepositoryFilterMenu({
         )}
       </DropdownMenuContent>
     </DropdownMenu>
-  )
-}
-
-interface BulkSelectModeButtonProps {
-  bulkSelectMode: boolean
-  onToggleBulkSelectMode: () => void
-}
-
-/**
- * Toggles Installed bulk selection after MainContent handles selection cleanup.
- * @param props - Current mode state and callback that enters or exits the mode.
- * @returns Select/Cancel button for the Installed toolbar.
- * @example
- * <BulkSelectModeButton bulkSelectMode={false} onToggleBulkSelectMode={toggle} />
- */
-const BulkSelectModeButton = function BulkSelectModeButton({
-  bulkSelectMode,
-  onToggleBulkSelectMode,
-}: BulkSelectModeButtonProps): React.ReactElement {
-  return (
-    <Button
-      variant="ghost"
-      size="sm"
-      aria-pressed={bulkSelectMode}
-      aria-label={
-        bulkSelectMode ? 'Exit bulk select mode' : 'Enter bulk select mode'
-      }
-      onClick={onToggleBulkSelectMode}
-      className={cn(
-        'shrink-0 gap-1.5',
-        bulkSelectMode
-          ? 'text-primary'
-          : 'text-muted-foreground hover:text-foreground',
-      )}
-    >
-      {bulkSelectMode ? (
-        <X className="h-4 w-4" />
-      ) : (
-        <CheckSquare className="h-4 w-4" />
-      )}
-      {bulkSelectMode ? 'Cancel' : 'Select'}
-    </Button>
   )
 }
 

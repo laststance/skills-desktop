@@ -7,8 +7,8 @@ import { CodePreview } from '@/renderer/src/components/skills/CodePreview'
 import { CopyToAgentsModal } from '@/renderer/src/components/skills/CopyToAgentsModal'
 import { FileContent } from '@/renderer/src/components/skills/FileContent'
 import { FileTabs } from '@/renderer/src/components/skills/FileTabs'
+import { InstalledListHeader } from '@/renderer/src/components/skills/InstalledListHeader'
 import { SearchBox } from '@/renderer/src/components/skills/SearchBox'
-import { SelectionToolbar } from '@/renderer/src/components/skills/SelectionToolbar'
 import { SkillDetail } from '@/renderer/src/components/skills/SkillDetail'
 import { SkillItem } from '@/renderer/src/components/skills/SkillItem'
 import { SkillsList } from '@/renderer/src/components/skills/SkillsList'
@@ -23,7 +23,12 @@ import {
   storyTombstoneIds,
 } from '../fixtures'
 import { StoryCard, StoryGrid } from '../storybook-utils'
-import { toFileName, toFileSizeBytes, toIsoTimestamp } from '@/shared/types'
+import {
+  toFileName,
+  toFileSizeBytes,
+  toIsoTimestamp,
+  toSearchQuery,
+} from '@/shared/types'
 
 const meta = {
   title: 'Skills/Components',
@@ -54,8 +59,8 @@ export const SkillRowsAndSearch: Story = {
       <StoryCard label="SearchBox">
         <SearchBox />
       </StoryCard>
-      <StoryCard label="SelectionToolbar">
-        <SelectionToolbar
+      <StoryCard label="InstalledListHeader">
+        <InstalledListHeader
           agentDisplayName="Claude Code"
           onPrimaryAction={() => undefined}
         />
@@ -72,12 +77,179 @@ export const SkillRowsAndSearch: Story = {
       state: {
         ui: {
           selectedAgentId: 'claude-code',
-          bulkSelectMode: true,
         },
         skills: {
           selectedSkill: storySkills[0],
           selectedSkillNames: [storySkills[0]!.name, storySkills[1]!.name],
         },
+      },
+    },
+  },
+}
+
+const storySkillNames = storySkills.map((skill) => skill.name)
+const noopAction = (): void => undefined
+
+/** Center column at the default split of the 1200px launch window. */
+const LAUNCH_WINDOW_CENTER_COLUMN_PX = 464
+/** Center column at the default split of the 800px minimum window. */
+const MIN_WINDOW_CENTER_COLUMN_PX = 264
+
+/**
+ * Mimics MainContent's list column at a given center-column width: the
+ * column's own padding plus the header's scrollbar-gutter wrapper, so the
+ * header lands in the same container-query tier as in the real window.
+ * @param props - The center column width and the header to place in it.
+ * @returns The header inside a column shaped like the Installed tab's.
+ * @example
+ * <StoryListColumn widthPx={MIN_WINDOW_CENTER_COLUMN_PX}><InstalledListHeader onPrimaryAction={noopAction} /></StoryListColumn>
+ */
+function StoryListColumn({
+  widthPx,
+  children,
+}: {
+  widthPx: number
+  children: React.ReactNode
+}): React.ReactElement {
+  return (
+    <div className="pl-4 pr-[5px]" style={{ width: widthPx }}>
+      <div className="skills-list-scrollbar overflow-hidden [scrollbar-gutter:stable] pr-[5px]">
+        {children}
+      </div>
+    </div>
+  )
+}
+
+export const ListHeaderRest: Story = {
+  render: () => (
+    <StoryCard label="InstalledListHeader / rest (inline count)">
+      <InstalledListHeader
+        onPrimaryAction={noopAction}
+        onCopyAction={noopAction}
+      />
+    </StoryCard>
+  ),
+  parameters: {
+    skillsDesktop: {
+      state: {
+        skills: { selectedSkill: null, selectedSkillNames: [] },
+        settings: { installedSearchCountDisplay: 'inline' },
+      },
+    },
+  },
+}
+
+export const ListHeaderSomeSelected: Story = {
+  render: () => (
+    <StoryCard label="InstalledListHeader / some selected (mixed master)">
+      <InstalledListHeader
+        onPrimaryAction={noopAction}
+        onCopyAction={noopAction}
+      />
+    </StoryCard>
+  ),
+  parameters: {
+    skillsDesktop: {
+      state: {
+        skills: { selectedSkillNames: storySkillNames.slice(0, 2) },
+      },
+    },
+  },
+}
+
+export const ListHeaderAllSelected: Story = {
+  render: () => (
+    <StoryCard label="InstalledListHeader / all selected">
+      <InstalledListHeader
+        onPrimaryAction={noopAction}
+        onCopyAction={noopAction}
+      />
+    </StoryCard>
+  ),
+  parameters: {
+    skillsDesktop: {
+      state: {
+        skills: { selectedSkillNames: storySkillNames },
+      },
+    },
+  },
+}
+
+export const ListHeaderAgentView: Story = {
+  render: () => (
+    <StoryCard label="InstalledListHeader / agent view (Unlink)">
+      <InstalledListHeader
+        agentDisplayName="Claude Code"
+        onPrimaryAction={noopAction}
+      />
+    </StoryCard>
+  ),
+  parameters: {
+    skillsDesktop: {
+      state: {
+        ui: { selectedAgentId: 'claude-code' },
+        skills: { selectedSkillNames: storySkillNames.slice(0, 2) },
+      },
+    },
+  },
+}
+
+export const ListHeaderWithIndicators: Story = {
+  render: () => (
+    <StoryCard label="InstalledListHeader / hidden-by-filter indicator (full tier)">
+      <InstalledListHeader
+        onPrimaryAction={noopAction}
+        onCopyAction={noopAction}
+      />
+    </StoryCard>
+  ),
+  parameters: {
+    skillsDesktop: {
+      state: {
+        // The search hides every ticked row but one, so the note appears.
+        ui: { searchQuery: toSearchQuery('review') },
+        skills: { selectedSkillNames: storySkillNames },
+      },
+    },
+  },
+}
+
+export const ListHeaderNarrow: Story = {
+  render: () => (
+    <StoryCard label="InstalledListHeader / narrow tier (1200px launch window)">
+      <StoryListColumn widthPx={LAUNCH_WINDOW_CENTER_COLUMN_PX}>
+        <InstalledListHeader
+          onPrimaryAction={noopAction}
+          onCopyAction={noopAction}
+        />
+      </StoryListColumn>
+    </StoryCard>
+  ),
+  parameters: {
+    skillsDesktop: {
+      state: {
+        ui: { searchQuery: toSearchQuery('review') },
+        skills: { selectedSkillNames: storySkillNames },
+      },
+    },
+  },
+}
+
+export const ListHeaderCompact: Story = {
+  render: () => (
+    <StoryCard label="InstalledListHeader / compact tier (800px minimum window)">
+      <StoryListColumn widthPx={MIN_WINDOW_CENTER_COLUMN_PX}>
+        <InstalledListHeader
+          onPrimaryAction={noopAction}
+          onCopyAction={noopAction}
+        />
+      </StoryListColumn>
+    </StoryCard>
+  ),
+  parameters: {
+    skillsDesktop: {
+      state: {
+        skills: { selectedSkillNames: storySkillNames },
       },
     },
   },

@@ -7,13 +7,18 @@ import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
 import '@/renderer/src/styles/globals.css'
 import type { Skill } from '@/shared/types'
 import {
+  repositoryId,
   toAbsolutePath,
+  toHttpUrl,
   toSearchQuery,
   toSkillName,
   toSymlinkCount,
 } from '@/shared/types'
 
 const mockGetAll = vi.fn()
+
+/** The list column in the 800px minimum window at the default split: (800 - 272px sidebar) / 2. */
+const MIN_WINDOW_LIST_COLUMN_WIDTH_PX = 264
 
 beforeEach(() => {
   // Stub the IPC bridge so the SkillsList useEffect dispatch of fetchSkills
@@ -140,14 +145,19 @@ async function renderSkillsList(skillsState: {
 /**
  * Render SkillsList in the same scroll shell used by the Installed tab.
  * @param skillsState - Skill slice fields needed for the visible rows.
+ * @param widthPx - Width of the list column; defaults to a roomy 800px.
  * @returns vitest-browser-react screen for locator queries.
  * @example
  * await renderInstalledListShell({ items: [makeSkill()] })
+ * await renderInstalledListShell({ items: [makeSkill()] }, MIN_WINDOW_LIST_COLUMN_WIDTH_PX)
  */
-async function renderInstalledListShell(skillsState: {
-  loading?: boolean
-  items?: Skill[]
-}) {
+async function renderInstalledListShell(
+  skillsState: {
+    loading?: boolean
+    items?: Skill[]
+  },
+  widthPx = 800,
+) {
   const store = await createStore(skillsState)
   const { SkillsList } = await import('./SkillsList')
   return render(
@@ -156,7 +166,7 @@ async function renderInstalledListShell(skillsState: {
         <div
           data-testid="installed-list-shell"
           className="overflow-hidden py-4 pl-4 pr-[5px]"
-          style={{ height: 360, width: 800 }}
+          style={{ height: 360, width: widthPx }}
         >
           <SkillsList />
         </div>
@@ -326,6 +336,122 @@ describe('SkillsList scrollbar gutter layout', () => {
   })
 })
 
+describe('SkillsList global card spacing', () => {
+  test('keeps the full 20px gap between a Local source label and the status badges instead of collapsing it to 12px', async () => {
+    // Arrange
+    mockGetAll.mockReturnValue(new Promise(() => {}))
+    // No `source`, so SourceLink renders the block "Local" label, whose mb-2
+    // sits right above the status badges.
+    const localSkill = makeSkill({
+      name: toSkillName('local-skill'),
+      description: 'A skill with no recorded source repository.',
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          status: 'valid',
+          linkPath: toAbsolutePath('/home/user/.cursor/skills/local-skill'),
+          targetPath: toAbsolutePath('/home/user/.agents/skills/local-skill'),
+          isLocal: false,
+        },
+      ],
+    })
+
+    // Act
+    const screen = await renderInstalledListShell({ items: [localSkill] })
+    const localLabel = screen.getByText('Local', { exact: true })
+    const validBadge = screen.getByLabelText('Valid: 1')
+    await expect.element(localLabel).toBeVisible()
+    await expect.element(validBadge).toBeVisible()
+
+    // Assert
+    // The label's 8px mb-2 plus the badge row's 12px top spacing. If that
+    // spacing were a margin, the two would collapse to 12px and the card
+    // would lose 8px of the row slot {@link SkillsList} reserves for it.
+    const gapPx = Math.round(
+      validBadge.element().getBoundingClientRect().top -
+        localLabel.element().getBoundingClientRect().bottom,
+    )
+    expect(gapPx).toBe(20)
+  })
+
+  test('keeps the "Not linked to any agent" note on one line in the minimum window, so the card does not outgrow its row slot', async () => {
+    // Arrange
+    mockGetAll.mockReturnValue(new Promise(() => {}))
+    const unlinkedSkill = makeSkill({
+      name: toSkillName('unlinked-skill'),
+      description: 'A skill no agent links to yet.',
+      symlinks: [],
+    })
+
+    // Act
+    const screen = await renderInstalledListShell(
+      { items: [unlinkedSkill] },
+      MIN_WINDOW_LIST_COLUMN_WIDTH_PX,
+    )
+    const unlinkedNote = screen.getByText('Not linked to any agent')
+    await expect.element(unlinkedNote).toBeVisible()
+
+    // Assert
+    // One text-xs line is 16px tall; a wrapped note would be 32px.
+    expect(
+      Math.round(unlinkedNote.element().getBoundingClientRect().height),
+    ).toBe(16)
+  })
+
+  test('keeps a linked source repository on one line in the minimum window, so the card does not overlap the next one', async () => {
+    // Arrange
+    mockGetAll.mockReturnValue(new Promise(() => {}))
+    const repositorySkill = makeSkill({
+      name: toSkillName('repository-skill'),
+      description: 'A skill installed from a GitHub repository.',
+      source: repositoryId('vercel-labs/skills'),
+      sourceUrl: toHttpUrl('https://github.com/vercel-labs/skills.git'),
+    })
+
+    // Act
+    const screen = await renderInstalledListShell(
+      { items: [repositorySkill] },
+      MIN_WINDOW_LIST_COLUMN_WIDTH_PX,
+    )
+    const sourceButton = screen.getByRole('button', {
+      name: 'Filter skills by repository vercel-labs/skills',
+    })
+    await expect.element(sourceButton).toBeVisible()
+
+    // Assert
+    // One text-sm line is 20px tall; a wrapped repository name would be 40px
+    // and push the card 20px past the row slot {@link SkillsList} computes.
+    expect(
+      Math.round(sourceButton.element().getBoundingClientRect().height),
+    ).toBe(20)
+  })
+
+  test('keeps a source repository without a URL on one line in the minimum window, so the card does not overlap the next one', async () => {
+    // Arrange
+    mockGetAll.mockReturnValue(new Promise(() => {}))
+    const repositorySkill = makeSkill({
+      name: toSkillName('repository-skill'),
+      description: 'A skill whose repository has no browsable URL.',
+      source: repositoryId('vercel-labs/skills'),
+    })
+
+    // Act
+    const screen = await renderInstalledListShell(
+      { items: [repositorySkill] },
+      MIN_WINDOW_LIST_COLUMN_WIDTH_PX,
+    )
+    const sourceLabel = screen.getByText('vercel-labs/skills', { exact: true })
+    await expect.element(sourceLabel).toBeVisible()
+
+    // Assert
+    // One text-sm line is 20px tall; a wrapped repository name would be 40px.
+    expect(
+      Math.round(sourceLabel.element().getBoundingClientRect().height),
+    ).toBe(20)
+  })
+})
+
 describe('SkillsList fetch-failure branch', () => {
   test('surfaces the fetch error message instead of the skills list when the scan fails', async () => {
     // Arrange
@@ -343,6 +469,103 @@ describe('SkillsList fetch-failure branch', () => {
     await expect
       .element(screen.getByText('Failed to scan skills directory'))
       .toBeInTheDocument()
+  })
+})
+
+describe('SkillsList failed-row flash', () => {
+  /**
+   * Read whether a row's card shows the red failed-row edge.
+   * @param skillName - The row's skill name.
+   * @returns Whether the card carries the red edge class.
+   * @example isRowFlashingRed('beta') // => true right after flashFailedRows(['beta'])
+   */
+  function isRowFlashingRed(skillName: string): boolean {
+    const card = document.querySelector(`[data-skill-name="${skillName}"]`)
+    return Boolean(card?.className.includes('border-l-red-500/70'))
+  }
+
+  test('keeps the red edge on the failed skill when a refresh removes the row above it', async () => {
+    // Arrange — three rows, and the middle one failed its bulk op. The on-mount
+    // fetch never settles, so only the dispatched refresh below changes rows.
+    mockGetAll.mockReturnValue(new Promise(() => {}))
+    const alpha = makeSkill({
+      name: toSkillName('alpha'),
+      path: toAbsolutePath('/home/user/.agents/skills/alpha'),
+    })
+    const beta = makeSkill({
+      name: toSkillName('beta'),
+      path: toAbsolutePath('/home/user/.agents/skills/beta'),
+    })
+    const gamma = makeSkill({
+      name: toSkillName('gamma'),
+      path: toAbsolutePath('/home/user/.agents/skills/gamma'),
+    })
+    const store = await createStore({ items: [alpha, beta, gamma] })
+    const { SkillsList } = await import('./SkillsList')
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { flashFailedRows } =
+      await import('@/renderer/src/utils/bulkOpVisuals')
+    await render(
+      <Provider store={store}>
+        <TooltipProvider>
+          <div style={{ height: 600, width: 800 }}>
+            <SkillsList />
+          </div>
+        </TooltipProvider>
+      </Provider>,
+    )
+    await expect.poll(() => isRowFlashingRed('beta')).toBe(false)
+    flashFailedRows([toSkillName('beta')])
+    await expect.poll(() => isRowFlashingRed('beta')).toBe(true)
+
+    // Act — the refresh drops the deleted alpha row, so beta moves up a slot
+    store.dispatch(fetchSkills.fulfilled([beta, gamma], 'refresh-req'))
+    await expect
+      .poll(() => document.querySelector('[data-skill-name="alpha"]'))
+      .toBeNull()
+
+    // Assert — the edge moved with beta instead of staying on the slot
+    expect(isRowFlashingRed('beta')).toBe(true)
+    expect(isRowFlashingRed('gamma')).toBe(false)
+  })
+
+  test('paints the red edge on a failed row once the list comes back from a rejected bulk op error view', async () => {
+    // Arrange — a rejected bulk op swaps the list for its error view, so the
+    // rows are unmounted when MainContent flashes the attempted ones
+    mockGetAll.mockReturnValue(new Promise(() => {}))
+    const store = await createStore({
+      items: [makeSkill({ name: toSkillName('task') })],
+    })
+    const { SkillsList } = await import('./SkillsList')
+    const { deleteSelectedSkills, fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { flashFailedRows } =
+      await import('@/renderer/src/utils/bulkOpVisuals')
+    const screen = await render(
+      <Provider store={store}>
+        <TooltipProvider>
+          <div style={{ height: 600, width: 800 }}>
+            <SkillsList />
+          </div>
+        </TooltipProvider>
+      </Provider>,
+    )
+    store.dispatch(
+      deleteSelectedSkills.rejected(
+        new Error('Socket closed'),
+        'delete-req',
+        [],
+      ),
+    )
+    await expect.element(screen.getByText('Socket closed')).toBeVisible()
+    flashFailedRows([toSkillName('task')])
+
+    // Act — the refresh that follows clears the error and remounts the rows
+    store.dispatch(fetchSkills.pending('refresh-req'))
+
+    // Assert — the remounted row shows the rest of the flash
+    await expect.poll(() => isRowFlashingRed('task')).toBe(true)
   })
 })
 

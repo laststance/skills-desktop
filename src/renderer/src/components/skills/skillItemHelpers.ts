@@ -26,7 +26,7 @@ export interface SkillItemVisibility {
   selectedAgentSymlink: SymlinkInfo | null
   /** The local skill SymlinkInfo for the selected agent, if any (needed for delete handler) */
   selectedLocalSkillInfo: SymlinkInfo | null
-  /** Show "Copy to..." context menu — only in agent view (not global, not universal) */
+  /** Show "Copy to…" context menu — only in agent view (not global, not universal) */
   showCopyButton: boolean
   /** Show G-Stack source badge/link in selected agent view */
   showGStackBadge: boolean
@@ -137,7 +137,7 @@ export function getSkillItemVisibility(
     isInaccessibleSkill,
     selectedAgentSymlink,
     selectedLocalSkillInfo,
-    // "Copy to..." opens CopyToAgentsModal which fans out from the live
+    // "Copy to…" opens CopyToAgentsModal which fans out from the live
     // source skill — for an orphan, that source is gone. Hide the action
     // for the same reason `showAddButton` is gated on `!isOrphan`.
     showCopyButton:
@@ -201,4 +201,33 @@ export function getCardContentPaddingClass(flags: {
   if (overlayCount === 2) return 'pr-15'
   if (overlayCount === 1) return 'pr-8'
   return 'pr-4'
+}
+
+/**
+ * What a click on a skill card means once its modifier keys are read.
+ * Follows Finder and the macOS HIG: ⇧ range > ⌘ toggle > plain open.
+ */
+export type CardClickIntent = 'open' | 'toggle' | 'range'
+
+/**
+ * Read a card click's modifiers into an intent, so {@link SkillItem} can route
+ * a ⌘-click into the bulk selection instead of opening the inspector.
+ * Ctrl-click is not a toggle: on macOS it is the secondary click, which fires
+ * `contextmenu` (the card's Copy to… menu) and never reaches `onClick` in Blink.
+ * @param event - The click's modifier flags.
+ * @returns
+ * - `'range'` when ⇧ is held (⇧ wins over ⌘, so ⇧⌘-click is a range)
+ * - `'toggle'` when only ⌘ is held
+ * - `'open'` for a plain click
+ * @example
+ * getCardClickIntent({ metaKey: false, shiftKey: false }) // => 'open'
+ * getCardClickIntent({ metaKey: true, shiftKey: false }) // => 'toggle'
+ * getCardClickIntent({ metaKey: true, shiftKey: true }) // => 'range'
+ */
+export function getCardClickIntent(
+  event: Pick<MouseEvent, 'metaKey' | 'shiftKey'>,
+): CardClickIntent {
+  if (event.shiftKey) return 'range'
+  if (event.metaKey) return 'toggle'
+  return 'open'
 }

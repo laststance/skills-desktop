@@ -14,7 +14,7 @@ import type {
 import { toSymlinkCount } from '@/shared/types'
 
 /**
- * Which toolbar variant is rendering:
+ * Which list header variant is rendering:
  *  - 'global' = no agent filter active (Installed tab, viewing all skills);
  *    the primary action is DELETE (tombstones the skill + cascades symlinks).
  *  - 'agent'  = agent filter active (user clicked a sidebar agent);
@@ -22,13 +22,14 @@ import { toSymlinkCount } from '@/shared/types'
  *
  * The extra `count: 1 | N` split is NOT just a pluralization concern — with
  * count=1 the button is allowed to show a single-item affordance, whereas
- * count>=2 surfaces the batch treatment (progress counter when >=10, etc.).
+ * count>=2 surfaces the batch treatment (a progress counter from
+ * {@link BULK_PROGRESS_THRESHOLD} items, etc.).
  */
-export type ToolbarView = 'global' | 'agent'
-type ToolbarCountKind = 'zero' | 'single' | 'multi'
+export type ListHeaderView = 'global' | 'agent'
+type PrimaryActionCountKind = 'zero' | 'single' | 'multi'
 
-export interface ToolbarStateInput {
-  view: ToolbarView
+export interface PrimaryActionStateInput {
+  view: ListHeaderView
   agentId: AgentId | null
   /** Number of items currently ticked (not intersected with visible). */
   count: SkillCount
@@ -42,9 +43,11 @@ export interface ToolbarStateInput {
   agentDisplayName?: string
 }
 
-export interface ToolbarStateOutput {
+export interface PrimaryActionState {
   /** Primary button text ("Delete 3 skills", "Unlink from Cursor", etc.). */
   primaryLabel: string
+  /** Short primary text for the list header's compact tier ("Delete 3", "Unlink 1"). */
+  compactPrimaryLabel: string
   /** aria-label with the full intent spelled out for screen readers. */
   primaryAriaLabel: string
   /** True when the primary button should be disabled (no visible-and-selected items). */
@@ -62,34 +65,34 @@ export interface ToolbarStateOutput {
 }
 
 /**
- * Derive the SelectionToolbar's presentation from four inputs using a single
- * exhaustive match. Adding a future `view` or `count` bucket forces this
- * function to be updated (compile error) — the toolbar will never silently
- * fall through to a default.
+ * Derive the {@link InstalledListHeader} primary action's presentation from four
+ * inputs using a single exhaustive match. Adding a future `view` or `count`
+ * bucket forces this function to be updated (compile error) — the header will
+ * never silently fall through to a default.
  *
  * @param input - view, agentId, count, visibleCount, agentDisplayName
- * @returns ToolbarStateOutput with labels, disabled, destructive, variant key
+ * @returns PrimaryActionState with labels, disabled, destructive, variant key
  * @example
- * getToolbarState({ view: 'global', agentId: null, count: 3, visibleCount: 3 })
- * // => { primaryLabel: 'Delete 3 skills', isDestructive: true, variantKey: 'global-multi', ... }
+ * getPrimaryActionState({ view: 'global', agentId: null, count: 3, visibleCount: 3 })
+ * // => { primaryLabel: 'Delete 3 skills', compactPrimaryLabel: 'Delete 3', isDestructive: true, variantKey: 'global-multi', ... }
  * @example
- * getToolbarState({ view: 'agent', agentId: 'cursor', count: 1, visibleCount: 1, agentDisplayName: 'Cursor' })
- * // => { primaryLabel: 'Unlink from Cursor', isDestructive: false, variantKey: 'agent-single', ... }
+ * getPrimaryActionState({ view: 'agent', agentId: 'cursor', count: 1, visibleCount: 1, agentDisplayName: 'Cursor' })
+ * // => { primaryLabel: 'Unlink from Cursor', compactPrimaryLabel: 'Unlink 1', isDestructive: false, variantKey: 'agent-single', ... }
  */
-export const getToolbarState = ({
+export const getPrimaryActionState = ({
   view,
   agentId: _agentId,
   count,
   visibleCount,
   agentDisplayName,
-}: ToolbarStateInput): ToolbarStateOutput => {
+}: PrimaryActionStateInput): PrimaryActionState => {
   // The primary button acts only on selected rows that survived the current
   // filter, while the adjacent selection summary owns the total hidden count.
   const actionCount = visibleCount
-  // ToolbarCountKind exhaustively buckets every visible count into zero, single, or multi copy.
+  // PrimaryActionCountKind exhaustively buckets every visible count into zero, single, or multi copy.
   // Matched as `number`, not SkillCount: ts-pattern narrows a branded operand to
   // `never` after the first `.with`, which kills the 0 / 1 literal arms.
-  const countKind: ToolbarCountKind = match<number>(actionCount)
+  const countKind: PrimaryActionCountKind = match<number>(actionCount)
     .with(0, () => 'zero' as const)
     .with(1, () => 'single' as const)
     .with(P.number, () => 'multi' as const)
@@ -100,10 +103,14 @@ export const getToolbarState = ({
   // Fall back to "agent" when the caller doesn't know the display name yet
   // (e.g. render-before-data). Agent view is guaranteed by the match arm.
   const agentLabel = agentDisplayName ?? 'agent'
+  // The compact tier keeps only the verb and count; aria-label keeps the rest.
+  const compactDeleteLabel = `Delete ${actionCount}`
+  const compactUnlinkLabel = `Unlink ${actionCount}`
 
   return match({ view, countKind })
     .with({ view: 'global', countKind: 'zero' }, () => ({
       primaryLabel: 'No visible skills',
+      compactPrimaryLabel: compactDeleteLabel,
       primaryAriaLabel: 'No visible selected skills to delete',
       isPrimaryDisabled,
       isDestructive: true,
@@ -111,6 +118,7 @@ export const getToolbarState = ({
     }))
     .with({ view: 'global', countKind: 'single' }, () => ({
       primaryLabel: 'Delete skill',
+      compactPrimaryLabel: compactDeleteLabel,
       primaryAriaLabel: `Move ${ariaSelectionScope} skill to app trash`,
       isPrimaryDisabled,
       isDestructive: true,
@@ -118,6 +126,7 @@ export const getToolbarState = ({
     }))
     .with({ view: 'global', countKind: 'multi' }, () => ({
       primaryLabel: `Delete ${actionCount} skills`,
+      compactPrimaryLabel: compactDeleteLabel,
       primaryAriaLabel: `Move ${actionCount} ${ariaSelectionScope} skills to app trash`,
       isPrimaryDisabled,
       isDestructive: true,
@@ -125,6 +134,7 @@ export const getToolbarState = ({
     }))
     .with({ view: 'agent', countKind: 'zero' }, () => ({
       primaryLabel: 'No visible skills',
+      compactPrimaryLabel: compactUnlinkLabel,
       primaryAriaLabel: `No visible selected skills to unlink from ${agentLabel}`,
       isPrimaryDisabled,
       isDestructive: false,
@@ -132,6 +142,7 @@ export const getToolbarState = ({
     }))
     .with({ view: 'agent', countKind: 'single' }, () => ({
       primaryLabel: `Unlink from ${agentLabel}`,
+      compactPrimaryLabel: compactUnlinkLabel,
       primaryAriaLabel: `Unlink ${ariaSelectionScope} skill from ${agentLabel}`,
       isPrimaryDisabled,
       isDestructive: false,
@@ -139,6 +150,7 @@ export const getToolbarState = ({
     }))
     .with({ view: 'agent', countKind: 'multi' }, () => ({
       primaryLabel: `Unlink ${actionCount} from ${agentLabel}`,
+      compactPrimaryLabel: compactUnlinkLabel,
       primaryAriaLabel: `Unlink ${actionCount} ${ariaSelectionScope} skills from ${agentLabel}`,
       isPrimaryDisabled,
       isDestructive: false,
@@ -298,44 +310,55 @@ export const formatUnlinkSummary = (
 }
 
 /**
- * Given an anchor row and a target row, return the ordered slice of names
- * between them (inclusive). Used by Shift+click range selection.
+ * The one ⇧-click range rule, shared by a card's ⇧-click and a row checkbox's
+ * ⇧-click in {@link SkillItem}: the bulk-eligible names between the anchor and
+ * the clicked row (inclusive), in visible order.
  *
- *  - Finds both anchor and target inside `visibleOrdered` (the currently
- *    filtered+sorted list).
- *  - If either is missing (e.g. the anchor was filtered out), falls back to
- *    just `[targetName]`. This mirrors macOS Finder behavior — shift-click on
- *    a fresh list without an anchor selects only the clicked row.
+ *  - The span is measured in `visibleOrdered` (every drawn row, eligible or
+ *    not), then filtered to `eligibleNames`. ⇧-clicking an ineligible row
+ *    therefore selects the eligible rows up to it and leaves it unticked.
+ *  - If the anchor is null or no longer visible (e.g. filtered out), falls back
+ *    to just the clicked row when it is eligible, and to `[]` when it is not.
+ *    This mirrors macOS Finder: a shift-click on a fresh list selects only the
+ *    clicked row.
  *  - Returns names in visible order regardless of which was clicked first
  *    (so a shift-click above the anchor yields the same array as below).
  *
  * @param anchorName - Previous single-click target (may be null on first shift-click).
  * @param targetName - Just-clicked target.
- * @param visibleOrdered - Names in display order (selectFilteredSkills().map(s => s.name)).
- * @returns Names to add to the selection, in visible order. Never empty.
+ * @param visibleOrdered - Every drawn name in display order ({@link selectVisibleSkillNames}).
+ * @param eligibleNames - Names the current bulk action accepts ({@link selectBulkSelectableVisibleSkillNames}).
+ * @returns
+ * - The eligible names in the span, in visible order
+ * - `[targetName]` for an eligible target without a visible anchor
+ * - `[]` when nothing in reach is eligible (the caller treats it as a no-op)
  * @example
- * computeRangeSelection('task', 'zebra', ['alpha','browser','task','theme','zebra'])
- * // => ['task','theme','zebra']
+ * computeRangeSelection('task', 'zebra', ['alpha','task','local','zebra'], new Set(['alpha','task','zebra']))
+ * // => ['task','zebra']
  * @example
  * // Anchor filtered out:
- * computeRangeSelection('removed', 'zebra', ['alpha','zebra'])
+ * computeRangeSelection('removed', 'zebra', ['alpha','zebra'], new Set(['alpha','zebra']))
  * // => ['zebra']
  */
 export const computeRangeSelection = (
   anchorName: SkillName | null,
   targetName: SkillName,
   visibleOrdered: SkillName[],
+  eligibleNames: ReadonlySet<SkillName>,
 ): SkillName[] => {
+  const targetOnlyRange = eligibleNames.has(targetName) ? [targetName] : []
   const targetIndex = visibleOrdered.indexOf(targetName)
   // Target not in visible list — should not happen in practice (the target was
   // just clicked) but guard the return type: no range is possible.
-  if (targetIndex === -1) return [targetName]
+  if (targetIndex === -1) return targetOnlyRange
 
   const anchorIndex =
     anchorName === null ? -1 : visibleOrdered.indexOf(anchorName)
-  if (anchorIndex === -1) return [targetName]
+  if (anchorIndex === -1) return targetOnlyRange
 
   const start = Math.min(anchorIndex, targetIndex)
   const end = Math.max(anchorIndex, targetIndex)
-  return visibleOrdered.slice(start, end + 1)
+  return visibleOrdered
+    .slice(start, end + 1)
+    .filter((skillName) => eligibleNames.has(skillName))
 }

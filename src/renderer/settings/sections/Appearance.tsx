@@ -60,7 +60,7 @@ const INSTALLED_SEARCH_COUNT_DISPLAY_LABELS: Record<
   string
 > = {
   tab: 'Tab badge',
-  inline: 'Toolbar text',
+  inline: 'List header',
 }
 const INSTALLED_SEARCH_COUNT_DISPLAY_OPTIONS =
   INSTALLED_SEARCH_COUNT_DISPLAY_VALUES.map((value) => ({

@@ -11,7 +11,7 @@ import type { AgentId } from '@/shared/types'
 
 import { setSettings } from './slices/settingsSlice'
 import { fetchStaleLockEntries } from './slices/skillLockSlice'
-import { clearSelection } from './slices/skillsSlice'
+import { clearSelection, fetchSkills } from './slices/skillsSlice'
 import { setModePreference, setTheme, syncTheme } from './slices/themeSlice'
 import type { ThemeState } from './slices/themeSlice'
 import {
@@ -210,23 +210,30 @@ listenerMiddleware.startListening({
 /**
  * Cross-slice atomic clear: dispatches `clearSelection` from skillsSlice on any
  * context switch that uiSlice already clears its own ephemeral state for
- * (bulkSelectMode, undoToast, bulkConfirm). Without this bridge the selection
- * survives across tab/agent changes, enabling the "action-over-hidden-state"
- * anti-pattern: SelectionToolbar renders on selection count alone and its
- * Delete/Unlink button commits against invisible ticks the user can no longer
- * audit. Living in listener.ts keeps both slices self-contained (one-way
- * consumer; no circular imports).
+ * (undoToast and bulkConfirm on tab/agent/sync switches; bulkConfirm alone on a
+ * failed refresh). Without this bridge the selection survives across
+ * tab/agent changes, enabling the "action-over-hidden-state" anti-pattern: the
+ * InstalledListHeader shows Delete/Unlink whenever anything is selected, and it
+ * would commit against ticks the user can no longer audit. A failed skills
+ * refresh clears too: {@link SkillsList} then draws only the error text, so no
+ * ticked row is on screen. Living in listener.ts keeps both slices
+ * self-contained (one-way consumer; no circular imports).
  *
  * Note: `deleteSelectedSkills.pending` and `unlinkSelectedFromAgent.pending`
- * are intentionally NOT in this matcher. Those thunks rely on the `.fulfilled`
- * reducers in skillsSlice to narrow `selectedSkillNames` to only the items
- * that actually succeeded, so failed rows stay ticked for retry. A blanket
- * clear on `.pending` would wipe the selection before the reconciliation can
- * run. uiSlice already clears `bulkSelectMode` on those same pending actions,
- * so the toolbar still hides during the in-flight op.
+ * are intentionally NOT in this matcher. Those thunks' `.fulfilled` reducers
+ * remove only the names that succeeded from `selectedSkillNames`, so failed
+ * rows stay ticked for retry. A blanket clear on `.pending` would wipe the
+ * selection before that reconciliation can run. MainContent then narrows the
+ * selection to the retryable rows once the op settles
+ * ({@link narrowSelection}).
  */
 listenerMiddleware.startListening({
-  matcher: isAnyOf(setActiveTab, selectAgent, fetchSyncPreview.pending),
+  matcher: isAnyOf(
+    setActiveTab,
+    selectAgent,
+    fetchSyncPreview.pending,
+    fetchSkills.rejected,
+  ),
   effect: (_action, listenerApi) => {
     listenerApi.dispatch(clearSelection())
   },

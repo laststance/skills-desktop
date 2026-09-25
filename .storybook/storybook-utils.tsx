@@ -4,15 +4,19 @@ import type { Decorator } from '@storybook/react-vite'
 import { combineReducers, configureStore } from '@reduxjs/toolkit'
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
 import { buildDefaultDashboardPages } from '@/renderer/src/components/dashboard/utils/widgetPresets'
+import activityReducer from '@/renderer/src/redux/slices/activitySlice'
 import agentsReducer from '@/renderer/src/redux/slices/agentsSlice'
 import bookmarkReducer from '@/renderer/src/redux/slices/bookmarkSlice'
 import dashboardReducer from '@/renderer/src/redux/slices/dashboardSlice'
 import marketplaceReducer from '@/renderer/src/redux/slices/marketplaceSlice'
+import protectReducer from '@/renderer/src/redux/slices/protectSlice'
 import settingsReducer from '@/renderer/src/redux/slices/settingsSlice'
+import skillLockReducer from '@/renderer/src/redux/slices/skillLockSlice'
 import skillsReducer from '@/renderer/src/redux/slices/skillsSlice'
 import themeReducer from '@/renderer/src/redux/slices/themeSlice'
 import uiReducer from '@/renderer/src/redux/slices/uiSlice'
 import updateReducer from '@/renderer/src/redux/slices/updateSlice'
+import widgetPickerReducer from '@/renderer/src/redux/slices/widgetPickerSlice'
 import type { ThemePresetName } from '@/shared/constants'
 import { COLOR_PRESET_CHROMA, THEME_PRESETS } from '@/shared/constants'
 import { DEFAULT_SETTINGS } from '@/shared/settings'
@@ -50,16 +54,22 @@ import {
   toUnixTimestampMs,
 } from '@/shared/types'
 
+// Mirrors the slice set in `src/renderer/src/redux/store.ts`: a component
+// whose selector reads a slice missing here crashes its story on first render.
 const rootReducer = combineReducers({
   theme: themeReducer,
   skills: skillsReducer,
   agents: agentsReducer,
   bookmarks: bookmarkReducer,
+  protect: protectReducer,
   ui: uiReducer,
   update: updateReducer,
   marketplace: marketplaceReducer,
   dashboard: dashboardReducer,
+  skillLock: skillLockReducer,
+  widgetPicker: widgetPickerReducer,
   settings: settingsReducer,
+  activity: activityReducer,
 })
 
 export type StoryRootState = ReturnType<typeof rootReducer>
@@ -315,7 +325,6 @@ function createDefaultStoryState(): StoryRootState {
       activeTab: 'installed',
       sourceStats: storySourceStats,
       selectedAgentId: null,
-      bulkSelectMode: true,
       searchQuery: '',
       syncPreview: null,
       syncResult: null,

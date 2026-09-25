@@ -101,8 +101,9 @@ declare global {
         restoreDeletedSkill: (
           options: RestoreDeletedSkillOptions,
         ) => Promise<RestoreDeletedSkillResult>
-        // One-way push — fires when \`total >= 10\` during batch delete so the
-        // toolbar can render a live counter.
+        // One-way push — fires after each item of a batch delete with at
+        // least {@link BULK_PROGRESS_THRESHOLD} items, so the list header can
+        // render a live counter.
         onDeleteProgress: (
           callback: (payload: DeleteProgressPayload) => void,
         ) => () => void

@@ -11,6 +11,7 @@ import { join } from 'node:path'
 
 import { test, expect } from '../fixtures/electron-app'
 import {
+  dispatchAction,
   getStoreState,
   refreshSkillsState,
   waitForInitialScan,
@@ -93,7 +94,7 @@ const undoToastFixtureSelector = (state: unknown): UndoFixtureSnapshot => {
  * (`SKILLS_DELETE` + `SKILLS_RESTORE_DELETED`) end-to-end. This file
  * complements it by exercising the renderer click chain that real users hit:
  *
- *   bulk select → toolbar Delete → confirm dialog Delete → Undo button
+ *   hover → tick → list header Delete → confirm dialog Delete → Undo button
  *
  * The user requirement was explicit: "Undoしたあとちゃんとファイルが復元されているか、
  * は重要度が高い" — file restoration is the load-bearing assertion. So the
@@ -133,36 +134,43 @@ test('UI: clicking Undo on the bulk-delete toast restores staged source files an
   ).toBeGreaterThan(0)
 
   // Act
-  // Drive Redux directly into the bulk-select + selected state. Action types
-  // are inlined string literals because the dispatch re-evaluates inside the
-  // renderer where the slice action creators are out of scope.
-  //
-  // Order matters: SelectionToolbar gates on BOTH `bulkSelectMode === true`
-  // AND `selectedSkillNames.length > 0` (see SelectionToolbar.tsx). Toggling
-  // selection before entering bulk mode would briefly violate the invariant
-  // and the toolbar would not render — the next `getByRole('button')` lookup
-  // would then time out instead of failing fast.
-  await appWindow.evaluate(() => {
-    const store = window.__store__ ?? window.__store
-    store?.dispatch({ type: 'ui/enterBulkSelectMode' })
-    store?.dispatch({
-      type: 'skills/toggleSelection',
-      payload: 'undo-toast-fixture',
-    })
+  // The list is virtualized, so narrow it to the fixture before looking for
+  // its card. Reduced motion drops the 150ms fade, so the computed opacity is
+  // final as soon as the hover lands.
+  await appWindow.emulateMedia({ reducedMotion: 'reduce' })
+  await dispatchAction(appWindow, {
+    type: 'ui/setSearchQuery',
+    payload: UNDO_TOAST_FIXTURE_NAME,
   })
+  const fixtureCard = appWindow.locator(
+    `[data-skill-name="${UNDO_TOAST_FIXTURE_NAME}"]`,
+  )
+  const rowCheckbox = fixtureCard.getByRole('checkbox', {
+    name: `Select ${UNDO_TOAST_FIXTURE_NAME}`,
+  })
+  // Selection is modeless: the row's checkbox is always there, faded out
+  // until the card is hovered.
+  await expect(rowCheckbox).toHaveCSS('opacity', '0')
+  await fixtureCard.hover()
+  await expect(rowCheckbox).toHaveCSS('opacity', '1')
+  await rowCheckbox.click()
 
-  // Toolbar primary button — global view, single skill selected. The label is
-  // sourced from `getToolbarState({ view: 'global', countKind: 'single' })` in
+  // The list header swaps to its selected state on the first tick.
+  const listHeader = appWindow.getByRole('group', { name: 'List header' })
+  await expect(listHeader).toContainText('1 selected')
+
+  // List header primary button — global view, single skill selected. The
+  // label is sourced from `getPrimaryActionState({ view: 'global', ... })` in
   // bulkDeleteHelpers.ts; matching the exact aria-label keeps the test
   // resilient to visual-label tweaks ("Delete skill" → "Remove skill") that
   // would not change the underlying intent.
-  await appWindow
+  await listHeader
     .getByRole('button', { name: 'Move selected skill to app trash' })
     .click()
 
   // Confirm dialog mounts via Radix `<Dialog>`. The title is dynamic
   // ("Delete 1 skill?"); the destructive Delete button has the unambiguous
-  // exact name "Delete" — the toolbar's button uses an aria-label so it
+  // exact name "Delete" — the list header's button uses an aria-label so it
   // does NOT collide here.
   await appWindow
     .getByRole('heading', { name: 'Delete 1 skill?' })

@@ -2,11 +2,21 @@ import { configureStore } from '@reduxjs/toolkit'
 import type { ReactElement } from 'react'
 import { Provider } from 'react-redux'
 import { toast } from 'sonner'
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  onTestFinished,
+  test,
+  vi,
+} from 'vitest'
+import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 
 import { partitionGlobalDeleteTargets } from '@/renderer/src/components/skills/reviewedDestructiveTargets'
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
+import { BULK_ITEM_FAILED_EVENT } from '@/renderer/src/utils/bulkOpVisuals'
 import { DEFAULT_SETTINGS } from '@/shared/settings'
 import type {
   AgentId,
@@ -42,7 +52,7 @@ const mockClearOrphanSymlinks = vi.fn()
 const mockUnlinkManyFromAgent = vi.fn()
 const mockRestoreDeletedSkill = vi.fn()
 const mockRefreshAllData = vi.hoisted(() => vi.fn())
-const mockSelectionToolbarState = vi.hoisted(() => ({ enabled: false }))
+const mockListHeaderState = vi.hoisted(() => ({ enabled: false }))
 
 const directoryIdentity: FilesystemEntryIdentity = {
   kind: 'directory',
@@ -76,7 +86,7 @@ function isUndoToastCall(
 
 /**
  * Short-circuit every heavy child MainContent renders so tests focus on the
- * toggle button and the document-level keyboard shortcuts this file owns.
+ * list header wiring and the document-level keyboard shortcuts this file owns.
  * Without these mocks the default render would drag in SkillsMarketplace,
  * SkillsList (which fetches via IPC on mount), six dialogs, and the UndoToast.
  */
@@ -89,27 +99,44 @@ vi.mock('../marketplace', () => ({
 vi.mock('../skills/SearchBox', () => ({
   SearchBox: () => null,
 }))
-vi.mock('../skills/SelectionToolbar', () => ({
-  SelectionToolbar: ({
-    onPrimaryAction,
-    onCopyAction,
-  }: {
-    onPrimaryAction: () => void
-    onCopyAction?: () => void
-  }) =>
-    mockSelectionToolbarState.enabled ? (
-      <>
-        <button type="button" onClick={onPrimaryAction}>
-          Open bulk confirm
-        </button>
-        {onCopyAction ? (
-          <button type="button" onClick={onCopyAction}>
-            Open bulk copy
-          </button>
-        ) : null}
-      </>
-    ) : null,
-}))
+vi.mock('../skills/InstalledListHeader', async () => {
+  const { useAppSelector } = await import('@/renderer/src/redux/hooks')
+  const { selectIsBulkOpBusy } =
+    await import('@/renderer/src/redux/slices/skillsSlice')
+  return {
+    InstalledListHeader: function MockInstalledListHeader({
+      onPrimaryAction,
+      onCopyAction,
+    }: {
+      onPrimaryAction: () => void
+      onCopyAction?: () => void
+    }) {
+      // The live count and busy flag double as render-commit signals: the
+      // keyboard shortcut refs are current once MainContent draws them.
+      const selectedCount = useAppSelector(
+        (state) => state.skills.selectedSkillNames.length,
+      )
+      const isBulkOpBusy = useAppSelector(selectIsBulkOpBusy)
+      return (
+        <div role="group" aria-label="List header" aria-busy={isBulkOpBusy}>
+          <span>{`${selectedCount} selected`}</span>
+          {mockListHeaderState.enabled ? (
+            <>
+              <button type="button" onClick={onPrimaryAction}>
+                Open bulk confirm
+              </button>
+              {onCopyAction ? (
+                <button type="button" onClick={onCopyAction}>
+                  Open bulk copy
+                </button>
+              ) : null}
+            </>
+          ) : null}
+        </div>
+      )
+    },
+  }
+})
 vi.mock('../skills/UnlinkDialog', () => ({
   UnlinkDialog: () => null,
 }))
@@ -153,7 +180,7 @@ beforeEach(() => {
   mockUnlinkManyFromAgent.mockReset()
   mockRestoreDeletedSkill.mockReset()
   mockRefreshAllData.mockReset()
-  mockSelectionToolbarState.enabled = false
+  mockListHeaderState.enabled = false
   // The sonner `toast` mock is module-level (created once via vi.mock) and
   // accumulates calls across every test in this file. Reset all four entry
   // points each test so toast assertions (toHaveBeenCalledWith) can't read a
@@ -247,30 +274,70 @@ async function renderMainContent() {
  * Dispatch a real KeyboardEvent directly on `document` so MainContent's
  * document-level listener fires through the actual browser event pipeline.
  * @param init - KeyboardEvent init dict. `bubbles` defaults to true so React's
- *   synthetic wrapper observes the event if it ever delegates; caller may
- *   override via an explicit `bubbles: false`.
+ *   synthetic wrapper observes the event if it ever delegates, and `cancelable`
+ *   defaults to true so `defaultPrevented` shows whether the handler took the key.
+ * @returns The dispatched event, for `defaultPrevented` checks.
+ * @example dispatchKey({ key: 'Escape' }).defaultPrevented // => false with nothing selected
  */
-function dispatchKey(init: KeyboardEventInit): void {
-  document.dispatchEvent(
-    new KeyboardEvent('keydown', { ...init, bubbles: init.bubbles ?? true }),
-  )
+function dispatchKey(init: KeyboardEventInit): KeyboardEvent {
+  const keydown = new KeyboardEvent('keydown', {
+    ...init,
+    bubbles: init.bubbles ?? true,
+    cancelable: init.cancelable ?? true,
+  })
+  document.dispatchEvent(keydown)
+  return keydown
 }
 
 /**
- * Wait for MainContent's re-render that reflects bulkSelectMode=true. The
- * toggle button's aria-label only flips to "Exit bulk select mode" after
- * the render commits; effects run on the microtask immediately following
- * commit, which drains before this assertion's first polled iteration. By
- * the time this resolves, `bulkSelectModeRef.current === true` so the
- * keydown handler below will not early-return.
+ * Waits until the list header shows `count` selected rows. The keyboard
+ * shortcut refs update in effects after that same commit, so a keydown sent
+ * afterwards sees the new selection.
  * @param screen - vitest-browser-react locator root from renderMainContent
+ * @param count - Selected-row count the mocked list header should show.
+ * @example await waitForSelectedCount(screen, 1)
  */
-async function waitForBulkSelectReady(
+async function waitForSelectedCount(
+  screen: Awaited<ReturnType<typeof renderMainContent>>['screen'],
+  count: number,
+): Promise<void> {
+  await expect
+    .element(screen.getByText(`${count} selected`, { exact: true }))
+    .toBeVisible()
+}
+
+/**
+ * Waits until the Installed tab badge counts `count` visible skills, so the
+ * ⌘A handler's visible-names ref holds the freshly loaded rows.
+ * @param screen - vitest-browser-react locator root from renderMainContent
+ * @param count - Visible-skill count the Installed tab should announce.
+ * @example await waitForVisibleSkillCount(screen, 2)
+ */
+async function waitForVisibleSkillCount(
+  screen: Awaited<ReturnType<typeof renderMainContent>>['screen'],
+  count: number,
+): Promise<void> {
+  await expect
+    .element(
+      screen.getByRole('tab', {
+        name: `Installed, ${count} ${count === 1 ? 'skill' : 'skills'} visible`,
+      }),
+    )
+    .toBeInTheDocument()
+}
+
+/**
+ * Waits until the list header reports a running bulk op, so the shortcut
+ * handler's busy ref is set before a keydown is sent.
+ * @param screen - vitest-browser-react locator root from renderMainContent
+ * @example await waitForBulkOpBusy(screen)
+ */
+async function waitForBulkOpBusy(
   screen: Awaited<ReturnType<typeof renderMainContent>>['screen'],
 ): Promise<void> {
   await expect
-    .element(screen.getByRole('button', { name: /Exit bulk select mode/i }))
-    .toBeInTheDocument()
+    .element(screen.getByRole('group', { name: 'List header' }))
+    .toHaveAttribute('aria-busy', 'true')
 }
 
 /**
@@ -407,42 +474,6 @@ describe('MainContent Installed search count display', () => {
       )
       .toBeInTheDocument()
   })
-
-  test('moves the current visible count into the toolbar when the inline setting is selected', async () => {
-    // Arrange
-    const { screen, store } = await renderMainContent()
-    const { fetchSkills } =
-      await import('@/renderer/src/redux/slices/skillsSlice')
-    const { setSettings } =
-      await import('@/renderer/src/redux/slices/settingsSlice')
-    store.dispatch(
-      fetchSkills.fulfilled(
-        [
-          makeSourceSkill('alpha', 'laststance/skills'),
-          makeSourceSkill('beta', 'laststance/skills'),
-          makeSourceSkill('gamma', 'pbakaus/impeccable'),
-        ],
-        'req-id',
-      ),
-    )
-
-    // Act
-    store.dispatch(
-      setSettings({
-        ...DEFAULT_SETTINGS,
-        installedSearchCountDisplay: 'inline',
-      }),
-    )
-
-    // Assert
-    await expect.element(screen.getByText(/^3 skills$/)).toBeInTheDocument()
-    await expect
-      .element(screen.getByRole('tab', { name: /^Installed$/ }))
-      .toBeInTheDocument()
-    expect(
-      screen.getByRole('tab', { name: /Installed, 3 skills visible/i }).query(),
-    ).toBeNull()
-  })
 })
 
 describe('MainContent hosts the shared InstallModal', () => {
@@ -474,100 +505,26 @@ describe('MainContent hosts the shared InstallModal', () => {
   })
 })
 
-describe('MainContent bulk-select toggle button', () => {
-  test('labels the bulk toggle "Select" and unpressed before the user enters bulk mode', async () => {
+describe('MainContent list header', () => {
+  test('shows the list header above the list with no bulk-select mode toggle', async () => {
     // Arrange
     const { screen } = await renderMainContent()
 
     // Act
-    const toggle = screen.getByRole('button', {
-      name: /Enter bulk select mode/i,
-    })
+    const listHeader = screen.getByRole('group', { name: 'List header' })
 
     // Assert
-    await expect.element(toggle).toMatchTextContent(/Select/)
-    await expect.element(toggle).toHaveAttribute('aria-pressed', 'false')
-  })
-
-  test('enters bulk select mode when the user clicks Select', async () => {
-    // Arrange
-    const { screen, store } = await renderMainContent()
-
-    // Act
-    await screen
-      .getByRole('button', { name: /Enter bulk select mode/i })
-      .click()
-
-    // Assert
-    expect(store.getState().ui.bulkSelectMode).toBe(true)
-  })
-
-  test('flips the bulk toggle to a pressed "Cancel" once bulk mode is active', async () => {
-    // Arrange
-    const { screen, store } = await renderMainContent()
-    const { enterBulkSelectMode } =
-      await import('@/renderer/src/redux/slices/uiSlice')
-
-    // Act
-    store.dispatch(enterBulkSelectMode())
-
-    // Assert
-    const toggle = screen.getByRole('button', {
-      name: /Exit bulk select mode/i,
-    })
-    await expect.element(toggle).toMatchTextContent(/Cancel/)
-    await expect.element(toggle).toHaveAttribute('aria-pressed', 'true')
-  })
-
-  test('clears the accumulated selection when the user clicks Cancel to leave bulk mode', async () => {
-    // Arrange
-    const { screen, store } = await renderMainContent()
-    const { enterBulkSelectMode } =
-      await import('@/renderer/src/redux/slices/uiSlice')
-    const { toggleSelection } =
-      await import('@/renderer/src/redux/slices/skillsSlice')
-
-    store.dispatch(enterBulkSelectMode())
-    store.dispatch(toggleSelection(toSkillName('task')))
-    store.dispatch(toggleSelection(toSkillName('tdd')))
-    expect(store.getState().skills.selectedSkillNames.length).toBe(2)
-
-    // Act
-    await screen.getByRole('button', { name: /Exit bulk select mode/i }).click()
-
-    // Assert
-    expect(store.getState().ui.bulkSelectMode).toBe(false)
-    expect(store.getState().skills.selectedSkillNames).toEqual([])
+    await expect.element(listHeader).toBeVisible()
+    await expect
+      .element(screen.getByRole('button', { name: /bulk select mode/i }))
+      .not.toBeInTheDocument()
   })
 })
 
 describe('MainContent keyboard shortcuts (Cmd+A)', () => {
-  test('ignores Cmd+A outside bulk mode so nothing gets silently selected', async () => {
+  test('selects every visible skill on Cmd+A with no mode to enter first', async () => {
     // Arrange
-    const { store } = await renderMainContent()
-
-    // Act
-    dispatchKey({ key: 'a', metaKey: true })
-
-    // Assert
-    expect(store.getState().skills.selectedSkillNames).toEqual([])
-  })
-
-  test('ignores Ctrl+A outside bulk mode so nothing gets silently selected', async () => {
-    // Arrange
-    const { store } = await renderMainContent()
-
-    // Act
-    dispatchKey({ key: 'a', ctrlKey: true })
-
-    // Assert
-    expect(store.getState().skills.selectedSkillNames).toEqual([])
-  })
-
-  test('selects every visible skill on Cmd+A while in bulk mode', async () => {
     const { screen, store } = await renderMainContent()
-    const { enterBulkSelectMode } =
-      await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills } =
       await import('@/renderer/src/redux/slices/skillsSlice')
     const skillFixtures = [
@@ -592,36 +549,125 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
         isOrphan: false,
       },
     ]
-
-    // Arrange
     // Seeding via the thunk's fulfilled action avoids mocking the IPC call
     // and exercises the real reducer path that fills `items` in production.
     store.dispatch(fetchSkills.fulfilled(skillFixtures, 'req-id'))
-    store.dispatch(enterBulkSelectMode())
-
-    await waitForBulkSelectReady(screen)
+    await waitForVisibleSkillCount(screen, 2)
 
     // Act
-    dispatchKey({ key: 'a', metaKey: true })
+    const keydown = dispatchKey({ key: 'a', metaKey: true })
 
     // Assert
-    const selectedNames = store.getState().skills.selectedSkillNames
-    expect(selectedNames).toContain('task')
-    expect(selectedNames).toContain('tdd')
-    expect(selectedNames.length).toBe(2)
+    expect(store.getState().skills.selectedSkillNames).toEqual(['task', 'tdd'])
+    expect(keydown.defaultPrevented).toBe(true)
+    await waitForSelectedCount(screen, 2)
+  })
+
+  test('selects every visible skill on Ctrl+A with no mode to enter first', async () => {
+    // Arrange
+    const { screen, store } = await renderMainContent()
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const skillFixtures = [
+      {
+        name: toSkillName('task'),
+        description: '',
+        path: '/skills/task' as never,
+        filesystemIdentity: directoryIdentity,
+        symlinkCount: toSymlinkCount(0),
+        symlinks: [],
+        isSource: true,
+        isOrphan: false,
+      },
+      {
+        name: toSkillName('tdd'),
+        description: '',
+        path: '/skills/tdd' as never,
+        filesystemIdentity: directoryIdentity,
+        symlinkCount: toSymlinkCount(0),
+        symlinks: [],
+        isSource: true,
+        isOrphan: false,
+      },
+    ]
+    store.dispatch(fetchSkills.fulfilled(skillFixtures, 'req-id'))
+    await waitForVisibleSkillCount(screen, 2)
+
+    // Act
+    dispatchKey({ key: 'a', ctrlKey: true })
+
+    // Assert
+    expect(store.getState().skills.selectedSkillNames).toEqual(['task', 'tdd'])
+  })
+
+  test('leaves the rows unselected on Cmd+Shift+A, which other Mac apps use for Deselect All', async () => {
+    // Arrange
+    const { screen, store } = await renderMainContent()
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const skillFixtures = [
+      {
+        name: toSkillName('task'),
+        description: '',
+        path: '/skills/task' as never,
+        filesystemIdentity: directoryIdentity,
+        symlinkCount: toSymlinkCount(0),
+        symlinks: [],
+        isSource: true,
+        isOrphan: false,
+      },
+      {
+        name: toSkillName('tdd'),
+        description: '',
+        path: '/skills/tdd' as never,
+        filesystemIdentity: directoryIdentity,
+        symlinkCount: toSymlinkCount(0),
+        symlinks: [],
+        isSource: true,
+        isOrphan: false,
+      },
+    ]
+    store.dispatch(fetchSkills.fulfilled(skillFixtures, 'req-id'))
+    await waitForVisibleSkillCount(screen, 2)
+
+    // Act — Shift turns the key into a capital A
+    const keydown = dispatchKey({ key: 'A', metaKey: true, shiftKey: true })
+
+    // Assert
+    expect(store.getState().skills.selectedSkillNames).toEqual([])
+    expect(keydown.defaultPrevented).toBe(false)
   })
 
   test('does not select skills on Cmd+A while typing in a text field', async () => {
+    // Arrange — rows are loaded, so a missing editable-target guard would
+    // visibly select them.
     const { screen, store } = await renderMainContent()
-    const { enterBulkSelectMode } =
-      await import('@/renderer/src/redux/slices/uiSlice')
-
-    // Arrange
-    store.dispatch(enterBulkSelectMode())
-    // Wait for the bulk-mode render to commit so `bulkSelectModeRef.current`
-    // is true when keydown fires. Without this wait the guard can pass via
-    // the bulkSelectMode early-return instead of the editable-target branch.
-    await waitForBulkSelectReady(screen)
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const skillFixtures = [
+      {
+        name: toSkillName('task'),
+        description: '',
+        path: '/skills/task' as never,
+        filesystemIdentity: directoryIdentity,
+        symlinkCount: toSymlinkCount(0),
+        symlinks: [],
+        isSource: true,
+        isOrphan: false,
+      },
+      {
+        name: toSkillName('tdd'),
+        description: '',
+        path: '/skills/tdd' as never,
+        filesystemIdentity: directoryIdentity,
+        symlinkCount: toSymlinkCount(0),
+        symlinks: [],
+        isSource: true,
+        isOrphan: false,
+      },
+    ]
+    store.dispatch(fetchSkills.fulfilled(skillFixtures, 'req-id'))
+    await waitForVisibleSkillCount(screen, 2)
 
     const textInput = document.createElement('input')
     document.body.appendChild(textInput)
@@ -646,10 +692,11 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
     }
   })
 
-  test('selects every visible skill on Cmd+A even while the search box is focused, blurring it first', async () => {
+  test('keeps native text select-all on Cmd+A inside the search box instead of selecting rows', async () => {
+    // Arrange — rows are loaded. The search box renders as <input
+    // type="search"> (asserted in SearchBox.browser.test.tsx); a focused
+    // stand-in exercises the same editable-target guard.
     const { screen, store } = await renderMainContent()
-    const { enterBulkSelectMode } =
-      await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills } =
       await import('@/renderer/src/redux/slices/skillsSlice')
     const skillFixtures = [
@@ -674,110 +721,269 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
         isOrphan: false,
       },
     ]
-
-    // Arrange — skills loaded and bulk mode on. The search box renders as
-    // <input type="search"> (asserted in SearchBox.browser.test.tsx); here we
-    // stand in a focused search input to exercise the handler's special case,
-    // mirroring the focused-text-field test above for a clean contrast pair.
     store.dispatch(fetchSkills.fulfilled(skillFixtures, 'req-id'))
-    store.dispatch(enterBulkSelectMode())
-    await waitForBulkSelectReady(screen)
+    await waitForVisibleSkillCount(screen, 2)
 
     const searchInput = document.createElement('input')
     searchInput.type = 'search'
     document.body.appendChild(searchInput)
     try {
-      // Act — the canonical flow: query typed, box still focused, user hits Cmd+A
+      // Act — query typed, box still focused, user hits Cmd+A
       searchInput.focus()
-      expect(document.activeElement).toBe(searchInput)
-      searchInput.dispatchEvent(
-        new KeyboardEvent('keydown', {
-          key: 'a',
-          metaKey: true,
-          bubbles: true,
-        }),
-      )
+      const keydown = new KeyboardEvent('keydown', {
+        key: 'a',
+        metaKey: true,
+        bubbles: true,
+        cancelable: true,
+      })
+      searchInput.dispatchEvent(keydown)
 
-      // Assert — every filtered row is selected (pre-fix bug: nothing happened)...
-      const selectedNames = store.getState().skills.selectedSkillNames
-      expect(selectedNames).toContain('task')
-      expect(selectedNames).toContain('tdd')
-      expect(selectedNames.length).toBe(2)
-      // ...and the box was blurred so the browser didn't just select its own text
-      expect(document.activeElement).not.toBe(searchInput)
+      // Assert — rows stay unselected, the browser keeps its text select-all,
+      // and focus stays in the box
+      expect(store.getState().skills.selectedSkillNames).toEqual([])
+      expect(keydown.defaultPrevented).toBe(false)
+      expect(document.activeElement).toBe(searchInput)
     } finally {
       // Removal in `finally` so a failing assertion doesn't leak a focused
       // <input type="search"> into the reused Chromium page.
       document.body.removeChild(searchInput)
     }
   })
-})
 
-describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
-  test('clears the selection but stays in bulk mode on the first Esc when skills are selected', async () => {
+  test('ignores Cmd+A while a bulk operation is settling', async () => {
     // Arrange
     const { screen, store } = await renderMainContent()
-    const { enterBulkSelectMode } =
-      await import('@/renderer/src/redux/slices/uiSlice')
-    const { toggleSelection } =
+    const { bulkCopyToAgents, fetchSkills } =
       await import('@/renderer/src/redux/slices/skillsSlice')
-
-    store.dispatch(enterBulkSelectMode())
-    store.dispatch(toggleSelection(toSkillName('task')))
-    expect(store.getState().skills.selectedSkillNames.length).toBe(1)
-
-    await waitForBulkSelectReady(screen)
+    const skillFixtures = [
+      {
+        name: toSkillName('task'),
+        description: '',
+        path: '/skills/task' as never,
+        filesystemIdentity: directoryIdentity,
+        symlinkCount: toSymlinkCount(0),
+        symlinks: [],
+        isSource: true,
+        isOrphan: false,
+      },
+      {
+        name: toSkillName('tdd'),
+        description: '',
+        path: '/skills/tdd' as never,
+        filesystemIdentity: directoryIdentity,
+        symlinkCount: toSymlinkCount(0),
+        symlinks: [],
+        isSource: true,
+        isOrphan: false,
+      },
+    ]
+    store.dispatch(fetchSkills.fulfilled(skillFixtures, 'req-id'))
+    store.dispatch(
+      bulkCopyToAgents.pending('copy-req', { items: [], agentIds: [] }),
+    )
+    await waitForVisibleSkillCount(screen, 2)
+    await waitForBulkOpBusy(screen)
 
     // Act
-    dispatchKey({ key: 'Escape' })
+    const keydown = dispatchKey({ key: 'a', metaKey: true })
+
+    // Assert — nothing ticks, and the page's own select-all stays off too
+    expect(store.getState().skills.selectedSkillNames).toEqual([])
+    expect(keydown.defaultPrevented).toBe(true)
+  })
+
+  test('keeps a tick the search hides when Cmd+A finds no visible rows to select', async () => {
+    // Arrange — 'task' is ticked, then a search that matches nothing hides
+    // every row. A select-all over zero rows must not wipe that hidden tick.
+    const { screen, store } = await renderMainContent()
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { setSearchQuery } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const skillFixtures = [
+      {
+        name: toSkillName('task'),
+        description: '',
+        path: '/skills/task' as never,
+        filesystemIdentity: directoryIdentity,
+        symlinkCount: toSymlinkCount(0),
+        symlinks: [],
+        isSource: true,
+        isOrphan: false,
+      },
+      {
+        name: toSkillName('tdd'),
+        description: '',
+        path: '/skills/tdd' as never,
+        filesystemIdentity: directoryIdentity,
+        symlinkCount: toSymlinkCount(0),
+        symlinks: [],
+        isSource: true,
+        isOrphan: false,
+      },
+    ]
+    store.dispatch(fetchSkills.fulfilled(skillFixtures, 'req-id'))
+    store.dispatch(toggleSelection(toSkillName('task')))
+    store.dispatch(setSearchQuery(toSearchQuery('missing')))
+    await waitForVisibleSkillCount(screen, 0)
+    await waitForSelectedCount(screen, 1)
+
+    // Act
+    const keydown = dispatchKey({ key: 'a', metaKey: true })
+
+    // Assert — the hidden tick survives, and the page's own select-all stays off
+    expect(store.getState().skills.selectedSkillNames).toEqual(['task'])
+    expect(keydown.defaultPrevented).toBe(true)
+  })
+
+  test('leaves Cmd+A to the page on the Marketplace tab instead of ticking installed rows', async () => {
+    // Arrange — installed rows are loaded, so a shortcut that outlived the
+    // Installed tab would tick them unseen while the user browses Marketplace.
+    const { screen, store } = await renderMainContent()
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { setActiveTab } = await import('@/renderer/src/redux/slices/uiSlice')
+    const skillFixtures = [
+      {
+        name: toSkillName('task'),
+        description: '',
+        path: '/skills/task' as never,
+        filesystemIdentity: directoryIdentity,
+        symlinkCount: toSymlinkCount(0),
+        symlinks: [],
+        isSource: true,
+        isOrphan: false,
+      },
+      {
+        name: toSkillName('tdd'),
+        description: '',
+        path: '/skills/tdd' as never,
+        filesystemIdentity: directoryIdentity,
+        symlinkCount: toSymlinkCount(0),
+        symlinks: [],
+        isSource: true,
+        isOrphan: false,
+      },
+    ]
+    store.dispatch(fetchSkills.fulfilled(skillFixtures, 'req-id'))
+    await waitForVisibleSkillCount(screen, 2)
+    store.dispatch(setActiveTab('marketplace'))
+    await expect
+      .element(screen.getByRole('tab', { name: /^Marketplace$/ }))
+      .toHaveAttribute('aria-selected', 'true')
+
+    // Act
+    const keydown = dispatchKey({ key: 'a', metaKey: true })
+
+    // Assert — no rows ticked, and the browser keeps its own select-all
+    expect(store.getState().skills.selectedSkillNames).toEqual([])
+    expect(keydown.defaultPrevented).toBe(false)
+  })
+
+  test('keeps native text select-all on Cmd+A inside the Inspector pane instead of selecting rows', async () => {
+    // Arrange — rows are loaded, and the Inspector's file preview has focus
+    const { screen, store } = await renderMainContent()
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [
+          makeSourceSkill('task', 'vercel-labs/skills'),
+          makeSourceSkill('tdd', 'vercel-labs/skills'),
+        ],
+        'req-id',
+      ),
+    )
+    await waitForVisibleSkillCount(screen, 2)
+    // Stands in for DetailPanel, which carries the same marker.
+    const inspectorPane = document.createElement('aside')
+    inspectorPane.setAttribute('data-inspector-pane', '')
+    const filePreview = document.createElement('pre')
+    filePreview.tabIndex = 0
+    filePreview.textContent = 'Use this skill when a test fails.'
+    inspectorPane.appendChild(filePreview)
+    document.body.appendChild(inspectorPane)
+    onTestFinished(() => inspectorPane.remove())
+    filePreview.focus()
+
+    // Act
+    const keydown = dispatchKey({ key: 'a', metaKey: true })
+
+    // Assert — rows stay unticked and the browser selects the preview text
+    expect(store.getState().skills.selectedSkillNames).toEqual([])
+    expect(keydown.defaultPrevented).toBe(false)
+  })
+
+  test('leaves Cmd+A to an open menu instead of ticking the rows behind it', async () => {
+    // Arrange — rows are loaded while a menu is open over the list
+    const { screen, store } = await renderMainContent()
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [
+          makeSourceSkill('task', 'vercel-labs/skills'),
+          makeSourceSkill('tdd', 'vercel-labs/skills'),
+        ],
+        'req-id',
+      ),
+    )
+    await waitForVisibleSkillCount(screen, 2)
+    const openMenu = document.createElement('div')
+    openMenu.setAttribute('role', 'menu')
+    openMenu.setAttribute('data-state', 'open')
+    document.body.appendChild(openMenu)
+    onTestFinished(() => openMenu.remove())
+
+    // Act
+    const keydown = dispatchKey({ key: 'a', metaKey: true })
 
     // Assert
     expect(store.getState().skills.selectedSkillNames).toEqual([])
-    expect(store.getState().ui.bulkSelectMode).toBe(true)
+    expect(keydown.defaultPrevented).toBe(false)
   })
+})
 
-  test('leaves bulk mode on Esc once the selection is already empty', async () => {
+describe('MainContent keyboard shortcuts (Esc)', () => {
+  test('clears the selection on Esc when skills are selected', async () => {
     // Arrange
     const { screen, store } = await renderMainContent()
-    const { enterBulkSelectMode } =
-      await import('@/renderer/src/redux/slices/uiSlice')
-
-    store.dispatch(enterBulkSelectMode())
-
-    await waitForBulkSelectReady(screen)
+    const { toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    store.dispatch(toggleSelection(toSkillName('task')))
+    await waitForSelectedCount(screen, 1)
 
     // Act
-    dispatchKey({ key: 'Escape' })
+    const keydown = dispatchKey({ key: 'Escape' })
 
     // Assert
-    expect(store.getState().ui.bulkSelectMode).toBe(false)
+    expect(store.getState().skills.selectedSkillNames).toEqual([])
+    expect(keydown.defaultPrevented).toBe(true)
+    await waitForSelectedCount(screen, 0)
   })
 
-  test('ignores Esc entirely when the user is not in bulk mode', async () => {
+  test('leaves Esc unconsumed when nothing is selected', async () => {
     // Arrange
-    const { store } = await renderMainContent()
+    const { screen, store } = await renderMainContent()
+    await waitForSelectedCount(screen, 0)
 
     // Act
-    dispatchKey({ key: 'Escape' })
+    const keydown = dispatchKey({ key: 'Escape' })
 
     // Assert
-    expect(store.getState().ui.bulkSelectMode).toBe(false)
+    expect(keydown.defaultPrevented).toBe(false)
     expect(store.getState().skills.selectedSkillNames).toEqual([])
   })
 
   test('does not clear the selection on Esc while the user is typing in a text field', async () => {
     // Arrange
     const { screen, store } = await renderMainContent()
-    const { enterBulkSelectMode } =
-      await import('@/renderer/src/redux/slices/uiSlice')
     const { toggleSelection } =
       await import('@/renderer/src/redux/slices/skillsSlice')
-
-    store.dispatch(enterBulkSelectMode())
     store.dispatch(toggleSelection(toSkillName('task')))
-    // Same race as the Cmd+A editable-target test: wait for bulk-mode commit
-    // so the Escape guard is exercised via the editable-target branch.
-    await waitForBulkSelectReady(screen)
+    // Wait for the selection commit so the Escape guard is exercised via the
+    // editable-target branch, not the empty-selection one.
+    await waitForSelectedCount(screen, 1)
 
     const textInput = document.createElement('input')
     document.body.appendChild(textInput)
@@ -790,30 +996,46 @@ describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
 
       // Assert
       expect(store.getState().skills.selectedSkillNames).toEqual(['task'])
-      expect(store.getState().ui.bulkSelectMode).toBe(true)
     } finally {
       document.body.removeChild(textInput)
     }
   })
 
-  test('does not clear the selection or exit bulk mode when Escape closes an open install modal overlaying the Installed tab', async () => {
+  test('keeps the selection on Esc while a bulk operation is settling', async () => {
+    // Arrange
+    const { screen, store } = await renderMainContent()
+    const { bulkCopyToAgents, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    store.dispatch(toggleSelection(toSkillName('task')))
+    store.dispatch(
+      bulkCopyToAgents.pending('copy-req', { items: [], agentIds: [] }),
+    )
+    await waitForSelectedCount(screen, 1)
+    await waitForBulkOpBusy(screen)
+
+    // Act
+    const keydown = dispatchKey({ key: 'Escape' })
+
+    // Assert — the selection stays, and the key is still claimed by the list
+    expect(store.getState().skills.selectedSkillNames).toEqual(['task'])
+    expect(keydown.defaultPrevented).toBe(true)
+  })
+
+  test('does not clear the selection when Escape closes an open install modal overlaying the Installed tab', async () => {
     // Arrange
     // The always-mounted InstallModal (hoisted onto MainContent so sidebar
-    // bookmark installs open it on any tab) can now overlay the Installed tab
-    // while bulk-select is active. Escape must close ONLY the modal; without the
+    // bookmark installs open it on any tab) can overlay the Installed tab
+    // while rows are ticked. Escape must close ONLY the modal; without the
     // open-dialog guard in handleKey, the same Escape would also clear the
     // selection — a double-fire that silently wipes the user's batch.
     const { screen, store } = await renderMainContent()
-    const { enterBulkSelectMode } =
-      await import('@/renderer/src/redux/slices/uiSlice')
     const { toggleSelection } =
       await import('@/renderer/src/redux/slices/skillsSlice')
     const { selectSkillForInstall } =
       await import('@/renderer/src/redux/slices/marketplaceSlice')
 
-    store.dispatch(enterBulkSelectMode())
     store.dispatch(toggleSelection(toSkillName('task')))
-    await waitForBulkSelectReady(screen)
+    await waitForSelectedCount(screen, 1)
 
     // Open the shared InstallModal (exactly the sidebar bookmark install path),
     // then wait for the Radix dialog to mount with data-state="open".
@@ -827,41 +1049,91 @@ describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
       .element(screen.getByRole('dialog', { name: 'Install Skill' }))
       .toBeInTheDocument()
 
-    // Act
-    dispatchKey({ key: 'Escape' })
+    // Act — a real keypress: the browser runs React's close render between
+    // Radix's listener and ours, so the dialog is already gone when ours runs
+    await userEvent.keyboard('{Escape}')
 
     // Assert
+    await expect
+      .element(screen.getByRole('dialog', { name: 'Install Skill' }))
+      .not.toBeInTheDocument()
     expect(store.getState().skills.selectedSkillNames).toEqual(['task'])
-    expect(store.getState().ui.bulkSelectMode).toBe(true)
   })
 
-  test('does not clear the selection or exit bulk mode when Escape closes an open dropdown menu', async () => {
+  test('does not clear the selection when Escape closes an open dropdown menu', async () => {
     // Arrange — Radix DropdownMenu.Content owns Escape while it is open. The
-    // document bulk shortcut must not also consume that same keydown.
+    // document selection shortcut must not also consume that same keydown.
     const { screen, store } = await renderMainContent()
-    const { enterBulkSelectMode } =
-      await import('@/renderer/src/redux/slices/uiSlice')
-    const { toggleSelection } =
+    const { fetchSkills, toggleSelection } =
       await import('@/renderer/src/redux/slices/skillsSlice')
-    store.dispatch(enterBulkSelectMode())
-    store.dispatch(toggleSelection(toSkillName('task')))
-    await waitForBulkSelectReady(screen)
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [
+          makeSourceSkill('alpha', 'vercel-labs/skills'),
+          makeSourceSkill('beta', 'pbakaus/impeccable'),
+        ],
+        'req-id',
+      ),
+    )
+    store.dispatch(toggleSelection(toSkillName('alpha')))
+    await waitForSelectedCount(screen, 1)
+    await screen
+      .getByRole('button', { name: /Filter by source repository/i })
+      .click()
+    await expect.element(screen.getByRole('menu')).toBeVisible()
 
-    const openMenu = document.createElement('div')
-    openMenu.setAttribute('role', 'menu')
-    openMenu.setAttribute('data-state', 'open')
-    document.body.appendChild(openMenu)
+    // Act — a real keypress, so React closes the menu before our listener runs
+    await userEvent.keyboard('{Escape}')
 
-    try {
-      // Act
-      dispatchKey({ key: 'Escape' })
+    // Assert
+    await expect.element(screen.getByRole('menu')).not.toBeInTheDocument()
+    expect(store.getState().skills.selectedSkillNames).toEqual(['alpha'])
+  })
 
-      // Assert
-      expect(store.getState().skills.selectedSkillNames).toEqual(['task'])
-      expect(store.getState().ui.bulkSelectMode).toBe(true)
-    } finally {
-      document.body.removeChild(openMenu)
+  test('keeps the selection when Escape cancels the bulk Delete confirmation', async () => {
+    // Arrange — the header's Delete confirmation is open over a ticked row
+    const { screen, store } = await renderMainContent()
+    const { setBulkConfirm } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const taskSkill: Skill = {
+      name: toSkillName('task'),
+      description: '',
+      path: toAbsolutePath('/Users/me/.agents/skills/task'),
+      filesystemIdentity: directoryIdentity,
+      symlinkCount: toSymlinkCount(0),
+      symlinks: [],
+      isSource: true,
+      isOrphan: false,
     }
+    store.dispatch(fetchSkills.fulfilled([taskSkill], 'req-id'))
+    store.dispatch(toggleSelection(toSkillName('task')))
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        origin: 'selection',
+        skillNames: [toSkillName('task')],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+        ...partitionGlobalDeleteTargets([taskSkill], [toSkillName('task')]),
+      }),
+    )
+    await expect
+      .element(screen.getByRole('button', { name: /^Delete$/ }))
+      .toBeVisible()
+
+    // Act — a real keypress, so React closes the dialog before our listener runs
+    await userEvent.keyboard('{Escape}')
+
+    // Assert — only the dialog closes; the batch stays ticked for a retry
+    await expect
+      .element(screen.getByRole('button', { name: /^Delete$/ }))
+      .not.toBeInTheDocument()
+    expect(store.getState().ui.bulkConfirm).toBeNull()
+    expect(store.getState().skills.selectedSkillNames).toEqual(['task'])
+    expect(mockSkillsDeleteSkills).not.toHaveBeenCalled()
   })
 })
 
@@ -899,7 +1171,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
   test('deletes both source-tracked and plain skills through a single delete call', async () => {
     // Arrange
     const { screen, store } = await renderMainContent()
-    const { enterBulkSelectMode, setBulkConfirm } =
+    const { setBulkConfirm } =
       await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills } =
       await import('@/renderer/src/redux/slices/skillsSlice')
@@ -929,10 +1201,10 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
       makeSkill(toSkillName('local-skill'), false),
     ]
     store.dispatch(fetchSkills.fulfilled(selectedSkills, 'req-id'))
-    store.dispatch(enterBulkSelectMode())
     store.dispatch(
       setBulkConfirm({
         kind: 'delete',
+        origin: 'selection',
         skillNames: [toSkillName('brainstorming'), toSkillName('local-skill')],
         agentId: null,
         agentName: null,
@@ -998,6 +1270,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     store.dispatch(
       setBulkConfirm({
         kind: 'delete',
+        origin: 'selection',
         skillNames: [metadataName],
         agentId: null,
         agentName: null,
@@ -1022,11 +1295,9 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     })
   })
 
-  test('uses toolbar-captured delete targets when live rows drift before confirm', async () => {
-    mockSelectionToolbarState.enabled = true
+  test('uses header-captured delete targets when live rows drift before confirm', async () => {
+    mockListHeaderState.enabled = true
     const { screen, store } = await renderMainContent()
-    const { enterBulkSelectMode } =
-      await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills, toggleSelection } =
       await import('@/renderer/src/redux/slices/skillsSlice')
     const skillName = toSkillName('snapshot-delete')
@@ -1058,7 +1329,6 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     // Arrange: open the real bulk-confirm path, then replace the live row with
     // the same display name but a different reviewed filesystem identity.
     store.dispatch(fetchSkills.fulfilled([originalSkill], 'req-original'))
-    store.dispatch(enterBulkSelectMode())
     store.dispatch(toggleSelection(skillName))
     await screen.getByRole('button', { name: 'Open bulk confirm' }).click()
     store.dispatch(fetchSkills.fulfilled([replacementSkill], 'req-replace'))
@@ -1079,13 +1349,12 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     })
   })
 
-  test('uses toolbar-captured unlink targets when live rows drift before confirm', async () => {
-    mockSelectionToolbarState.enabled = true
+  test('uses header-captured unlink targets when live rows drift before confirm', async () => {
+    mockListHeaderState.enabled = true
     const { screen, store } = await renderMainContent()
     const { fetchAgents } =
       await import('@/renderer/src/redux/slices/agentsSlice')
-    const { enterBulkSelectMode, selectAgent } =
-      await import('@/renderer/src/redux/slices/uiSlice')
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills, toggleSelection } =
       await import('@/renderer/src/redux/slices/skillsSlice')
     const skillName = toSkillName('snapshot-unlink')
@@ -1146,7 +1415,6 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     )
     store.dispatch(selectAgent('cursor'))
     store.dispatch(fetchSkills.fulfilled([originalSkill], 'req-original'))
-    store.dispatch(enterBulkSelectMode())
     store.dispatch(toggleSelection(skillName))
     await screen.getByRole('button', { name: 'Open bulk confirm' }).click()
     store.dispatch(fetchSkills.fulfilled([replacementSkill], 'req-replace'))
@@ -1210,6 +1478,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     store.dispatch(
       setBulkConfirm({
         kind: 'delete',
+        origin: 'selection',
         skillNames: [orphanSkillName],
         agentId: null,
         agentName: null,
@@ -1250,7 +1519,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
 
   test('keeps failed source rows selected after mixed source and orphan delete', async () => {
     const { screen, store } = await renderMainContent()
-    const { enterBulkSelectMode, setBulkConfirm } =
+    const { setBulkConfirm } =
       await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills, toggleSelection } =
       await import('@/renderer/src/redux/slices/skillsSlice')
@@ -1307,12 +1576,12 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     // Arrange: mixed batch has one retryable source failure and one orphan
     // cleanup success; the source failure must stay selected for retry.
     store.dispatch(fetchSkills.fulfilled([sourceSkill, orphanSkill], 'req-id'))
-    store.dispatch(enterBulkSelectMode())
     store.dispatch(toggleSelection(sourceSkillName))
     store.dispatch(toggleSelection(orphanSkillName))
     store.dispatch(
       setBulkConfirm({
         kind: 'delete',
+        origin: 'selection',
         skillNames: [sourceSkillName, orphanSkillName],
         agentId: null,
         agentName: null,
@@ -1332,12 +1601,14 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     expect(store.getState().skills.selectedSkillNames).toEqual([
       sourceSkillName,
     ])
-    expect(store.getState().ui.bulkSelectMode).toBe(true)
+    await expect
+      .element(screen.getByText('1 selected', { exact: true }))
+      .toBeVisible()
   })
 
   test('keeps source ESTALE selected instead of treating it as orphan rescan', async () => {
     const { screen, store } = await renderMainContent()
-    const { enterBulkSelectMode, setBulkConfirm } =
+    const { setBulkConfirm } =
       await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills, toggleSelection } =
       await import('@/renderer/src/redux/slices/skillsSlice')
@@ -1397,12 +1668,12 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     // Arrange: source ESTALE is retry-visible; only orphan ESTALE/preflight
     // rows should become rescan-required and be removed from retry selection.
     store.dispatch(fetchSkills.fulfilled([sourceSkill, orphanSkill], 'req-id'))
-    store.dispatch(enterBulkSelectMode())
     store.dispatch(toggleSelection(sourceSkillName))
     store.dispatch(toggleSelection(orphanSkillName))
     store.dispatch(
       setBulkConfirm({
         kind: 'delete',
+        origin: 'selection',
         skillNames: [sourceSkillName, orphanSkillName],
         agentId: null,
         agentName: null,
@@ -1422,12 +1693,14 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     expect(store.getState().skills.selectedSkillNames).toEqual([
       sourceSkillName,
     ])
-    expect(store.getState().ui.bulkSelectMode).toBe(true)
+    await expect
+      .element(screen.getByText('1 selected', { exact: true }))
+      .toBeVisible()
   })
 
   test('excludes stale orphan preflight errors from retry selection and names rescan in the summary', async () => {
     const { screen, store } = await renderMainContent()
-    const { enterBulkSelectMode, setBulkConfirm } =
+    const { setBulkConfirm } =
       await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills, toggleSelection } =
       await import('@/renderer/src/redux/slices/skillsSlice')
@@ -1478,12 +1751,12 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     store.dispatch(
       fetchSkills.fulfilled([sourceSkill, staleOrphanSkill], 'req-id'),
     )
-    store.dispatch(enterBulkSelectMode())
     store.dispatch(toggleSelection(sourceSkillName))
     store.dispatch(toggleSelection(orphanSkillName))
     store.dispatch(
       setBulkConfirm({
         kind: 'delete',
+        origin: 'selection',
         skillNames: [sourceSkillName, orphanSkillName],
         agentId: null,
         agentName: null,
@@ -1502,7 +1775,9 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     await expect.poll(() => mockSkillsDeleteSkills.mock.calls.length).toBe(1)
     expect(mockClearOrphanSymlinks).not.toHaveBeenCalled()
     expect(store.getState().skills.selectedSkillNames).toEqual([])
-    expect(store.getState().ui.bulkSelectMode).toBe(false)
+    await expect
+      .element(screen.getByText('0 selected', { exact: true }))
+      .toBeVisible()
     expect(store.getState().ui.undoToast?.summary).toBe(
       'Deleted 1 of 2 skills. 1 orphan skill needs a rescan before cleanup.',
     )
@@ -1510,7 +1785,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
 
   test('restores unresolved mixed delete selection when source delete rejects', async () => {
     const { screen, store } = await renderMainContent()
-    const { enterBulkSelectMode, setBulkConfirm } =
+    const { setBulkConfirm } =
       await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills, toggleSelection } =
       await import('@/renderer/src/redux/slices/skillsSlice')
@@ -1549,12 +1824,12 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     // Arrange: source delete rejects before orphan cleanup can run, so both
     // unresolved rows must remain selected for a later retry.
     store.dispatch(fetchSkills.fulfilled([sourceSkill, orphanSkill], 'req-id'))
-    store.dispatch(enterBulkSelectMode())
     store.dispatch(toggleSelection(sourceSkillName))
     store.dispatch(toggleSelection(orphanSkillName))
     store.dispatch(
       setBulkConfirm({
         kind: 'delete',
+        origin: 'selection',
         skillNames: [sourceSkillName, orphanSkillName],
         agentId: null,
         agentName: null,
@@ -1576,13 +1851,15 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
       sourceSkillName,
       orphanSkillName,
     ])
-    expect(store.getState().ui.bulkSelectMode).toBe(true)
+    await expect
+      .element(screen.getByText('2 selected', { exact: true }))
+      .toBeVisible()
     expect(mockRefreshAllData).toHaveBeenCalledTimes(1)
   })
 
   test('restores orphan-only selection and refreshes when reviewed orphan cleanup rejects', async () => {
     const { screen, store } = await renderMainContent()
-    const { enterBulkSelectMode, setBulkConfirm } =
+    const { setBulkConfirm } =
       await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills, toggleSelection } =
       await import('@/renderer/src/redux/slices/skillsSlice')
@@ -1609,11 +1886,11 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
 
     // Arrange
     store.dispatch(fetchSkills.fulfilled([orphanSkill], 'req-id'))
-    store.dispatch(enterBulkSelectMode())
     store.dispatch(toggleSelection(orphanSkillName))
     store.dispatch(
       setBulkConfirm({
         kind: 'delete',
+        origin: 'selection',
         skillNames: [orphanSkillName],
         agentId: null,
         agentName: null,
@@ -1630,7 +1907,9 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     expect(store.getState().skills.selectedSkillNames).toEqual([
       orphanSkillName,
     ])
-    expect(store.getState().ui.bulkSelectMode).toBe(true)
+    await expect
+      .element(screen.getByText('1 selected', { exact: true }))
+      .toBeVisible()
     expect(mockRefreshAllData).toHaveBeenCalledTimes(1)
   })
 
@@ -1666,6 +1945,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     store.dispatch(
       setBulkConfirm({
         kind: 'delete',
+        origin: 'selection',
         skillNames: [orphanSkillName],
         agentId: null,
         agentName: null,
@@ -1714,6 +1994,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     store.dispatch(
       setBulkConfirm({
         kind: 'delete',
+        origin: 'selection',
         skillNames: [sourceSkillName],
         agentId: null,
         agentName: null,
@@ -2295,20 +2576,8 @@ describe('MainContent hidden-locals caveat', () => {
 })
 
 describe('MainContent toolbar quick actions', () => {
-  test('reverses the alphabetical sort order when the user clicks the sort toggle', async () => {
-    // Arrange
-    const { screen, store } = await renderMainContent()
-    expect(store.getState().ui.sortOrder).toBe('asc')
-
-    // Act
-    await screen
-      .getByRole('button', { name: /Sorted A to Z, click to reverse/i })
-      .click()
-
-    // Assert
-    expect(store.getState().ui.sortOrder).toBe('desc')
-  })
-
+  // The sort toggle moved into the list header; its MainContent-level test
+  // lives in MainContent.listHeader.browser.test.tsx with the real header.
   test('switches to the Marketplace tab and clears any open skill preview', async () => {
     // Arrange
     const { screen, store } = await renderMainContent()
@@ -2553,18 +2822,15 @@ describe('MainContent skill-type exclude toggles', () => {
 })
 
 describe('MainContent bulk copy action', () => {
-  test('opens the bulk copy-to-agents modal from the global selection toolbar', async () => {
-    // Arrange — exercise the real toolbar's Copy action wired to MainContent.
-    mockSelectionToolbarState.enabled = true
+  test('opens the bulk copy-to-agents modal from the global list header', async () => {
+    // Arrange — the list header's Copy action runs MainContent's real handler.
+    mockListHeaderState.enabled = true
     const { screen, store } = await renderMainContent()
-    const { enterBulkSelectMode } =
-      await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills, toggleSelection } =
       await import('@/renderer/src/redux/slices/skillsSlice')
     store.dispatch(
       fetchSkills.fulfilled([makeSourceSkill('alpha', 'org/repo')], 'req-id'),
     )
-    store.dispatch(enterBulkSelectMode())
     store.dispatch(toggleSelection(toSkillName('alpha')))
 
     // Act
@@ -2643,6 +2909,7 @@ describe('MainContent stale-source delete summary', () => {
     store.dispatch(
       setBulkConfirm({
         kind: 'delete',
+        origin: 'selection',
         skillNames: [deletableName, staleName],
         agentId: null,
         agentName: null,
@@ -2711,6 +2978,7 @@ describe('MainContent undo bulk delete', () => {
     store.dispatch(
       setBulkConfirm({
         kind: 'delete',
+        origin: 'selection',
         skillNames,
         agentId: null,
         agentName: null,
@@ -2793,15 +3061,12 @@ describe('MainContent undo bulk delete', () => {
   })
 })
 
-describe('MainContent toolbar primary action guards', () => {
-  test('does nothing when the toolbar primary fires with no rows selected', async () => {
-    // Arrange — bulk-select mode is on but nothing is selected, so the toolbar
-    // primary must early-return without opening any confirmation dialog.
-    mockSelectionToolbarState.enabled = true
+describe('MainContent list header primary action guards', () => {
+  test('does nothing when the header primary action fires with no rows selected', async () => {
+    // Arrange — nothing is selected, so the header's primary action must
+    // early-return without opening any confirmation dialog.
+    mockListHeaderState.enabled = true
     const { screen, store } = await renderMainContent()
-    const { enterBulkSelectMode } =
-      await import('@/renderer/src/redux/slices/uiSlice')
-    store.dispatch(enterBulkSelectMode())
 
     // Act
     await screen.getByRole('button', { name: 'Open bulk confirm' }).click()
@@ -2813,12 +3078,11 @@ describe('MainContent toolbar primary action guards', () => {
   test('does nothing when only protected rows are selected in agent view', async () => {
     // Arrange — the row is visible and selected, but protection excludes it from
     // agent-view bulk unlink candidates before the confirm dialog can open.
-    mockSelectionToolbarState.enabled = true
+    mockListHeaderState.enabled = true
     const { screen, store } = await renderMainContent()
     const { fetchAgents } =
       await import('@/renderer/src/redux/slices/agentsSlice')
-    const { enterBulkSelectMode, selectAgent } =
-      await import('@/renderer/src/redux/slices/uiSlice')
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills, toggleSelection } =
       await import('@/renderer/src/redux/slices/skillsSlice')
     const { addProtection } =
@@ -2862,7 +3126,6 @@ describe('MainContent toolbar primary action guards', () => {
     )
     store.dispatch(selectAgent('cursor'))
     store.dispatch(fetchSkills.fulfilled([protectedSkill], 'req-protected'))
-    store.dispatch(enterBulkSelectMode())
     store.dispatch(toggleSelection(skillName))
     store.dispatch(addProtection({ name: skillName }))
 
@@ -2876,12 +3139,11 @@ describe('MainContent toolbar primary action guards', () => {
   test('blocks unlink and prompts a rescan when the selected agent slot went stale', async () => {
     // Arrange — a cursor row is selectable (status valid) yet its slot lost the
     // reviewed targetPath, so buildAgentUnlinkTargets reports it stale.
-    mockSelectionToolbarState.enabled = true
+    mockListHeaderState.enabled = true
     const { screen, store } = await renderMainContent()
     const { fetchAgents } =
       await import('@/renderer/src/redux/slices/agentsSlice')
-    const { enterBulkSelectMode, selectAgent } =
-      await import('@/renderer/src/redux/slices/uiSlice')
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills, toggleSelection } =
       await import('@/renderer/src/redux/slices/skillsSlice')
     const skillName = toSkillName('stale-unlink')
@@ -2922,7 +3184,6 @@ describe('MainContent toolbar primary action guards', () => {
     )
     store.dispatch(selectAgent('cursor'))
     store.dispatch(fetchSkills.fulfilled([staleSkill], 'req-stale'))
-    store.dispatch(enterBulkSelectMode())
     store.dispatch(toggleSelection(skillName))
 
     // Act
@@ -2947,12 +3208,11 @@ describe('MainContent bulk unlink result toasts', () => {
    * @returns { screen, store } after the unlink confirm dialog is open.
    */
   async function openUnlinkConfirmForCursor() {
-    mockSelectionToolbarState.enabled = true
+    mockListHeaderState.enabled = true
     const { screen, store } = await renderMainContent()
     const { fetchAgents } =
       await import('@/renderer/src/redux/slices/agentsSlice')
-    const { enterBulkSelectMode, selectAgent } =
-      await import('@/renderer/src/redux/slices/uiSlice')
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills, toggleSelection } =
       await import('@/renderer/src/redux/slices/skillsSlice')
     const skillName = toSkillName('linked-skill')
@@ -2992,7 +3252,6 @@ describe('MainContent bulk unlink result toasts', () => {
     )
     store.dispatch(selectAgent('cursor'))
     store.dispatch(fetchSkills.fulfilled([linkedSkill], 'req-linked'))
-    store.dispatch(enterBulkSelectMode())
     store.dispatch(toggleSelection(skillName))
     await screen.getByRole('button', { name: 'Open bulk confirm' }).click()
     return { screen, store, skillName }
@@ -3062,6 +3321,718 @@ describe('MainContent bulk unlink result toasts', () => {
   })
 })
 
+describe('MainContent selection hand-off after a bulk op settles', () => {
+  /**
+   * Build a global source skill with a reviewed directory identity, so the
+   * header's Delete (and a card's own Delete) can target it.
+   * @param name - Skill name, also its folder under ~/.agents/skills.
+   * @returns Skill row with no agent symlinks.
+   * @example makeGlobalSkill('task') // => { name: 'task', path: '/home/user/.agents/skills/task', ... }
+   */
+  function makeGlobalSkill(name: string): Skill {
+    return {
+      name: toSkillName(name),
+      description: '',
+      path: toAbsolutePath(`/home/user/.agents/skills/${name}`),
+      filesystemIdentity: directoryIdentity,
+      symlinkCount: toSymlinkCount(0),
+      symlinks: [],
+      isSource: true,
+      isOrphan: false,
+    }
+  }
+
+  /**
+   * Build a skill with a valid Cursor symlink, so the header's Unlink in
+   * Cursor's view can target it.
+   * @param name - Skill name, also its link name under ~/.cursor/skills.
+   * @returns Skill row linked into Cursor.
+   * @example makeCursorLinkedSkill('task-one') // => { name: 'task-one', symlinks: [{ agentId: 'cursor', ... }], ... }
+   */
+  function makeCursorLinkedSkill(name: string): Skill {
+    return {
+      name: toSkillName(name),
+      description: '',
+      path: toAbsolutePath(`/home/user/.agents/skills/${name}`),
+      filesystemIdentity: directoryIdentity,
+      symlinkCount: toSymlinkCount(1),
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          linkPath: toAbsolutePath(`/home/user/.cursor/skills/${name}`),
+          targetPath: toAbsolutePath(`/home/user/.agents/skills/${name}`),
+          status: 'valid',
+          isLocal: false,
+        },
+      ],
+      isSource: true,
+      isOrphan: false,
+    }
+  }
+
+  test('clears every tick, rows hidden by the search included, after a header Delete fully succeeds', async () => {
+    // Arrange — 'task' is visible and ticked; 'other' is ticked but hidden by
+    // the search, so the Delete never touches it.
+    mockListHeaderState.enabled = true
+    const { screen, store } = await renderMainContent()
+    const { setSearchQuery } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [makeGlobalSkill('other'), makeGlobalSkill('task')],
+        'req-id',
+      ),
+    )
+    store.dispatch(toggleSelection(toSkillName('task')))
+    store.dispatch(toggleSelection(toSkillName('other')))
+    store.dispatch(setSearchQuery(toSearchQuery('task')))
+    mockSkillsDeleteSkills.mockResolvedValue({
+      items: [
+        {
+          skillName: toSkillName('task'),
+          outcome: 'deleted',
+          tombstoneId: tombstoneId('1729180800000-task-a1b2c3d4'),
+          symlinksRemoved: toSymlinkCount(0),
+          cascadeAgents: [],
+        },
+      ],
+    } satisfies BulkDeleteResult)
+    await screen.getByRole('button', { name: 'Open bulk confirm' }).click()
+
+    // Act
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+
+    // Assert
+    await expect
+      .element(screen.getByText('0 selected', { exact: true }))
+      .toBeVisible()
+    expect(store.getState().skills.selectedSkillNames).toEqual([])
+    expect(mockSkillsDeleteSkills.mock.calls[0][0]).toEqual({
+      items: [
+        {
+          skillName: 'task',
+          skillPath: '/home/user/.agents/skills/task',
+          filesystemIdentity: directoryIdentity,
+        },
+      ],
+    })
+  })
+
+  test('drops a protected skip from the selection after a header Delete', async () => {
+    // Arrange — global view lets a protected row stay ticked; the Delete
+    // skips it and removes 'task'.
+    mockListHeaderState.enabled = true
+    const { screen, store } = await renderMainContent()
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { addProtection } =
+      await import('@/renderer/src/redux/slices/protectSlice')
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [makeGlobalSkill('guarded'), makeGlobalSkill('task')],
+        'req-id',
+      ),
+    )
+    store.dispatch(toggleSelection(toSkillName('guarded')))
+    store.dispatch(toggleSelection(toSkillName('task')))
+    store.dispatch(addProtection({ name: toSkillName('guarded') }))
+    mockSkillsDeleteSkills.mockResolvedValue({
+      items: [
+        {
+          skillName: toSkillName('task'),
+          outcome: 'deleted',
+          tombstoneId: tombstoneId('1729180800000-task-a1b2c3d4'),
+          symlinksRemoved: toSymlinkCount(0),
+          cascadeAgents: [],
+        },
+      ],
+    } satisfies BulkDeleteResult)
+    await screen.getByRole('button', { name: 'Open bulk confirm' }).click()
+
+    // Act
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+
+    // Assert
+    await expect
+      .element(screen.getByText('0 selected', { exact: true }))
+      .toBeVisible()
+    expect(store.getState().skills.selectedSkillNames).toEqual([])
+    expect(mockSkillsDeleteSkills.mock.calls[0][0]).toEqual({
+      items: [
+        {
+          skillName: 'task',
+          skillPath: '/home/user/.agents/skills/task',
+          filesystemIdentity: directoryIdentity,
+        },
+      ],
+    })
+  })
+
+  test('keeps only the failed row ticked after a header Unlink partly fails', async () => {
+    // Arrange — Cursor view; both 'task' rows are ticked and visible, and
+    // 'other' is ticked but hidden by the search.
+    mockListHeaderState.enabled = true
+    const { screen, store } = await renderMainContent()
+    const { fetchAgents } =
+      await import('@/renderer/src/redux/slices/agentsSlice')
+    const { selectAgent, setSearchQuery } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    store.dispatch(
+      fetchAgents.fulfilled(
+        [
+          {
+            id: 'cursor',
+            name: 'Cursor',
+            path: toAbsolutePath('/home/user/.cursor/skills'),
+            exists: true,
+            skillCount: toSkillCount(3),
+            localSkillCount: toSkillCount(0),
+          },
+        ],
+        'req-agent',
+      ),
+    )
+    store.dispatch(selectAgent('cursor'))
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [
+          makeCursorLinkedSkill('other'),
+          makeCursorLinkedSkill('task-one'),
+          makeCursorLinkedSkill('task-two'),
+        ],
+        'req-linked',
+      ),
+    )
+    store.dispatch(toggleSelection(toSkillName('task-one')))
+    store.dispatch(toggleSelection(toSkillName('task-two')))
+    store.dispatch(toggleSelection(toSkillName('other')))
+    store.dispatch(setSearchQuery(toSearchQuery('task')))
+    mockUnlinkManyFromAgent.mockResolvedValue({
+      items: [
+        { skillName: 'task-one', outcome: 'unlinked' },
+        {
+          skillName: 'task-two',
+          outcome: 'error',
+          error: { message: 'EPERM' },
+        },
+      ],
+    })
+    await screen.getByRole('button', { name: 'Open bulk confirm' }).click()
+
+    // Act
+    await screen.getByRole('button', { name: /^Unlink$/ }).click()
+
+    // Assert
+    await expect
+      .element(screen.getByText('1 selected', { exact: true }))
+      .toBeVisible()
+    expect(store.getState().skills.selectedSkillNames).toEqual(['task-two'])
+  })
+
+  test('keeps the attempted rows ticked when a header Unlink rejects', async () => {
+    // Arrange — Cursor view; both 'task' rows are ticked and visible, and
+    // 'other' is ticked but hidden by the search.
+    mockListHeaderState.enabled = true
+    const { screen, store } = await renderMainContent()
+    const { fetchAgents } =
+      await import('@/renderer/src/redux/slices/agentsSlice')
+    const { selectAgent, setSearchQuery } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    store.dispatch(
+      fetchAgents.fulfilled(
+        [
+          {
+            id: 'cursor',
+            name: 'Cursor',
+            path: toAbsolutePath('/home/user/.cursor/skills'),
+            exists: true,
+            skillCount: toSkillCount(3),
+            localSkillCount: toSkillCount(0),
+          },
+        ],
+        'req-agent',
+      ),
+    )
+    store.dispatch(selectAgent('cursor'))
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [
+          makeCursorLinkedSkill('other'),
+          makeCursorLinkedSkill('task-one'),
+          makeCursorLinkedSkill('task-two'),
+        ],
+        'req-linked',
+      ),
+    )
+    store.dispatch(toggleSelection(toSkillName('task-one')))
+    store.dispatch(toggleSelection(toSkillName('task-two')))
+    store.dispatch(toggleSelection(toSkillName('other')))
+    store.dispatch(setSearchQuery(toSearchQuery('task')))
+    mockUnlinkManyFromAgent.mockRejectedValue(new Error('Socket closed'))
+    await screen.getByRole('button', { name: 'Open bulk confirm' }).click()
+
+    // Act
+    await screen.getByRole('button', { name: /^Unlink$/ }).click()
+
+    // Assert
+    await expect
+      .element(screen.getByText('2 selected', { exact: true }))
+      .toBeVisible()
+    expect(store.getState().skills.selectedSkillNames).toEqual([
+      'task-one',
+      'task-two',
+    ])
+  })
+
+  test('flashes every attempted row when a header Unlink rejects', async () => {
+    // Arrange — Cursor view with two ticked rows; the unlink IPC rejects
+    mockListHeaderState.enabled = true
+    const { screen, store } = await renderMainContent()
+    const { fetchAgents } =
+      await import('@/renderer/src/redux/slices/agentsSlice')
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    store.dispatch(
+      fetchAgents.fulfilled(
+        [
+          {
+            id: 'cursor',
+            name: 'Cursor',
+            path: toAbsolutePath('/home/user/.cursor/skills'),
+            exists: true,
+            skillCount: toSkillCount(2),
+            localSkillCount: toSkillCount(0),
+          },
+        ],
+        'req-agent',
+      ),
+    )
+    store.dispatch(selectAgent('cursor'))
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [makeCursorLinkedSkill('task-one'), makeCursorLinkedSkill('task-two')],
+        'req-linked',
+      ),
+    )
+    store.dispatch(toggleSelection(toSkillName('task-one')))
+    store.dispatch(toggleSelection(toSkillName('task-two')))
+    mockUnlinkManyFromAgent.mockRejectedValue(new Error('Socket closed'))
+    const flashedNames: SkillName[] = []
+    const recordFlash = (
+      event: WindowEventMap[typeof BULK_ITEM_FAILED_EVENT],
+    ): void => {
+      flashedNames.push(event.detail.skillName)
+    }
+    window.addEventListener(BULK_ITEM_FAILED_EVENT, recordFlash)
+    onTestFinished(() => {
+      window.removeEventListener(BULK_ITEM_FAILED_EVENT, recordFlash)
+    })
+    await screen.getByRole('button', { name: 'Open bulk confirm' }).click()
+
+    // Act
+    await screen.getByRole('button', { name: /^Unlink$/ }).click()
+
+    // Assert — the red edge marks each row that failed, as a per-item error does
+    await expect.poll(() => mockRefreshAllData.mock.calls.length).toBe(1)
+    expect(flashedNames).toEqual(['task-one', 'task-two'])
+  })
+
+  test('flashes every attempted row when a header Delete rejects', async () => {
+    // Arrange — global view with two ticked rows; the delete IPC rejects
+    mockListHeaderState.enabled = true
+    const { screen, store } = await renderMainContent()
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [makeGlobalSkill('task'), makeGlobalSkill('tdd')],
+        'req-id',
+      ),
+    )
+    store.dispatch(toggleSelection(toSkillName('task')))
+    store.dispatch(toggleSelection(toSkillName('tdd')))
+    mockSkillsDeleteSkills.mockRejectedValue(new Error('Socket closed'))
+    const flashedNames: SkillName[] = []
+    const recordFlash = (
+      event: WindowEventMap[typeof BULK_ITEM_FAILED_EVENT],
+    ): void => {
+      flashedNames.push(event.detail.skillName)
+    }
+    window.addEventListener(BULK_ITEM_FAILED_EVENT, recordFlash)
+    onTestFinished(() => {
+      window.removeEventListener(BULK_ITEM_FAILED_EVENT, recordFlash)
+    })
+    await screen.getByRole('button', { name: 'Open bulk confirm' }).click()
+
+    // Act
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+
+    // Assert — the red edge marks each row the rejected Delete attempted
+    await expect.poll(() => mockRefreshAllData.mock.calls.length).toBe(1)
+    expect(flashedNames).toEqual(['task', 'tdd'])
+  })
+
+  test('flashes only its own row when a card Delete rejects, leaving the other ticks alone', async () => {
+    // Arrange — 'task' and 'tdd' are ticked; the card's own Delete on 'task'
+    // opens the dialog with a row origin, and the delete IPC rejects
+    const { screen, store } = await renderMainContent()
+    const { setBulkConfirm } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const taskSkill = makeGlobalSkill('task')
+    store.dispatch(
+      fetchSkills.fulfilled([taskSkill, makeGlobalSkill('tdd')], 'req-id'),
+    )
+    store.dispatch(toggleSelection(toSkillName('task')))
+    store.dispatch(toggleSelection(toSkillName('tdd')))
+    mockSkillsDeleteSkills.mockRejectedValue(new Error('Socket closed'))
+    const flashedNames: SkillName[] = []
+    const recordFlash = (
+      event: WindowEventMap[typeof BULK_ITEM_FAILED_EVENT],
+    ): void => {
+      flashedNames.push(event.detail.skillName)
+    }
+    window.addEventListener(BULK_ITEM_FAILED_EVENT, recordFlash)
+    onTestFinished(() => {
+      window.removeEventListener(BULK_ITEM_FAILED_EVENT, recordFlash)
+    })
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        origin: 'row',
+        skillNames: [toSkillName('task')],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+        ...partitionGlobalDeleteTargets([taskSkill], [toSkillName('task')]),
+      }),
+    )
+
+    // Act
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+
+    // Assert — the card's row flashes; the selection is not the card's to change
+    await expect.poll(() => mockRefreshAllData.mock.calls.length).toBe(1)
+    expect(flashedNames).toEqual(['task'])
+    expect(store.getState().skills.selectedSkillNames).toEqual(['task', 'tdd'])
+  })
+
+  test('leaves the other ticks alone after a card Delete succeeds', async () => {
+    // Arrange — 'task' and 'tdd' are ticked; the card's own Delete on 'task'
+    // opens the same dialog with a row origin (SkillItem's delete button).
+    const { screen, store } = await renderMainContent()
+    const { setBulkConfirm } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const taskSkill = makeGlobalSkill('task')
+    store.dispatch(
+      fetchSkills.fulfilled([taskSkill, makeGlobalSkill('tdd')], 'req-id'),
+    )
+    store.dispatch(toggleSelection(toSkillName('task')))
+    store.dispatch(toggleSelection(toSkillName('tdd')))
+    mockSkillsDeleteSkills.mockResolvedValue({
+      items: [
+        {
+          skillName: toSkillName('task'),
+          outcome: 'deleted',
+          tombstoneId: tombstoneId('1729180800000-task-a1b2c3d4'),
+          symlinksRemoved: toSymlinkCount(0),
+          cascadeAgents: [],
+        },
+      ],
+    } satisfies BulkDeleteResult)
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        origin: 'row',
+        skillNames: [toSkillName('task')],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+        ...partitionGlobalDeleteTargets([taskSkill], [toSkillName('task')]),
+      }),
+    )
+
+    // Act
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+
+    // Assert — refreshAllData runs after the selection hand-off point.
+    await expect.poll(() => mockRefreshAllData.mock.calls.length).toBe(1)
+    expect(store.getState().skills.selectedSkillNames).toEqual(['tdd'])
+    await expect
+      .element(screen.getByText('1 selected', { exact: true }))
+      .toBeVisible()
+  })
+
+  test('leaves the other ticks alone after a card Delete clears an orphan row', async () => {
+    // Arrange — the orphan, 'task' and 'tdd' are ticked; the orphan card's own
+    // Delete opens the dialog with a row origin and runs the orphan cleanup
+    const { screen, store } = await renderMainContent()
+    const { setBulkConfirm } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const orphanSkillName = toSkillName('abandoned')
+    const orphanSkill: Skill = {
+      name: orphanSkillName,
+      description: '',
+      path: toAbsolutePath('/home/user/.agents/skills/abandoned'),
+      symlinkCount: toSymlinkCount(0),
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          linkPath: toAbsolutePath('/home/user/.cursor/skills/abandoned'),
+          targetPath: toAbsolutePath('/home/user/.agents/skills/abandoned'),
+          status: 'broken',
+          isLocal: false,
+        },
+      ],
+      isSource: false,
+      isOrphan: true,
+    }
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [orphanSkill, makeGlobalSkill('task'), makeGlobalSkill('tdd')],
+        'req-id',
+      ),
+    )
+    store.dispatch(toggleSelection(orphanSkillName))
+    store.dispatch(toggleSelection(toSkillName('task')))
+    store.dispatch(toggleSelection(toSkillName('tdd')))
+    mockClearOrphanSymlinks.mockResolvedValue({
+      items: [
+        {
+          skillName: orphanSkillName,
+          outcome: 'orphan-cleared',
+          symlinksRemoved: toSymlinkCount(1),
+          cascadeAgents: ['cursor'],
+        },
+      ],
+    })
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        origin: 'row',
+        skillNames: [orphanSkillName],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+        ...partitionGlobalDeleteTargets([orphanSkill], [orphanSkillName]),
+      }),
+    )
+
+    // Act
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+
+    // Assert — only the cleared orphan leaves the selection
+    await expect.poll(() => mockRefreshAllData.mock.calls.length).toBe(1)
+    expect(store.getState().skills.selectedSkillNames).toEqual(['task', 'tdd'])
+    await expect
+      .element(screen.getByText('2 selected', { exact: true }))
+      .toBeVisible()
+  })
+
+  test('leaves every tick in place after a card Delete fails', async () => {
+    // Arrange — 'task' and 'tdd' are ticked; the card's own Delete on 'task'
+    // fails, and a row-started op must not narrow the selection to it.
+    const { screen, store } = await renderMainContent()
+    const { setBulkConfirm } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const taskSkill = makeGlobalSkill('task')
+    store.dispatch(
+      fetchSkills.fulfilled([taskSkill, makeGlobalSkill('tdd')], 'req-id'),
+    )
+    store.dispatch(toggleSelection(toSkillName('task')))
+    store.dispatch(toggleSelection(toSkillName('tdd')))
+    mockSkillsDeleteSkills.mockResolvedValue({
+      items: [
+        {
+          skillName: toSkillName('task'),
+          outcome: 'error',
+          error: { message: 'EACCES' },
+        },
+      ],
+    } satisfies BulkDeleteResult)
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        origin: 'row',
+        skillNames: [toSkillName('task')],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+        ...partitionGlobalDeleteTargets([taskSkill], [toSkillName('task')]),
+      }),
+    )
+
+    // Act
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+
+    // Assert — refreshAllData runs after the selection hand-off point.
+    await expect.poll(() => mockRefreshAllData.mock.calls.length).toBe(1)
+    expect(store.getState().skills.selectedSkillNames).toEqual(['task', 'tdd'])
+    await expect
+      .element(screen.getByText('2 selected', { exact: true }))
+      .toBeVisible()
+  })
+
+  test('keeps the ticked rows and leaves the failed row unticked after a card Delete on an unticked row fails', async () => {
+    // Arrange — 'task' and 'tdd' are ticked; the card's own Delete runs on the
+    // unticked 'other' and fails. A selection hand-off would narrow the ticks
+    // to that one failure, clearing both.
+    const { screen, store } = await renderMainContent()
+    const { setBulkConfirm } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const otherSkill = makeGlobalSkill('other')
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [otherSkill, makeGlobalSkill('task'), makeGlobalSkill('tdd')],
+        'req-id',
+      ),
+    )
+    store.dispatch(toggleSelection(toSkillName('task')))
+    store.dispatch(toggleSelection(toSkillName('tdd')))
+    mockSkillsDeleteSkills.mockResolvedValue({
+      items: [
+        {
+          skillName: toSkillName('other'),
+          outcome: 'error',
+          error: { message: 'EACCES' },
+        },
+      ],
+    } satisfies BulkDeleteResult)
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        origin: 'row',
+        skillNames: [toSkillName('other')],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+        ...partitionGlobalDeleteTargets([otherSkill], [toSkillName('other')]),
+      }),
+    )
+
+    // Act
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+
+    // Assert — refreshAllData runs after the selection hand-off point.
+    await expect.poll(() => mockRefreshAllData.mock.calls.length).toBe(1)
+    expect(store.getState().skills.selectedSkillNames).toEqual(['task', 'tdd'])
+    await expect
+      .element(screen.getByText('2 selected', { exact: true }))
+      .toBeVisible()
+  })
+
+  test('keeps the attempted rows ticked when a header Delete rejects', async () => {
+    // Arrange — both 'task' rows are ticked and visible; 'other' is ticked
+    // but hidden by the search, so the Delete never touches it.
+    mockListHeaderState.enabled = true
+    const { screen, store } = await renderMainContent()
+    const { setSearchQuery } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [
+          makeGlobalSkill('other'),
+          makeGlobalSkill('task-one'),
+          makeGlobalSkill('task-two'),
+        ],
+        'req-id',
+      ),
+    )
+    store.dispatch(toggleSelection(toSkillName('task-one')))
+    store.dispatch(toggleSelection(toSkillName('task-two')))
+    store.dispatch(toggleSelection(toSkillName('other')))
+    store.dispatch(setSearchQuery(toSearchQuery('task')))
+    mockSkillsDeleteSkills.mockRejectedValue(new Error('Disk offline'))
+    await screen.getByRole('button', { name: 'Open bulk confirm' }).click()
+
+    // Act
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+
+    // Assert — refreshAllData runs after the selection hand-off point.
+    await expect.poll(() => mockRefreshAllData.mock.calls.length).toBe(1)
+    expect(store.getState().skills.selectedSkillNames).toEqual([
+      'task-one',
+      'task-two',
+    ])
+    await expect
+      .element(screen.getByText('2 selected', { exact: true }))
+      .toBeVisible()
+    expect(mockSkillsDeleteSkills.mock.calls[0][0]).toEqual({
+      items: [
+        {
+          skillName: 'task-one',
+          skillPath: '/home/user/.agents/skills/task-one',
+          filesystemIdentity: directoryIdentity,
+        },
+        {
+          skillName: 'task-two',
+          skillPath: '/home/user/.agents/skills/task-two',
+          filesystemIdentity: directoryIdentity,
+        },
+      ],
+    })
+  })
+
+  test('leaves every tick in place when a card Delete rejects', async () => {
+    // Arrange — 'task' and 'tdd' are ticked; the card's own Delete on 'task'
+    // rejects at the IPC boundary, and a row-started op must not narrow the
+    // selection to its one target.
+    const { screen, store } = await renderMainContent()
+    const { setBulkConfirm } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const taskSkill = makeGlobalSkill('task')
+    store.dispatch(
+      fetchSkills.fulfilled([taskSkill, makeGlobalSkill('tdd')], 'req-id'),
+    )
+    store.dispatch(toggleSelection(toSkillName('task')))
+    store.dispatch(toggleSelection(toSkillName('tdd')))
+    mockSkillsDeleteSkills.mockRejectedValue(new Error('Disk offline'))
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        origin: 'row',
+        skillNames: [toSkillName('task')],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+        ...partitionGlobalDeleteTargets([taskSkill], [toSkillName('task')]),
+      }),
+    )
+
+    // Act
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+
+    // Assert — refreshAllData runs after the selection hand-off point.
+    await expect.poll(() => mockRefreshAllData.mock.calls.length).toBe(1)
+    expect(store.getState().skills.selectedSkillNames).toEqual(['task', 'tdd'])
+    await expect
+      .element(screen.getByText('2 selected', { exact: true }))
+      .toBeVisible()
+  })
+})
+
 describe('MainContent bulk delete failure toasts', () => {
   test('marks orphan rows as errored when cleanup rejects after a source delete succeeds', async () => {
     // Arrange — a source row deletes successfully, then orphan cleanup rejects;
@@ -3120,6 +4091,7 @@ describe('MainContent bulk delete failure toasts', () => {
     store.dispatch(
       setBulkConfirm({
         kind: 'delete',
+        origin: 'selection',
         skillNames: [sourceSkillName, orphanSkillName],
         agentId: null,
         agentName: null,
@@ -3166,6 +4138,7 @@ describe('MainContent bulk delete failure toasts', () => {
     store.dispatch(
       setBulkConfirm({
         kind: 'delete',
+        origin: 'selection',
         skillNames: [sourceSkillName],
         agentId: null,
         agentName: null,
@@ -3215,6 +4188,7 @@ describe('MainContent bulk delete failure toasts', () => {
     store.dispatch(
       setBulkConfirm({
         kind: 'delete',
+        origin: 'selection',
         skillNames: [sourceSkillName],
         agentId: null,
         agentName: null,
@@ -3271,6 +4245,7 @@ describe('MainContent bulk delete undo toast lifecycle', () => {
     store.dispatch(
       setBulkConfirm({
         kind: 'delete',
+        origin: 'selection',
         skillNames: [sourceSkillName],
         agentId: null,
         agentName: null,
@@ -3332,6 +4307,7 @@ describe('MainContent bulk delete undo toast lifecycle', () => {
     store.dispatch(
       setBulkConfirm({
         kind: 'delete',
+        origin: 'selection',
         skillNames: [sourceSkillName],
         agentId: null,
         agentName: null,
@@ -3384,6 +4360,7 @@ describe('MainContent bulk confirm cancellation', () => {
     store.dispatch(
       setBulkConfirm({
         kind: 'delete',
+        origin: 'selection',
         skillNames: [sourceSkillName],
         agentId: null,
         agentName: null,

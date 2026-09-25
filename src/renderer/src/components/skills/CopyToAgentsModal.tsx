@@ -31,7 +31,7 @@ import { copyToAgentsWithToast } from './copyToAgentsWithToast'
 
 /**
  * Modal for selecting target agents when copying a skill source from one agent to others.
- * Triggered by right-click "Copy to..." on a skill card in Agent View.
+ * Triggered by right-click "Copy to…" on a skill card in Agent View.
  * @example
  * <CopyToAgentsModal />
  */

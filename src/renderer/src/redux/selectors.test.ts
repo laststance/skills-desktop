@@ -55,13 +55,14 @@ function buildState(overrides: {
   inFlightDeleteNames?: SkillName[]
   inFlightUnlinkNames?: SkillName[]
   protectedSkillNames?: SkillName[]
+  skillsError?: string | null
 }) {
   return {
     skills: {
       items: overrides.skills ?? [],
       selectedSkill: null,
       loading: false,
-      error: null,
+      error: overrides.skillsError ?? null,
       skillToUnlink: null,
       unlinking: false,
       skillToAddSymlinks: null,
@@ -1308,6 +1309,37 @@ describe('selectVisibleSkillNames', () => {
 })
 
 describe('selectBulkSelectableVisibleSkillNames', () => {
+  test('offers nothing to bulk-select while the skills list shows a load error', () => {
+    // Arrange — the rows are still in state, but SkillsList draws only the error
+    const state = buildState({
+      skills: [makeSkill('task', 'claude-code'), makeSkill('theme', 'cursor')],
+      skillsError: 'Failed to fetch skills',
+    })
+
+    // Act
+    const bulkSelectableNames = selectBulkSelectableVisibleSkillNames(
+      state as never,
+    )
+
+    // Assert — ⌘A, ⇧-click and the master checkbox have nothing to select
+    expect(bulkSelectableNames).toEqual([])
+  })
+
+  test('offers every visible global-view row to bulk-select once the list loads', () => {
+    // Arrange — same rows, no load error
+    const state = buildState({
+      skills: [makeSkill('task', 'claude-code'), makeSkill('theme', 'cursor')],
+    })
+
+    // Act
+    const bulkSelectableNames = selectBulkSelectableVisibleSkillNames(
+      state as never,
+    )
+
+    // Assert
+    expect(bulkSelectableNames).toEqual(['task', 'theme'])
+  })
+
   test('keeps broken agent rows visible but excludes them from bulk unlink names', () => {
     // Arrange
     const brokenSkill: Skill = {
@@ -1722,7 +1754,7 @@ describe('selectSelectedVisibleSkillObjects', () => {
     const result = selectSelectedVisibleSkillObjects(state as never)
 
     // Assert — only the visible-and-ticked skill survives; hidden beta is dropped,
-    // matching the bulk delete/unlink behavior the toolbar badge advertises
+    // matching the bulk delete/unlink behavior the list header's hidden note advertises
     expect(result.map((skill) => skill.name)).toEqual(['alpha'])
   })
 })

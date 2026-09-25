@@ -29,9 +29,11 @@ import { toAgentCount } from '@/shared/types'
  * Bulk selection fields model the user's checkbox selection, the anchor for
  * Shift+click range extension, and per-name in-flight sets that the list
  * consults to render rows at 50% opacity during an IPC round-trip. The
- * coarse `bulkDeleting` / `bulkUnlinking` booleans gate the toolbar's
- * buttons; `bulkProgress` is populated by the `skills:deleteProgress` event
- * when the batch is large enough to warrant a live counter.
+ * coarse `bulkDeleting` / `bulkUnlinking` / `bulkCopying` booleans, read
+ * together through {@link selectIsBulkOpBusy}, gate the list header's buttons
+ * and every selection input; `bulkProgress` is populated by the
+ * `skills:deleteProgress` event when the batch is large enough to warrant a
+ * live counter.
  */
 interface SkillsState {
   /** All skills discovered under ~/.agents/skills/. */
@@ -59,7 +61,7 @@ interface SkillsState {
   /** true while copyToAgents is in flight. */
   copying: boolean
 
-  /** Names of skills currently ticked in the list. Source of truth for toolbar visibility. */
+  /** Names of skills currently ticked in the list. Source of truth for the list header's selected state. */
   selectedSkillNames: SkillName[]
   /** Last single-click origin used for Shift+click range selection. */
   selectionAnchor: SkillName | null
@@ -107,7 +109,8 @@ const initialState: SkillsState = {
  * Intersect a dispatched-names list with the live `state.items` set so a late
  * `fetchSkills.fulfilled` landing between click and thunk dispatch cannot turn
  * a valid request into a 500 on a ghost skill. Used by the bulk-delete and
- * bulk-unlink `.pending` reducers, which both need the same reconciliation.
+ * bulk-unlink `.pending` reducers, which both need the same reconciliation,
+ * and by `fetchSkills.fulfilled` to drop ticks on skills a refresh no longer finds.
  *
  * @param items - Current `state.items` (source of "currently installed")
  * @param names - Names the user selected at click-time
@@ -565,7 +568,7 @@ const skillsSlice = createSlice({
     },
     /**
      * Open/close the BulkCopyToAgentsModal (global-view multi-skill copy).
-     * The toolbar's "Copy to…" opens it; the modal dispatches false on
+     * The list header's "Copy to…" opens it; the modal dispatches false on
      * dismiss/Cancel/completion. List selection is untouched (non-destructive).
      */
     setBulkCopyModalOpen: (state, action: PayloadAction<boolean>) => {
@@ -584,8 +587,9 @@ const skillsSlice = createSlice({
       state.selectedAddAgentIds.splice(existingIndex, 1)
     },
     /**
-     * Toggle a single skill in `selectedSkillNames` and update the anchor.
-     * Called by the checkbox onChange in SkillItem.
+     * Toggle a single skill in `selectedSkillNames` and make it the anchor.
+     * Called by SkillItem's row checkbox and by a ⌘-click on its card (or a
+     * ⇧-click while there is no anchor yet).
      */
     toggleSelection: (state, action: PayloadAction<SkillName>) => {
       const skillName = action.payload
@@ -598,9 +602,12 @@ const skillsSlice = createSlice({
       state.selectionAnchor = skillName
     },
     /**
-     * Extend `selectedSkillNames` with every visible name between the anchor
-     * and the target (inclusive). Payload is precomputed by the component
-     * because the slice does not know the ordered visible list.
+     * Extend `selectedSkillNames` with the eligible names between the anchor
+     * and the ⇧-clicked row (inclusive), in visible order. {@link SkillItem}
+     * precomputes the payload with {@link computeRangeSelection} because the
+     * slice does not know the ordered visible list. The anchor becomes the
+     * last payload name, which is not the clicked row when that row is
+     * ineligible or sits above the anchor.
      */
     selectRange: (state, action: PayloadAction<SkillName[]>) => {
       const namesInRange = action.payload
@@ -611,15 +618,17 @@ const skillsSlice = createSlice({
           existingSet.add(skillName)
         }
       }
-      // Anchor advances to the most recent shift-click target
+      // The anchor moves to the payload's last name, the span's far end in
+      // visible order (see the JSDoc for when that is not the clicked row).
       const lastTargetName = namesInRange[namesInRange.length - 1]
       if (lastTargetName) {
         state.selectionAnchor = lastTargetName
       }
     },
     /**
-     * Replace the selection with the given visible names (Cmd/Ctrl+A).
-     * Passing an empty array effectively clears the selection.
+     * Replace the selection with the given names. ⌘/Ctrl+A and the list
+     * header's master checkbox pass every visible eligible row. Passing an
+     * empty array effectively clears the selection.
      */
     selectAll: (state, action: PayloadAction<SkillName[]>) => {
       state.selectedSkillNames = [...action.payload]
@@ -629,12 +638,39 @@ const skillsSlice = createSlice({
           : null
     },
     /**
-     * Clear the selection + anchor (Esc key, row deselect outside bounds, or
-     * cross-context switch — agent change, tab change, sync preview start).
+     * Clear the selection + anchor. Fired by the list header's Clear button
+     * and its checked master checkbox ({@link InstalledListHeader}), the Esc
+     * shortcut ({@link MainContent}), {@link SymlinkCleanupDialog}, and the
+     * `listener.ts` bridge on a tab or agent switch, a sync preview start, or
+     * a failed skills refresh.
      */
     clearSelection: (state) => {
       state.selectedSkillNames = []
       state.selectionAnchor = null
+    },
+    /**
+     * Keep only the selected names that are also in the payload — the
+     * selection hand-off after a header-started Delete/Unlink settles.
+     * MainContent calls it with the rows the user can retry (or the attempted
+     * targets when the thunk rejects). It can only shrink the selection, so a
+     * tab, agent or sync switch that cleared it mid-op is never undone.
+     * @param action.payload - Names allowed to stay selected; `[]` clears.
+     * @example
+     * // selected: ['a', 'b', 'c'], anchor 'c'
+     * dispatch(narrowSelection(['b', 'z'])) // selected: ['b'], anchor null
+     */
+    narrowSelection: (state, action: PayloadAction<SkillName[]>) => {
+      const allowedNames = new Set(action.payload)
+      state.selectedSkillNames = state.selectedSkillNames.filter((skillName) =>
+        allowedNames.has(skillName),
+      )
+      // The anchor survives only while its row is still ticked.
+      const isAnchorStillSelected =
+        state.selectionAnchor !== null &&
+        state.selectedSkillNames.includes(state.selectionAnchor)
+      if (!isAnchorStillSelected) {
+        state.selectionAnchor = null
+      }
     },
     /**
      * Update the bulk progress counter. Dispatched by the MainContent effect
@@ -657,6 +693,23 @@ const skillsSlice = createSlice({
       .addCase(fetchSkills.fulfilled, (state, action) => {
         state.items = action.payload
         state.loading = false
+        // A skill removed outside the app drops out on this refresh. Drop its
+        // tick and anchor too, or the list header keeps counting it as hidden
+        // by a filter. Reassign only on a change, so the selection keeps its
+        // reference through a routine refresh.
+        const liveSelectedNames = reconcileByLiveNames(
+          state.items,
+          state.selectedSkillNames,
+        )
+        if (liveSelectedNames.length !== state.selectedSkillNames.length) {
+          state.selectedSkillNames = liveSelectedNames
+        }
+        if (
+          state.selectionAnchor !== null &&
+          !state.items.some((skill) => skill.name === state.selectionAnchor)
+        ) {
+          state.selectionAnchor = null
+        }
       })
       .addCase(fetchSkills.rejected, (state, action) => {
         state.loading = false
@@ -734,7 +787,7 @@ const skillsSlice = createSlice({
       })
       .addCase(deleteSelectedSkills.fulfilled, (state, action) => {
         // Refetch happens via the component (thunks.ts refreshAllData); the
-        // slice only clears the in-flight fade and releases the toolbar.
+        // slice only clears the in-flight fade and the busy flag.
         state.inFlightDeleteNames = []
         state.bulkDeleting = false
         state.bulkProgress = null
@@ -879,6 +932,7 @@ export const {
   selectRange,
   selectAll,
   clearSelection,
+  narrowSelection,
   setBulkProgress,
   setBulkCopyModalOpen,
 } = skillsSlice.actions
@@ -899,11 +953,22 @@ export const selectSelectionAnchor = (state: RootState): SkillName | null =>
   state.skills.selectionAnchor
 export const selectInFlightDeleteNames = (state: RootState): SkillName[] =>
   state.skills.inFlightDeleteNames
-export const selectBulkDeleting = (state: RootState): boolean =>
-  state.skills.bulkDeleting
-export const selectBulkUnlinking = (state: RootState): boolean =>
-  state.skills.bulkUnlinking
 export const selectBulkCopying = (state: RootState): boolean =>
+  state.skills.bulkCopying
+/**
+ * True while any bulk Delete, Unlink or Copy runs. The list header, the row
+ * checkboxes, card modifier clicks, card Delete buttons and the ⌘A / Esc
+ * shortcuts all go inert then, so the user cannot change the selection under
+ * an op that is still settling. Context switches still can: the listener clears
+ * it mid-op on a tab or agent change, a sync preview or a failed scan, which is
+ * why the settle hand-off only ever narrows the selection.
+ * @returns Whether a bulk op is in flight.
+ * @example
+ * const isBulkOpBusy = useAppSelector(selectIsBulkOpBusy) // => false
+ */
+export const selectIsBulkOpBusy = (state: RootState): boolean =>
+  state.skills.bulkDeleting ||
+  state.skills.bulkUnlinking ||
   state.skills.bulkCopying
 export const selectBulkCopyModalOpen = (state: RootState): boolean =>
   state.skills.bulkCopyModalOpen

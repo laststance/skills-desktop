@@ -22,6 +22,7 @@ import { selectProtectedNamesSet } from './slices/protectSlice'
 import {
   selectInFlightDeleteNames,
   selectSelectedSkillNames,
+  selectSkillsError,
   selectSkillsItems,
 } from './slices/skillsSlice'
 import {
@@ -509,12 +510,12 @@ export const selectBookmarksWithInstallStatus = createSelector(
 
 /**
  * Ordered array of skill names the user can currently see (after filter + sort).
- * Used for Cmd/Ctrl+A "select all visible" and for computing a shift-click range.
+ * Used as the span order for a shift-click range and for the hidden-selection count.
  * @returns SkillName[] in display order
  * @example
  * // Selection range between two user-clicked rows:
  * const visibleNames = useAppSelector(selectVisibleSkillNames)
- * dispatch(selectRange(computeRangeSelection(anchor, target, visibleNames)))
+ * dispatch(selectRange(computeRangeSelection(anchor, target, visibleNames, eligibleNamesSet)))
  */
 export const selectVisibleSkillNames = createSelector(
   [selectFilteredSkills],
@@ -549,26 +550,38 @@ function isBulkSelectableSkill(
 /**
  * Ordered visible names that can safely flow through the current bulk action.
  * Agent-view local/broken/inaccessible rows stay visible but are excluded
- * because reviewed bulk Unlink only removes symlink slots.
- * @returns Skill names eligible for Select all, Shift range, and primary action.
+ * because reviewed bulk Unlink only removes symlink slots. Empty while the
+ * skills list shows a load error: {@link SkillsList} then draws only the error text,
+ * so the header checkbox, ⌘A and ⇧-click must not reach rows that are not drawn.
+ * @returns
+ * - Skill names eligible for Select all, Shift range, and primary action
+ * - `[]` while `skills.error` is set
  * @example
  * const names = useAppSelector(selectBulkSelectableVisibleSkillNames)
  */
 export const selectBulkSelectableVisibleSkillNames = createSelector(
-  [selectFilteredSkills, selectSelectedAgentId, selectProtectedNamesSet],
-  (filteredSkills, selectedAgentId, protectedNames): SkillName[] =>
-    filteredSkills
-      .filter((skill) =>
-        isBulkSelectableSkill(skill, selectedAgentId, protectedNames),
-      )
-      .map((skill) => skill.name),
+  [
+    selectFilteredSkills,
+    selectSelectedAgentId,
+    selectProtectedNamesSet,
+    selectSkillsError,
+  ],
+  (filteredSkills, selectedAgentId, protectedNames, skillsError): SkillName[] =>
+    // The error screen hides every row, so nothing is selectable behind it.
+    skillsError !== null
+      ? []
+      : filteredSkills
+          .filter((skill) =>
+            isBulkSelectableSkill(skill, selectedAgentId, protectedNames),
+          )
+          .map((skill) => skill.name),
 )
 
 /**
  * Count of items currently ticked in `selectedSkillNames`. Separate from
  * `selectedSkillNames.length` at callsites so components can subscribe to the
- * scalar without re-rendering on any selection mutation (toolbar shows
- * "3 selected" — it only needs the count).
+ * scalar without re-rendering on any selection mutation (the list header
+ * shows "3 selected" — it only needs the count).
  * @returns number — total ticked names (NOT intersected with visible list)
  * @example
  * const count = useAppSelector(selectSelectedCount) // 3
@@ -581,7 +594,7 @@ export const selectSelectedCount = createSelector(
 /**
  * Intersection of `selectedSkillNames` with the currently visible (filtered)
  * list. A user can tick 10 items, then narrow the list to 3 via search — the
- * toolbar's "Delete" button should operate on the visible-and-selected subset
+ * list header's "Delete" button should operate on the visible-and-selected subset
  * (the 3 visible ones), not on the full 10-item selection.
  * @returns SkillName[] that are both ticked AND visible, preserving visible order.
  * @example
@@ -598,8 +611,8 @@ export const selectSelectedVisibleNames = createSelector(
 )
 
 /**
- * Count of selected-and-visible names — what the toolbar's action buttons
- * should advertise. Separates the scalar from the array so a toolbar
+ * Count of selected-and-visible names — what the list header's action buttons
+ * should advertise. Separates the scalar from the array so a header
  * subscribing only to the count does not re-render on in-flight array changes.
  * @returns number
  */
@@ -609,7 +622,7 @@ export const selectSelectedVisibleCount = createSelector(
 )
 
 /**
- * The hidden-selected count shown in the toolbar as a badge ("+2 hidden by
+ * The hidden-selected count shown in the list header as a badge ("+2 hidden by
  * filter") so the user realizes they have out-of-view selections. Visible
  * but ineligible rows are counted separately by `selectVisibleIneligibleSelectedCount`.
  * @returns number — selected names that are NOT in the visible list
@@ -688,7 +701,7 @@ export const selectSelectedSkillNamesSet = createSelector(
 /**
  * The full `Skill` objects for the ticked names that are ALSO currently visible
  * (pass the active search/repo filter). Mirrors `selectSelectedVisibleNames`
- * used by bulk delete/unlink, so bulk copy honors the toolbar's "+K hidden by
+ * used by bulk delete/unlink, so bulk copy honors the list header's "+K hidden by
  * filter — will not be affected" promise instead of silently copying hidden
  * selections. Any ticked name with no live skill (removed by a concurrent
  * refresh) is dropped too. Feeds the bulk copy modal, which needs each skill's

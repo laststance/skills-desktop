@@ -10,7 +10,7 @@ import {
   Plus,
   X,
 } from 'lucide-react'
-import React, { useRef, useState } from 'react'
+import React, { useState } from 'react'
 
 import { StatusBadge } from '@/renderer/src/components/status/StatusBadge'
 import { badgeVariants } from '@/renderer/src/components/ui/badge'
@@ -29,13 +29,14 @@ import {
   TooltipTrigger,
 } from '@/renderer/src/components/ui/tooltip'
 import { useCycleEffect } from '@/renderer/src/hooks/useCycleEffect'
-import { useUnmountEffect } from '@/renderer/src/hooks/useUnmountEffect'
 import { cn } from '@/renderer/src/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   selectBulkSelectableVisibleSkillNames,
   selectAnyInFlightRemovalSet,
+  selectSelectedCount,
   selectSelectedSkillNamesSet,
+  selectVisibleSkillNames,
 } from '@/renderer/src/redux/selectors'
 import {
   addBookmark,
@@ -48,6 +49,7 @@ import {
   selectIsProtected,
 } from '@/renderer/src/redux/slices/protectSlice'
 import {
+  selectIsBulkOpBusy,
   selectRange,
   selectSelectionAnchor,
   selectSkill,
@@ -56,11 +58,12 @@ import {
   setSkillToUnlink,
   toggleSelection,
 } from '@/renderer/src/redux/slices/skillsSlice'
+import { setBulkConfirm } from '@/renderer/src/redux/slices/uiSlice'
 import {
-  selectBulkSelectMode,
-  setBulkConfirm,
-} from '@/renderer/src/redux/slices/uiSlice'
-import { BULK_ITEM_FAILED_EVENT } from '@/renderer/src/utils/bulkOpVisuals'
+  BULK_ITEM_FAILED_EVENT,
+  getFlashEndsAt,
+} from '@/renderer/src/utils/bulkOpVisuals'
+import { releaseKeyboardToList } from '@/renderer/src/utils/releaseKeyboardToList'
 import { GSTACK_REPOSITORY_URL } from '@/shared/constants'
 import type { AgentId, AgentName } from '@/shared/constants'
 import type {
@@ -75,6 +78,7 @@ import { canBookmarkSkill, skillToBookmarkData } from './bookmarkHelpers'
 import { computeRangeSelection } from './bulkDeleteHelpers'
 import { partitionGlobalDeleteTargets } from './reviewedDestructiveTargets'
 import {
+  getCardClickIntent,
   getCardContentPaddingClass,
   getSkillItemVisibility,
 } from './skillItemHelpers'
@@ -189,9 +193,6 @@ interface SymlinkStatusBuckets {
   inaccessibleAgentNames: AgentName[]
 }
 
-/** How long the partial-failure red edge persists (ms). */
-const PARTIAL_FAIL_FLASH_MS = 3_000
-
 /**
  * Groups symlink status counts outside the large card render path to keep the component under fallow complexity limits.
  * @param symlinks - Symlink rows attached to the skill being rendered.
@@ -228,21 +229,25 @@ function getSymlinkStatusBuckets(
 }
 
 /**
- * Decide whether this rendered row can participate in bulk selection.
+ * Decide whether this rendered row can be ticked for a bulk action.
  * @param selectedAgentId - Current agent filter, or null in global view.
- * @param visibleNames - Selector-approved names for agent-view bulk actions.
+ * @param eligibleNames - Visible names the bulk selectors allow in the agent view.
  * @param skillName - Skill row currently rendered by SkillItem.
- * @returns True when a checkbox should render for this row.
+ * @returns
+ * - true in the global view, where every row can be ticked
+ * - true in an agent view when the row is among the eligible names
+ * - false otherwise; the row's checkbox stays disabled unless already ticked
  * @example
  * canBulkSelectRenderedSkill(null, [], 'task') // => true
+ * canBulkSelectRenderedSkill('cursor', ['task'], 'tdd') // => false
  */
 function canBulkSelectRenderedSkill(
   selectedAgentId: AgentId | null,
-  visibleNames: readonly SkillName[],
+  eligibleNames: readonly SkillName[],
   skillName: SkillName,
 ): boolean {
   if (selectedAgentId === null) return true
-  return visibleNames.includes(skillName)
+  return eligibleNames.includes(skillName)
 }
 
 interface GlobalStatusBadgesProps {
@@ -265,7 +270,9 @@ const GlobalStatusBadges = function GlobalStatusBadges({
     buckets.inaccessibleCount === 0
 
   return (
-    <div className="flex items-center gap-2 mt-3">
+    // pt-3, not mt-3: a margin would collapse into the "Local" source
+    // label's mb-2, leaving that card 8px shorter than its row slot.
+    <div className="flex items-center gap-2 pt-3">
       {buckets.validCount > 0 && (
         <StatusBadge
           status="valid"
@@ -288,7 +295,9 @@ const GlobalStatusBadges = function GlobalStatusBadges({
         />
       )}
       {hasNoLinks && (
-        <span className="text-xs text-muted-foreground">
+        // nowrap: a second line would outgrow the row slot {@link SkillsList}
+        // reserves; in a narrow column the note runs into the right gutter.
+        <span className="whitespace-nowrap text-xs text-muted-foreground">
           Not linked to any agent
         </span>
       )}
@@ -434,7 +443,7 @@ const SkillTitleRow = function SkillTitleRow({
  * Renders a bulk-selection checkbox, the skill's name and metadata, and — in
  * agent view or for local skills — a per-row X button. During an in-flight
  * bulk op the row fades to `opacity-50`; rows that errored out of a bulk op
- * flash a red left edge for {@link PARTIAL_FAIL_FLASH_MS} via the
+ * flash a red left edge for {@link FAILED_ROW_FLASH_MS} via the
  * `skills:bulkItemFailed` custom event so the survivors are easy to spot.
  */
 export const SkillItem = function SkillItem({
@@ -456,8 +465,13 @@ export const SkillItem = function SkillItem({
   const selectedNamesSet = useAppSelector(selectSelectedSkillNamesSet)
   const inFlightRemovalSet = useAppSelector(selectAnyInFlightRemovalSet)
   const selectionAnchor = useAppSelector(selectSelectionAnchor)
-  const visibleNames = useAppSelector(selectBulkSelectableVisibleSkillNames)
-  const bulkSelectMode = useAppSelector(selectBulkSelectMode)
+  const visibleNames = useAppSelector(selectVisibleSkillNames)
+  const eligibleNames = useAppSelector(selectBulkSelectableVisibleSkillNames)
+  // Once anything is ticked, every row shows its checkbox.
+  const isAnyRowSelected = useAppSelector(
+    (state) => selectSelectedCount(state) > 0,
+  )
+  const isBulkOpBusy = useAppSelector(selectIsBulkOpBusy)
   const isTicked = selectedNamesSet.has(skill.name)
   const isInFlight = inFlightRemovalSet.has(skill.name)
 
@@ -480,7 +494,7 @@ export const SkillItem = function SkillItem({
   const showUnlinkButton = showUnlinkButtonBase && !isProtected
   const isBulkSelectable = canBulkSelectRenderedSkill(
     selectedAgentId,
-    visibleNames,
+    eligibleNames,
     skill.name,
   )
 
@@ -497,6 +511,9 @@ export const SkillItem = function SkillItem({
   // threshold is floored just below 100 rather than chased. See vitest.config.ts.
   const handleUnlinkClick = (e: React.MouseEvent): void => {
     e.stopPropagation()
+    // A running header op may be removing this same link; a second unlink
+    // would race it, and whichever side loses reports a spurious failure.
+    if (isBulkOpBusy) return
     // Protection is enforced here too so future UI refactors cannot stage a
     // locked skill for removal by accidentally showing the button.
     if (isProtected) return
@@ -524,6 +541,9 @@ export const SkillItem = function SkillItem({
    */
   const handleDeleteClick = (e: React.MouseEvent): void => {
     e.stopPropagation()
+    // Bulk ops share one busy flag, so a second delete would end the running
+    // header op's busy state early and its hand-off would drop newer ticks.
+    if (isBulkOpBusy) return
     const {
       deleteTargets,
       orphanRecords,
@@ -540,6 +560,8 @@ export const SkillItem = function SkillItem({
     dispatch(
       setBulkConfirm({
         kind: 'delete',
+        // A card's own Delete leaves the other ticked rows alone when it settles.
+        origin: 'row',
         skillNames: [skill.name],
         agentId: null,
         agentName: null,
@@ -565,42 +587,56 @@ export const SkillItem = function SkillItem({
   }
 
   /**
-   * Checkbox click handler — `onPointerDown` captures the shift modifier
-   * before Radix's internal click stops the event.
-   *
-   * Routes to `selectRange` ONLY when Shift is held AND an anchor already
-   * exists (from a prior single-click). With no anchor (first click into an
-   * empty selection), Shift-click falls through to the non-shift path: Radix
-   * fires `onCheckedChange`, `handleCheckedChange` dispatches `toggleSelection`,
-   * and the reducer promotes this click to the new anchor. Behaves like macOS
-   * Finder — a first shift-click with no anchor is a plain toggle, not a range.
+   * ⇧ range from the anchor to this row — the one rule shared by the row
+   * checkbox and a ⇧-click on the card. An empty span (nothing eligible in
+   * reach) changes nothing.
+   * @param anchorName - The selection anchor the range starts from.
+   */
+  const selectRangeToThisRow = (anchorName: SkillName): void => {
+    const namesInRange = computeRangeSelection(
+      anchorName,
+      skill.name,
+      visibleNames,
+      new Set(eligibleNames),
+    )
+    if (namesInRange.length === 0) return
+    dispatch(selectRange(namesInRange))
+  }
+
+  /**
+   * Keeps a checkbox press from reaching the card: the card's context-menu
+   * trigger would otherwise react to it (and steal the checkbox's focus).
    */
   const handleCheckboxPointerDown = (
     event: React.PointerEvent<HTMLButtonElement>,
   ): void => {
-    // Stop propagation so the Card's onClick (inspector selection) does not fire.
     event.stopPropagation()
-    if (event.shiftKey && selectionAnchor) {
-      event.preventDefault()
-      const namesInRange = computeRangeSelection(
-        selectionAnchor,
-        skill.name,
-        visibleNames,
-      )
-      dispatch(selectRange(namesInRange))
-      return
-    }
-    // Non-shift path (and shift-without-anchor): let the checkbox settle to
-    // its new `checked` state; Radix emits `onCheckedChange` and we dispatch
-    // the toggle there. The reducer records the new anchor on toggle.
+  }
+
+  /**
+   * Routes a ⇧-click with an anchor to {@link selectRange} instead of a toggle.
+   * Radix runs this handler before its own toggle and skips the toggle once
+   * the default is prevented, so the clicked row is not flipped back off.
+   * With no anchor (first click into an empty selection), a ⇧-click falls
+   * through to the plain toggle, and the reducer promotes this row to the new
+   * anchor. Behaves like macOS Finder: a first shift-click is not a range.
+   */
+  const handleCheckboxClick = (
+    event: React.MouseEvent<HTMLButtonElement>,
+  ): void => {
+    // A ⇧-press on the box reaches the card's text-selection guard, which
+    // keeps focus in the search box or the Inspector.
+    releaseKeyboardToList()
+    if (!event.shiftKey || selectionAnchor === null) return
+    event.preventDefault()
+    selectRangeToThisRow(selectionAnchor)
   }
 
   const handleCheckedChange = (checked: boolean | 'indeterminate'): void => {
     // Only fire when the user actually toggled — ignore the initial sync from props.
     if (checked === 'indeterminate') return
-    // If we just handled a range via shift+click, the state is already correct.
-    // Reconcile via presence in the selection set: only toggle when the slice
-    // state disagrees with the checkbox's new visual state. Avoids double-toggle.
+    // Toggle only when the slice disagrees with the box's new state, so a box
+    // that already matches the selection never flips the row twice.
     const isCurrentlyTicked = selectedNamesSet.has(skill.name)
     if (isCurrentlyTicked !== checked) {
       dispatch(toggleSelection(skill.name))
@@ -624,21 +660,50 @@ export const SkillItem = function SkillItem({
     if (!open) setContextOpen(false)
   }
 
-  const handleCardClick = (): void => {
-    dispatch(selectSkill(isSelected ? null : skill))
+  /**
+   * A plain click toggles the inspector. ⌘-click toggles this row's bulk
+   * selection and ⇧-click extends the range from the anchor; neither touches
+   * the inspector. Selection clicks are inert while a bulk op settles.
+   */
+  const handleCardClick = (event: React.MouseEvent<HTMLDivElement>): void => {
+    // In agent view the "Copy to…" menu trigger, and on a ⇧-click the
+    // text-selection guard below, keep the press from moving focus. Hand the
+    // keyboard to the list, as a plain press on a card without that menu does.
+    releaseKeyboardToList()
+    const clickIntent = getCardClickIntent(event)
+    if (clickIntent === 'open') {
+      dispatch(selectSkill(isSelected ? null : skill))
+      return
+    }
+    if (isBulkOpBusy) return
+    // ⇧ needs an anchor to measure from; without one it toggles like ⌘.
+    if (clickIntent === 'range' && selectionAnchor !== null) {
+      selectRangeToThisRow(selectionAnchor)
+      return
+    }
+    // An ineligible row can be let go but never picked up.
+    if (isBulkSelectable || isTicked) {
+      dispatch(toggleSelection(skill.name))
+    }
   }
 
-  const [didPartialFail, setDidPartialFail] = useState(false)
-  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  useUnmountEffect(() => {
-    // Clean up timer on unmount to prevent a stale setState on an unmounted row.
-    if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
-  })
+  const handleCardMouseDown = (
+    event: React.MouseEvent<HTMLDivElement>,
+  ): void => {
+    // ⇧-click would otherwise drag the page's text selection across cards.
+    if (event.shiftKey) event.preventDefault()
+  }
+
+  // When this row's failure flash ends; null while it is not flashing. Read on
+  // mount too: a row that remounts mid-flash (the rejected-op error view, a
+  // scroll back into view) shows the rest of it.
+  const [flashEndsAt, setFlashEndsAt] = useState(() =>
+    getFlashEndsAt(skill.name),
+  )
+  const didPartialFail = flashEndsAt !== null
   /**
-   * Expose a row-level method so MainContent can imperatively trigger the flash
-   * without threading per-row state through Redux. The MainContent effect reads
-   * the Set of failed names from the thunk result and calls into the row via a
-   * data-skill-name DOM selector.
+   * MainContent triggers the flash imperatively through {@link flashFailedRows}
+   * without threading per-row state through Redux.
    *
    * Because this is imperative, we use a CustomEvent listener keyed on the
    * skill name for decoupling. This keeps SkillItem agnostic of which bulk op
@@ -651,17 +716,23 @@ export const SkillItem = function SkillItem({
       event: WindowEventMap[typeof BULK_ITEM_FAILED_EVENT],
     ): void => {
       if (event.detail.skillName !== skill.name) return
-      setDidPartialFail(true)
-      if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
-      resetTimerRef.current = setTimeout(() => {
-        setDidPartialFail(false)
-      }, PARTIAL_FAIL_FLASH_MS)
+      setFlashEndsAt(getFlashEndsAt(skill.name))
     }
     window.addEventListener(BULK_ITEM_FAILED_EVENT, handleFailEvent)
     return (): void => {
       window.removeEventListener(BULK_ITEM_FAILED_EVENT, handleFailEvent)
     }
   }, [skill.name])
+  useCycleEffect(() => {
+    if (flashEndsAt === null) return
+    const flashEndTimer = setTimeout(() => {
+      setFlashEndsAt(null)
+    }, flashEndsAt - performance.now())
+    // A new failure replaces the deadline, and an unmount drops the timer.
+    return (): void => {
+      clearTimeout(flashEndTimer)
+    }
+  }, [flashEndsAt])
 
   return (
     <DropdownMenu open={contextOpen} onOpenChange={handleContextOpenChange}>
@@ -670,7 +741,14 @@ export const SkillItem = function SkillItem({
           data-skill-name={skill.name}
           className={cn(
             'group cursor-pointer transition-all hover:border-primary/50 relative motion-reduce:transition-none',
-            isSelected && 'border-primary bg-primary/5',
+            // A ticked row tints so the batch reads at a glance; the inspected
+            // row's full `border-primary` below still outranks it. The tint is
+            // a background image over the card's `bg-card`, which a
+            // `bg-primary/5` color would replace.
+            isTicked &&
+              'border-primary/40 bg-linear-to-r from-primary/5 to-primary/5',
+            isSelected &&
+              'border-primary bg-linear-to-r from-primary/5 to-primary/5',
             // Skill-type accent (only when NOT flashing red) — making the
             // precedence explicit, rather than relying on tailwind-merge
             // class-order to let the red override cyan/emerald.
@@ -689,10 +767,11 @@ export const SkillItem = function SkillItem({
               'border-l-2 border-l-amber-400/60',
             // In-flight fade while the row is part of an active bulk op.
             isInFlight && 'opacity-50 duration-150',
-            // Partial-failure red edge (PARTIAL_FAIL_FLASH_MS).
+            // Partial-failure red edge ({@link FAILED_ROW_FLASH_MS}).
             didPartialFail && 'border-l-2 border-l-red-500/70',
           )}
           onClick={handleCardClick}
+          onMouseDown={handleCardMouseDown}
           onContextMenu={handleContextMenu}
         >
           <SkillItemOverlayActions
@@ -736,12 +815,14 @@ export const SkillItem = function SkillItem({
           >
             <div className="flex items-start gap-3">
               <BulkSelectionCheckbox
-                bulkSelectMode={bulkSelectMode}
                 isTicked={isTicked}
                 isBulkSelectable={isBulkSelectable}
+                isAnyRowSelected={isAnyRowSelected}
+                isBulkOpBusy={isBulkOpBusy}
                 skillName={skill.name}
                 onCheckedChange={handleCheckedChange}
                 onPointerDown={handleCheckboxPointerDown}
+                onClick={handleCheckboxClick}
               />
 
               <div className="flex-1 min-w-0">
@@ -762,20 +843,21 @@ export const SkillItem = function SkillItem({
                   </p>
                 )}
                 <SourceLink source={skill.source} sourceUrl={skill.sourceUrl} />
+
+                {/* Status badges — global view only. They sit in the text
+                    column so they start under the title, not the checkbox. */}
+                {!selectedAgentId && (
+                  <GlobalStatusBadges buckets={symlinkStatusBuckets} />
+                )}
               </div>
             </div>
-
-            {/* Status badges — only shown in global view (no agent selected) */}
-            {!selectedAgentId && (
-              <GlobalStatusBadges buckets={symlinkStatusBuckets} />
-            )}
           </CardContent>
         </Card>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         <DropdownMenuItem onClick={handleCopyClick}>
           <Copy className="h-4 w-4 mr-2" />
-          Copy to...
+          Copy to…
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -924,12 +1006,16 @@ const SkillItemOverlayActions = function SkillItemOverlayActions({
 }
 
 interface BulkSelectionCheckboxProps {
-  bulkSelectMode: boolean
   isTicked: boolean
   isBulkSelectable: boolean
+  /** True once any row is ticked; every row then shows its checkbox. */
+  isAnyRowSelected: boolean
+  /** True while a bulk op runs; the checkbox is disabled until it settles. */
+  isBulkOpBusy: boolean
   skillName: SkillName
   onCheckedChange: (checked: boolean | 'indeterminate') => void
   onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => void
+  onClick: (event: React.MouseEvent<HTMLButtonElement>) => void
 }
 
 /**
@@ -945,33 +1031,50 @@ function handleBulkSelectionLabelClick(
 }
 
 /**
- * Shows the row checkbox only while Installed bulk-select mode is active.
- * @param props - Selection state, eligibility, and handlers prepared by SkillItem.
- * @returns Checkbox label with stable hit area, or null outside bulk-select mode.
+ * The row's bulk-selection checkbox, always rendered in a fixed 28px gutter so
+ * ticking the first row never shifts the card content (selection is modeless).
+ * With nothing selected the column stays quiet: a row's box appears on hover or
+ * keyboard focus. Once any row is ticked, every row shows its box, so the
+ * header's Delete/Unlink is only reachable while each ticked row is visible.
+ * @param props - Selection state, eligibility, busy flag, and handlers prepared by SkillItem.
+ * @returns Checkbox label with a stable 28px hit area.
  * @example
- * <BulkSelectionCheckbox bulkSelectMode={true} isTicked={false} skillName="task" />
+ * <BulkSelectionCheckbox isTicked={false} isBulkSelectable isAnyRowSelected={false} isBulkOpBusy={false} skillName="task" />
  */
 const BulkSelectionCheckbox = function BulkSelectionCheckbox({
-  bulkSelectMode,
   isTicked,
   isBulkSelectable,
+  isAnyRowSelected,
+  isBulkOpBusy,
   skillName,
   onCheckedChange,
   onPointerDown,
-}: BulkSelectionCheckboxProps): React.ReactElement | null {
-  if (!bulkSelectMode) return null
+  onClick,
+}: BulkSelectionCheckboxProps): React.ReactElement {
+  const isDisabled = isBulkOpBusy || (!isBulkSelectable && !isTicked)
 
   return (
     // react-doctor-disable-next-line react-doctor/label-has-associated-control, react-doctor/no-noninteractive-element-interactions -- the label wraps a Radix <Checkbox> (renders a real <input>) that react-doctor can't see as the control; the onClick is a stopPropagation guard, not an interactive handler.
     <label
-      className="shrink-0 min-h-11 min-w-11 flex items-center justify-center -mt-1 -ml-1 cursor-pointer"
+      className={cn(
+        // -mt-0.5 centers the 16px box on the title's first line.
+        'shrink-0 size-7 -mt-0.5 -ml-1.5 flex items-center justify-center',
+        isDisabled ? 'cursor-not-allowed' : 'cursor-pointer',
+        // A disabled box cannot take focus, so it only needs the hover reveal.
+        // It lives on the label because the checkbox's own
+        // `disabled:opacity-50` would outrank an `opacity-0` on the box.
+        !isAnyRowSelected &&
+          isDisabled &&
+          'opacity-0 group-hover:opacity-100 transition-opacity duration-150 motion-reduce:transition-none',
+      )}
       onClick={handleBulkSelectionLabelClick}
     >
       <Checkbox
         checked={isTicked}
         onCheckedChange={onCheckedChange}
         onPointerDown={onPointerDown}
-        disabled={!isBulkSelectable && !isTicked}
+        onClick={onClick}
+        disabled={isDisabled}
         aria-label={
           isTicked
             ? `Deselect ${skillName}`
@@ -979,6 +1082,12 @@ const BulkSelectionCheckbox = function BulkSelectionCheckbox({
               ? `Select ${skillName}`
               : `${skillName} is not eligible for bulk selection`
         }
+        className={cn(
+          // The reveal sits on the focusable box itself, so Tab reveals it.
+          !isAnyRowSelected &&
+            !isDisabled &&
+            'opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity duration-150 motion-reduce:transition-none',
+        )}
       />
     </label>
   )

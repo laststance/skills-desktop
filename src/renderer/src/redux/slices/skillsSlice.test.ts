@@ -779,7 +779,7 @@ describe('skillsSlice bulkCopyToAgents thunk', () => {
     expect(mockCopyToAgents).not.toHaveBeenCalled()
   })
 
-  test('releases the toolbar and surfaces the error message when the whole copy batch rejects', async () => {
+  test('re-enables the list header and surfaces the error message when the whole copy batch rejects', async () => {
     // Arrange — drive the slice into its in-flight pending state first, then
     // reject the same request (a thrown payload creator, not a per-skill catch).
     const store = await createTestStore()
@@ -818,6 +818,45 @@ describe('skillsSlice bulk selection reducers (v2.4)', () => {
 
     // Assert
     expect(store.getState().skills.selectedSkillNames).toEqual(['task'])
+    expect(store.getState().skills.selectionAnchor).toBe('task')
+  })
+
+  test('drops the tick and anchor of a skill a refresh no longer finds, so the list header does not count it as hidden by a filter', async () => {
+    // Arrange — 'browser' is ticked last, so it holds the anchor
+    const { fetchSkills, toggleSelection } = await import('./skillsSlice')
+    const store = await createTestStore()
+    await seedItems(store, [sampleSkill, secondSkill, thirdSkill])
+    store.dispatch(toggleSelection(toSkillName('task')))
+    store.dispatch(toggleSelection(toSkillName('browser')))
+
+    // Act — 'browser' was removed outside the app
+    store.dispatch(fetchSkills.fulfilled([sampleSkill, secondSkill], 'req-id'))
+
+    // Assert
+    expect(store.getState().skills.selectedSkillNames).toEqual(['task'])
+    expect(store.getState().skills.selectionAnchor).toBeNull()
+  })
+
+  test('keeps the ticks and anchor that a refresh still finds', async () => {
+    // Arrange — 'task' is ticked last, so it holds the anchor
+    const { fetchSkills, toggleSelection } = await import('./skillsSlice')
+    const store = await createTestStore()
+    await seedItems(store, [sampleSkill, secondSkill, thirdSkill])
+    store.dispatch(toggleSelection(toSkillName('browser')))
+    store.dispatch(toggleSelection(toSkillName('task')))
+    const selectionBeforeRefresh = store.getState().skills.selectedSkillNames
+
+    // Act — only the unticked 'theme-generator' was removed
+    store.dispatch(fetchSkills.fulfilled([sampleSkill, thirdSkill], 'req-id'))
+
+    // Assert — the same array, so nothing that reads it re-renders
+    expect(store.getState().skills.selectedSkillNames).toBe(
+      selectionBeforeRefresh,
+    )
+    expect(store.getState().skills.selectedSkillNames).toEqual([
+      'browser',
+      'task',
+    ])
     expect(store.getState().skills.selectionAnchor).toBe('task')
   })
 
@@ -953,6 +992,54 @@ describe('skillsSlice bulk selection reducers (v2.4)', () => {
     expect(store.getState().skills.selectionAnchor).toBeNull()
   })
 
+  test('keeps only the retryable rows ticked when a settled bulk op narrows the selection', async () => {
+    // Arrange — three rows ticked; 'browser' (the anchor) is not retryable
+    const { toggleSelection, narrowSelection } = await import('./skillsSlice')
+    const store = await createTestStore()
+    store.dispatch(toggleSelection(toSkillName('task')))
+    store.dispatch(toggleSelection(toSkillName('theme')))
+    store.dispatch(toggleSelection(toSkillName('browser')))
+
+    // Act — 'zebra' was never ticked, so narrowing must not add it
+    store.dispatch(
+      narrowSelection([toSkillName('theme'), toSkillName('zebra')]),
+    )
+
+    // Assert — the anchor left the selection, so a later shift-click starts fresh
+    expect(store.getState().skills.selectedSkillNames).toEqual(['theme'])
+    expect(store.getState().skills.selectionAnchor).toBeNull()
+  })
+
+  test('keeps the range anchor when its row stays ticked after narrowing', async () => {
+    // Arrange — 'theme' is ticked last, so it is the anchor
+    const { toggleSelection, narrowSelection } = await import('./skillsSlice')
+    const store = await createTestStore()
+    store.dispatch(toggleSelection(toSkillName('task')))
+    store.dispatch(toggleSelection(toSkillName('theme')))
+
+    // Act
+    store.dispatch(narrowSelection([toSkillName('theme')]))
+
+    // Assert
+    expect(store.getState().skills.selectedSkillNames).toEqual(['theme'])
+    expect(store.getState().skills.selectionAnchor).toBe('theme')
+  })
+
+  test('leaves nothing ticked when a settled bulk op has no retryable failure', async () => {
+    // Arrange
+    const { toggleSelection, narrowSelection } = await import('./skillsSlice')
+    const store = await createTestStore()
+    store.dispatch(toggleSelection(toSkillName('task')))
+    store.dispatch(toggleSelection(toSkillName('theme')))
+
+    // Act
+    store.dispatch(narrowSelection([]))
+
+    // Assert
+    expect(store.getState().skills.selectedSkillNames).toEqual([])
+    expect(store.getState().skills.selectionAnchor).toBeNull()
+  })
+
   test('shows the bulk progress counter during an operation and hides it when cleared', async () => {
     // Arrange
     const { setBulkProgress } = await import('./skillsSlice')
@@ -975,12 +1062,12 @@ describe('skillsSlice bulk selection reducers (v2.4)', () => {
     expect(store.getState().skills.bulkProgress).toBeNull()
   })
 
-  test('opens the bulk Copy-to-agents modal from the toolbar and closes it on dismiss', async () => {
+  test('opens the bulk Copy-to-agents modal from the list header and closes it on dismiss', async () => {
     // Arrange
     const { setBulkCopyModalOpen } = await import('./skillsSlice')
     const store = await createTestStore()
 
-    // Act — the toolbar "Copy to…" opens the BulkCopyToAgentsModal
+    // Act — the list header's "Copy to…" opens the BulkCopyToAgentsModal
     store.dispatch(setBulkCopyModalOpen(true))
 
     // Assert
@@ -1774,7 +1861,7 @@ describe('skillsSlice named selectors', () => {
     expect(error).toBeNull()
   })
 
-  test('reads the bulk-select state (ticked rows, copy-agent ticks, and range anchor) for the toolbar', async () => {
+  test('reads the bulk-select state (ticked rows, copy-agent ticks, and range anchor) for the list header', async () => {
     // Arrange
     const store = await createTestStore()
     const {
@@ -1802,7 +1889,7 @@ describe('skillsSlice named selectors', () => {
     expect(selectionAnchor).toBe('task')
   })
 
-  test('reads the in-flight delete fade list and every bulk-busy flag the toolbar disables on', async () => {
+  test('reads the in-flight delete fade list and every busy flag the list header disables on', async () => {
     // Arrange — push the slice into delete/unlink/copy pending states at once
     const store = await createTestStore()
     await seedItems(store, [sampleSkill])
@@ -1811,9 +1898,8 @@ describe('skillsSlice named selectors', () => {
       unlinkSelectedFromAgent,
       bulkCopyToAgents,
       selectInFlightDeleteNames,
-      selectBulkDeleting,
-      selectBulkUnlinking,
       selectBulkCopying,
+      selectIsBulkOpBusy,
     } = await import('./skillsSlice')
     store.dispatch(
       deleteSelectedSkills.pending('del-1', [
@@ -1834,15 +1920,66 @@ describe('skillsSlice named selectors', () => {
     const inFlightDeleteNames = selectInFlightDeleteNames(
       store.getState() as RootState,
     )
-    const bulkDeleting = selectBulkDeleting(store.getState() as RootState)
-    const bulkUnlinking = selectBulkUnlinking(store.getState() as RootState)
+    const { bulkDeleting, bulkUnlinking } = (store.getState() as RootState)
+      .skills
     const bulkCopying = selectBulkCopying(store.getState() as RootState)
+    const isBulkOpBusy = selectIsBulkOpBusy(store.getState() as RootState)
 
     // Assert
     expect(inFlightDeleteNames).toEqual(['task'])
     expect(bulkDeleting).toBe(true)
     expect(bulkUnlinking).toBe(true)
     expect(bulkCopying).toBe(true)
+    expect(isBulkOpBusy).toBe(true)
+  })
+
+  test('reports the list busy while any bulk delete, unlink, or copy is running', async () => {
+    // Arrange — one pending op per kind, each settled before the next starts
+    const store = await createTestStore()
+    await seedItems(store, [sampleSkill])
+    const {
+      deleteSelectedSkills,
+      unlinkSelectedFromAgent,
+      bulkCopyToAgents,
+      selectIsBulkOpBusy,
+    } = await import('./skillsSlice')
+    const readIsBusy = (): boolean =>
+      selectIsBulkOpBusy(store.getState() as RootState)
+
+    // Act + Assert — idle before any bulk op starts
+    expect(readIsBusy()).toBe(false)
+
+    // Act + Assert — a bulk delete marks the list busy until it settles
+    store.dispatch(
+      deleteSelectedSkills.pending('del-1', [
+        deleteTarget(toSkillName('task')),
+      ]),
+    )
+    expect(readIsBusy()).toBe(true)
+    store.dispatch(
+      deleteSelectedSkills.fulfilled({ items: [] }, 'del-1', [
+        deleteTarget(toSkillName('task')),
+      ]),
+    )
+    expect(readIsBusy()).toBe(false)
+
+    // Act + Assert — a bulk unlink does the same
+    const unlinkArg: Parameters<typeof unlinkSelectedFromAgent>[0] = {
+      agentId: 'cursor',
+      selectedNames: [unlinkTarget(toSkillName('task'))],
+    }
+    store.dispatch(unlinkSelectedFromAgent.pending('unlink-1', unlinkArg))
+    expect(readIsBusy()).toBe(true)
+    store.dispatch(
+      unlinkSelectedFromAgent.fulfilled({ items: [] }, 'unlink-1', unlinkArg),
+    )
+    expect(readIsBusy()).toBe(false)
+
+    // Act + Assert — and so does a bulk copy
+    store.dispatch(
+      bulkCopyToAgents.pending('copy-1', { items: [], agentIds: [] }),
+    )
+    expect(readIsBusy()).toBe(true)
   })
 
   test('reads the bulk Copy-to-agents modal open flag and the progress counter', async () => {

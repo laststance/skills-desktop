@@ -900,6 +900,26 @@ describe('SymlinkCleanupDialog', () => {
     expect(store.getState().skills.selectedSkillNames).toEqual([])
   })
 
+  test('keeps Clean disabled while an Installed-list bulk operation runs, so the two never act on the same rows at once', async () => {
+    // Arrange
+    mockGetSkills.mockResolvedValue([
+      makeSkillWithBrokenSlot(toSkillName('dialog-busy-task'), 'cursor'),
+    ])
+    const { screen, store } = await renderOpenedDialogWithStore()
+    const cleanButton = screen.getByRole('button', { name: 'Clean 1 selected' })
+    await expect.element(cleanButton).toBeEnabled()
+    const { bulkCopyToAgents } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+
+    // Act — a list header bulk op starts while the dialog is open
+    store.dispatch(
+      bulkCopyToAgents.pending('copy-req', { items: [], agentIds: [] }),
+    )
+
+    // Assert
+    await expect.element(cleanButton).toBeDisabled()
+  })
+
   test('surfaces orphan-only IPC failures without calling source delete', async () => {
     // Arrange
     const orphanPlan = [makeOrphanSkill(toSkillName('abandoned-task'), 'codex')]

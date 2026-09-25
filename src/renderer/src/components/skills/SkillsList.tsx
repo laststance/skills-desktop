@@ -30,7 +30,7 @@ import { getEmptyListMessage } from './skillsListHelpers'
 const ROW_HEIGHT_BASE = 101
 /** Extra height for description (line-clamp-2, text-sm: ~40px + mt-1: 4px) */
 const ROW_HEIGHT_DESCRIPTION = 44
-/** Extra height for status badges row (mt-3: 12px + badge: 22px) */
+/** Extra height for status badges row (pt-3: 12px + badge: 22px) */
 const ROW_HEIGHT_BADGES = 34
 
 /** Props passed to SkillRow via rowProps */
@@ -58,6 +58,21 @@ function SkillRow({
       </div>
     </div>
   )
+}
+
+/**
+ * Keys each virtual row by its skill, so row state (the failure flash, an open
+ * context menu) stays with that skill when a refresh or filter shifts the rows.
+ * react-window keys rows by index otherwise. Module-level so the List gets the
+ * stable function it requires.
+ * @param index - Row index in the filtered list
+ * @param rowProps - The List's rowProps, carrying the visible skills
+ * @returns The row's skill name
+ * @example
+ * getSkillRowKey(0, { data: [taskSkill] }) // => 'task'
+ */
+function getSkillRowKey(index: number, { data }: SkillRowProps): Skill['name'] {
+  return data[index].name
 }
 
 /**
@@ -176,6 +191,7 @@ export const SkillsList = function SkillsList(): React.ReactElement {
       rowComponent={SkillRow}
       rowCount={filteredSkills.length}
       rowHeight={getRowHeight}
+      rowKey={getSkillRowKey}
       rowProps={rowProps}
       overscanCount={5}
       style={listStyle}

@@ -17,13 +17,13 @@ import {
   countOrphanSymlinksRemoved,
   formatCascadeSummary,
   formatUnlinkSummary,
-  getToolbarState,
+  getPrimaryActionState,
 } from './bulkDeleteHelpers'
 
-describe('getToolbarState', () => {
+describe('getPrimaryActionState', () => {
   test('offers a destructive "Delete skill" button for one skill in global view', () => {
     // Arrange / Act
-    const result = getToolbarState({
+    const result = getPrimaryActionState({
       view: 'global',
       agentId: null,
       count: toSkillCount(1),
@@ -39,7 +39,7 @@ describe('getToolbarState', () => {
 
   test('shows the selected count in the "Delete N skills" button in global view', () => {
     // Arrange / Act
-    const result = getToolbarState({
+    const result = getPrimaryActionState({
       view: 'global',
       agentId: null,
       count: toSkillCount(7),
@@ -55,7 +55,7 @@ describe('getToolbarState', () => {
 
   test('offers a non-destructive unlink button with a generic agent label when the display name is unknown', () => {
     // Arrange / Act
-    const result = getToolbarState({
+    const result = getPrimaryActionState({
       view: 'agent',
       agentId: 'cursor',
       count: toSkillCount(1),
@@ -70,7 +70,7 @@ describe('getToolbarState', () => {
 
   test('names the agent in the single-skill unlink button when a display name is given', () => {
     // Arrange / Act
-    const result = getToolbarState({
+    const result = getPrimaryActionState({
       view: 'agent',
       agentId: 'cursor',
       count: toSkillCount(1),
@@ -85,7 +85,7 @@ describe('getToolbarState', () => {
 
   test('shows the selected count in a non-destructive multi-skill unlink button with a generic agent label', () => {
     // Arrange / Act
-    const result = getToolbarState({
+    const result = getPrimaryActionState({
       view: 'agent',
       agentId: 'cursor',
       count: toSkillCount(4),
@@ -100,7 +100,7 @@ describe('getToolbarState', () => {
 
   test('names the agent in the multi-skill unlink button when a display name is given', () => {
     // Arrange / Act
-    const result = getToolbarState({
+    const result = getPrimaryActionState({
       view: 'agent',
       agentId: 'cursor',
       count: toSkillCount(4),
@@ -115,7 +115,7 @@ describe('getToolbarState', () => {
 
   test('disables the delete button when a search filter hides every selected skill in global view', () => {
     // Arrange / Act
-    const result = getToolbarState({
+    const result = getPrimaryActionState({
       view: 'global',
       agentId: null,
       count: toSkillCount(5), // user has 5 selected globally
@@ -131,7 +131,7 @@ describe('getToolbarState', () => {
 
   test('disables the button with unlink-specific copy when no selected skill is visible in agent view', () => {
     // Arrange / Act
-    const result = getToolbarState({
+    const result = getPrimaryActionState({
       view: 'agent',
       agentId: 'cursor',
       count: toSkillCount(3),
@@ -148,9 +148,60 @@ describe('getToolbarState', () => {
     )
   })
 
+  test('shortens the primary label to the verb and count for the compact header tier', () => {
+    // Arrange / Act
+    const deleteState = getPrimaryActionState({
+      view: 'global',
+      agentId: null,
+      count: toSkillCount(28),
+      visibleCount: toSkillCount(28),
+    })
+    const unlinkState = getPrimaryActionState({
+      view: 'agent',
+      agentId: 'cursor',
+      count: toSkillCount(1),
+      visibleCount: toSkillCount(1),
+      agentDisplayName: 'Cursor',
+    })
+
+    // Assert — the full sentence stays in aria-label; only the visible text shrinks
+    expect(deleteState.compactPrimaryLabel).toBe('Delete 28')
+    expect(deleteState.primaryAriaLabel).toBe(
+      'Move 28 selected skills to app trash',
+    )
+    expect(unlinkState.compactPrimaryLabel).toBe('Unlink 1')
+    expect(unlinkState.primaryAriaLabel).toBe(
+      'Unlink selected skill from Cursor',
+    )
+  })
+
+  test('keeps the verb with a zero count on the disabled compact header button when a search hides every selected skill', () => {
+    // Arrange / Act
+    const deleteState = getPrimaryActionState({
+      view: 'global',
+      agentId: null,
+      count: toSkillCount(4),
+      visibleCount: toSkillCount(0),
+    })
+    const unlinkState = getPrimaryActionState({
+      view: 'agent',
+      agentId: 'cursor',
+      count: toSkillCount(2),
+      visibleCount: toSkillCount(0),
+      agentDisplayName: 'Cursor',
+    })
+
+    // Assert — the compact tier has no room for 'No visible skills', so it
+    // keeps its verb-and-count form; the disabled state carries the meaning.
+    expect(deleteState.compactPrimaryLabel).toBe('Delete 0')
+    expect(deleteState.isPrimaryDisabled).toBe(true)
+    expect(unlinkState.compactPrimaryLabel).toBe('Unlink 0')
+    expect(unlinkState.isPrimaryDisabled).toBe(true)
+  })
+
   test('counts only the visible selected skills in the delete button when filters hide some rows', () => {
     // Arrange / Act
-    const result = getToolbarState({
+    const result = getPrimaryActionState({
       view: 'global',
       agentId: null,
       count: toSkillCount(5),
@@ -493,6 +544,7 @@ describe('computeRangeSelection', () => {
     toSkillName('theme'),
     toSkillName('zebra'),
   ]
+  const everyRowEligible: ReadonlySet<SkillName> = new Set(visible)
 
   test('shift-selects every row between an earlier anchor and a later click, inclusive', () => {
     // Arrange / Act
@@ -500,6 +552,7 @@ describe('computeRangeSelection', () => {
       toSkillName('task'),
       toSkillName('zebra'),
       visible,
+      everyRowEligible,
     )
 
     // Assert
@@ -512,6 +565,7 @@ describe('computeRangeSelection', () => {
       toSkillName('zebra'),
       toSkillName('task'),
       visible,
+      everyRowEligible,
     )
 
     // Assert
@@ -524,6 +578,7 @@ describe('computeRangeSelection', () => {
       toSkillName('task'),
       toSkillName('task'),
       visible,
+      everyRowEligible,
     )
 
     // Assert
@@ -532,7 +587,12 @@ describe('computeRangeSelection', () => {
 
   test('selects just the clicked row when there is no prior anchor', () => {
     // Arrange / Act
-    const range = computeRangeSelection(null, toSkillName('task'), visible)
+    const range = computeRangeSelection(
+      null,
+      toSkillName('task'),
+      visible,
+      everyRowEligible,
+    )
 
     // Assert
     expect(range).toEqual(['task'])
@@ -544,22 +604,24 @@ describe('computeRangeSelection', () => {
       toSkillName('removed-by-search'),
       toSkillName('zebra'),
       visible,
+      everyRowEligible,
     )
 
     // Assert
     expect(range).toEqual(['zebra'])
   })
 
-  test('selects just the clicked row when the clicked target is not in the visible list', () => {
-    // Arrange / Act
+  test('selects nothing when the clicked target is no longer visible', () => {
+    // Arrange / Act — a row that left the list cannot be bulk-eligible
     const range = computeRangeSelection(
       toSkillName('task'),
       toSkillName('missing'),
       visible,
+      everyRowEligible,
     )
 
     // Assert
-    expect(range).toEqual(['missing'])
+    expect(range).toEqual([])
   })
 
   test('shift-selects the whole visible list when spanning from the first row to the last', () => {
@@ -568,9 +630,69 @@ describe('computeRangeSelection', () => {
       toSkillName('alpha'),
       toSkillName('zebra'),
       visible,
+      everyRowEligible,
     )
 
     // Assert
     expect(range).toEqual(visible)
+  })
+
+  test('skips the ineligible rows inside the span and keeps the eligible ones', () => {
+    // Arrange — browser and theme are drawn but cannot use the bulk action
+    const eligibleNames: ReadonlySet<SkillName> = new Set([
+      toSkillName('alpha'),
+      toSkillName('task'),
+      toSkillName('zebra'),
+    ])
+
+    // Act
+    const range = computeRangeSelection(
+      toSkillName('alpha'),
+      toSkillName('zebra'),
+      visible,
+      eligibleNames,
+    )
+
+    // Assert
+    expect(range).toEqual(['alpha', 'task', 'zebra'])
+  })
+
+  test('shift-clicking an ineligible row selects the eligible rows up to it, not the row itself', () => {
+    // Arrange — theme is the clicked row and is not eligible
+    const eligibleNames: ReadonlySet<SkillName> = new Set([
+      toSkillName('alpha'),
+      toSkillName('task'),
+      toSkillName('zebra'),
+    ])
+
+    // Act
+    const range = computeRangeSelection(
+      toSkillName('alpha'),
+      toSkillName('theme'),
+      visible,
+      eligibleNames,
+    )
+
+    // Assert
+    expect(range).toEqual(['alpha', 'task'])
+  })
+
+  test('selects nothing when an ineligible row is shift-clicked without a visible anchor', () => {
+    // Arrange — browser is drawn but not eligible, and no anchor exists yet
+    const eligibleNames: ReadonlySet<SkillName> = new Set([
+      toSkillName('alpha'),
+      toSkillName('task'),
+    ])
+
+    // Act
+    const range = computeRangeSelection(
+      null,
+      toSkillName('browser'),
+      visible,
+      eligibleNames,
+    )
+
+    // Assert
+    expect(range).toEqual([])
   })
 })

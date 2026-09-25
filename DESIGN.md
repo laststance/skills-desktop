@@ -438,6 +438,10 @@ Rules:
   for an isolated hero CTA; use `sm` (28px) in dense toolbars and row tools.
 - Icon-only buttons are `icon` (28px) by default; drop to `size-6` (24px, the
   WCAG 2.5.8 AA floor) only for genuinely dense rows. Never go below 24px.
+- Exception (owner decision, 2026-09-25): the Installed list header is a 36px
+  (`h-9`) row that carries `xs` (24px) buttons, not `sm`. It sits directly on
+  the list, so it keeps the list's row rhythm instead of a toolbar's; 24px is
+  still the AA floor. Do not spread `xs` to other toolbars on this basis.
 - If a button feels too tall, reduce the visual surface before reducing the
   accessible hit area.
 - Prefer lucide icons for tool buttons; glyphs stay 14-16px, not scaled to the
@@ -518,6 +522,96 @@ Rules:
   - Reserve overlay space with padding so revealing a corner action never
     shifts the row's content (zero-layout-shift); align overlays to the title
     row, not the card's raw top edge.
+- The Installed list is virtualized with computed row heights, so a card's
+  height must not depend on its width. One-line metadata (the status badges,
+  the "Not linked to any agent" note) stays on one line and runs into the
+  right gutter in a narrow column instead of wrapping. A line that holds a
+  value of any length, like the source repository, truncates at the text
+  column instead (its `title` keeps the whole value), since a long value
+  would run past the card. Check these lines in the minimum window, where the
+  row checkbox gutter leaves the text column narrowest. Space stacked blocks
+  with padding where a margin could collapse into a neighbor's, since a
+  collapsed margin quietly shortens the card against its row slot.
+
+### Bulk Selection
+
+Selection is modeless: there is no Select/Cancel mode. A 36px list header sits
+above the list, outside its scroller, so it never scrolls away. (Linear, Gmail,
+Finder list view.)
+
+- The header shares the rows' columns. Its left inset is a card's 1px border
+  plus 16px padding, so the master box sits on the row checkbox column and
+  `N selected` / `Name` start on the title column. Its right edge reserves the
+  list's scrollbar gutter plus the row inset, so it ends where the cards end.
+  Inside a card, everything after the checkbox (title, description, source,
+  and the global-view status badges) stays in the title column; nothing wraps
+  back under the checkbox.
+
+- The header's tri-state master checkbox (unchecked / mixed / checked, the W3C
+  APG mixed checkbox) lines up with the row checkbox column and shares the row
+  boxes' `border-primary` (3:1 at rest); mixed fills like checked. Unchecked or
+  mixed selects every visible eligible row, dropping ticks the search hides;
+  checked clears the whole selection. It is disabled when nothing is eligible
+  (empty list, first scan, or load error) and while a bulk op settles. A
+  refresh that keeps rows on screen leaves it enabled.
+- Each row keeps its checkbox in a fixed 28px gutter (`size-7`), so the first
+  tick never shifts the card's content. The gutter is a layout reservation, so
+  the box follows the button scale, not the 44px invisible-hit-area exception.
+- With nothing selected, row checkboxes stay quiet: hover or keyboard focus
+  reveals them (`opacity-0 group-hover:opacity-100 focus-visible:opacity-100`).
+  Once any row is ticked, every row shows its box, so the user can audit what
+  the header will act on. At rest, a disabled box reveals on hover only.
+- A ticked row tints `border-primary/40` with a 5% primary wash, so the batch
+  reads at a glance without hovering. The inspected row keeps its full
+  `border-primary`, which outranks the tint when a row is both.
+- A tint on a card sits on top of its surface and never replaces it: layer the
+  wash as a background image (`bg-linear-to-r from-primary/5 to-primary/5`).
+  A `bg-primary/5` color would drop `bg-card` through tailwind-merge, and the
+  ticked card would read as a hole in the list.
+- The header swaps on the selection alone. At rest it shows the `Name` sort
+  toggle (and the visible count when that setting is inline). Selected, it
+  shows `N selected`, the `+N hidden by filter` / `+N not eligible` indicators,
+  then Copy to… (global view), the primary Delete/Unlink, and Clear with its
+  `Esc` hint. The header tints `bg-primary/5` while anything is selected.
+- When that swap removes the control that had keyboard focus (Clear, or ⌘A /
+  Esc pressed from a header button), focus moves to the master checkbox, the
+  one control both states share. Focus outside the header stays where it is.
+- The header is an `@container` row that never wraps, in three tiers. From a
+  30rem content width up (full) every label shows. Below 30rem (narrow), Copy
+  turns into a 24px icon-only button and the indicators keep only their
+  numbers: the words become `sr-only` and the `title` keeps the whole sentence.
+  Below 24rem (compact) the summary becomes screen-reader-only, the primary
+  label shortens to `Delete N` / `Unlink N`, and Clear becomes a 24px icon-only
+  button. Accessible names stay the same in every tier, and a control that
+  drops its visible label always has a tooltip naming the action.
+- In every tier the `N selected` count and the indicators' `+N` numbers stay
+  whole. When the row runs out of room, the indicator words give way first
+  (their `title` keeps the sentence), then the primary label truncates (its
+  tooltip keeps the whole action).
+- The tiers key off the header's content box, not the window. At the default
+  50/50 split that box is (window − 272px sidebar) / 2 − 57px, so the 1200px
+  default launch window is narrow, 1100px and the 800px minimum are compact,
+  and the full tier starts near a 1350px window. Check all three tiers when the
+  header's contents change.
+- Shortcuts: ⌘A selects every visible eligible row and Esc clears a non-empty
+  selection (Esc at 0 selected is left to the rest of the app). Both stand down
+  inside text fields, where the search box keeps native select-all, under open
+  dialogs and menus, and while a bulk op settles. ⌘A also leaves the
+  Inspector's text to native select-all, and an Esc that an overlay already
+  handled (the one that dismisses a dialog or menu) never also clears the
+  selection. A tooltip does not count: one Esc hides it and clears the
+  selection. ⌘⇧A, Deselect All in other Mac apps, selects nothing.
+  ⌘-click toggles a row and ⇧-click extends the range from the anchor over
+  eligible rows; a plain click still opens the Inspector. Any click on a card
+  or its checkbox takes the keyboard out of the search box and the Inspector,
+  so the next ⌘A or Esc reaches the list.
+- The master checkbox tooltip names the key that does what a click would do
+  right now: ⌘A when unchecked or mixed, Esc when checked, and no key while it
+  is disabled.
+- After a header-started Delete or Unlink settles, only the rows the user can
+  retry stay ticked. A card's own Delete leaves the other ticks alone. All bulk
+  ops share one busy flag, so while one runs a card's Delete and Unlink do
+  nothing and the Dashboard's symlink cleanup keeps its Clean button disabled.
 
 ### Empty States
 
@@ -553,12 +647,23 @@ Inline `<kbd>` badges communicate keyboard shortcuts without changing behavior.
 Use them on toolbar buttons where the shortcut is non-obvious:
 
 - Typography: `text-[10px] font-mono leading-none`
-- Surface: `bg-muted px-1 py-0.5 rounded`
-- Opacity: `opacity-50` — hints recede; they are not the action label
-- Placement: `ml-1.5` after the button text label
+- Surface: `rounded border border-current/25 px-1 py-0.5`, with no fill. The
+  chip takes the control's text color, so it stays legible on the control's
+  hover and pressed fills; a `bg-muted` chip turns into a dark smudge on a
+  ghost button's `hover:bg-accent`
+- Opacity: `opacity-60` — hints recede; they are not the action label
+- Placement: after the button text label. A Button's own `gap-1.5` spaces it;
+  add `ml-1.5` only where the parent has no gap
 - Accessible name: always add `aria-label` on the parent button to pin the
   stable accessible name independently of the `<kbd>` text content, which would
   otherwise inflate the name and break `getByRole` queries
+- Truthfulness: a hint names the key that does what a click on that control
+  would do right now, so it changes with the control's state, and a disabled
+  control shows no hint
+- Inside a tooltip, which is always `bg-slate-700` with white text and never
+  changes fill, the chip may take a faint fill: keep the typography and
+  padding above, use `border border-white/20 bg-white/10` with `text-white/80`
+  in place of the opacity, and `ml-1.5`, since tooltip content has no gap
 
 ### Loading and Skeletons
 
@@ -680,10 +785,11 @@ finger-target minimum does not apply. The floor is WCAG 2.5.8 AA: 24x24 CSS px
   follows the button scale above. Never reserve 44px around a 16px glyph; that is
   wasted width on a pointer-driven app, and width is scarce in the center list.
 - An **invisible or conditional hit area carries no resting box and no layout
-  cost**, so it MAY exceed the scale. An `opacity-0 group-hover` corner action or
-  a bulk-select checkbox wrapper can keep a 44px (`min-h-11 min-w-11`) target:
-  the glyph stays small, nothing reads as chunky, and the larger target is pure
-  ergonomics. This is the ONLY sanctioned use of 44px on a control.
+  cost**, so it MAY exceed the scale. An `opacity-0 group-hover` corner action
+  can keep a 44px (`min-h-11 min-w-11`) target: the glyph stays small, nothing
+  reads as chunky, and the larger target is pure ergonomics. This is the ONLY
+  sanctioned use of 44px on a control. (The bulk-select checkbox no longer
+  qualifies: it sits in a reserved 28px gutter; see Bulk Selection.)
 - **A reservation voids that exception.** `opacity-0` does not set
   `pointer-events: none`, so a gutter that keeps a neighbouring control
   clickable must clear the hidden box — and that reservation is a layout cost.

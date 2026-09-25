@@ -1,10 +1,15 @@
 import { describe, expect, test } from 'vitest'
 
 import { THEME_PRESETS } from '@/shared/constants'
-import { toSkillName } from '@/shared/types'
+import type { Skill } from '@/shared/types'
+import { toAbsolutePath, toSkillName, toSymlinkCount } from '@/shared/types'
 
 import type { MigratableState } from './migrations'
-import { toggleSelection } from './slices/skillsSlice'
+import {
+  clearSelection,
+  fetchSkills,
+  toggleSelection,
+} from './slices/skillsSlice'
 import { setActiveTab } from './slices/uiSlice'
 
 /**
@@ -284,8 +289,10 @@ describe('store wiring (singleton assembly)', () => {
   })
 
   test('clears the skill selection when the active tab changes (listener middleware is prepended)', async () => {
-    // Arrange — tick a skill so the selection is non-empty before the context switch
+    // Arrange — tick a skill so the selection is non-empty before the context
+    // switch. The singleton store keeps state across tests, so start empty.
     const { store } = await import('./store')
+    store.dispatch(clearSelection())
     store.dispatch(toggleSelection(toSkillName('alpha-skill')))
     expect(store.getState().skills.selectedSkillNames).toEqual(['alpha-skill'])
 
@@ -294,5 +301,45 @@ describe('store wiring (singleton assembly)', () => {
 
     // Assert — the prepended listenerMiddleware dispatched clearSelection
     expect(store.getState().skills.selectedSkillNames).toEqual([])
+  })
+
+  test('clears the skill selection when a skills refresh fails and the list shows its error', async () => {
+    // Arrange — two ticked rows before the refresh
+    const { store } = await import('./store')
+    store.dispatch(toggleSelection(toSkillName('alpha-skill')))
+    store.dispatch(toggleSelection(toSkillName('beta-skill')))
+
+    // Act — the refresh rejects, so SkillsList draws only the error text
+    store.dispatch(fetchSkills.pending('refresh-failed'))
+    store.dispatch(
+      fetchSkills.rejected(new Error('disk read failed'), 'refresh-failed'),
+    )
+
+    // Assert — no tick can outlive the rows it pointed at
+    expect(store.getState().skills.selectedSkillNames).toEqual([])
+  })
+
+  test('keeps the skill selection through a successful skills refresh', async () => {
+    // Arrange — a failed bulk op leaves its retryable rows ticked, then
+    // refreshes. The singleton store keeps state across tests, so start empty.
+    const { store } = await import('./store')
+    const retrySkill: Skill = {
+      name: toSkillName('retry-skill'),
+      description: '',
+      path: toAbsolutePath('/home/user/.agents/skills/retry-skill'),
+      symlinkCount: toSymlinkCount(0),
+      symlinks: [],
+      isSource: true,
+      isOrphan: false,
+    }
+    store.dispatch(clearSelection())
+    store.dispatch(toggleSelection(retrySkill.name))
+
+    // Act — the refresh still finds the row the op could not remove
+    store.dispatch(fetchSkills.pending('refresh-ok'))
+    store.dispatch(fetchSkills.fulfilled([retrySkill], 'refresh-ok'))
+
+    // Assert — only a failed refresh clears; the retry ticks survive
+    expect(store.getState().skills.selectedSkillNames).toEqual(['retry-skill'])
   })
 })

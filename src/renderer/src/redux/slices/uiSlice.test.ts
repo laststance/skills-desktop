@@ -887,259 +887,25 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
   })
 })
 
-describe('uiSlice bulkSelectMode', () => {
-  beforeEach(() => {
-    vi.resetAllMocks()
-  })
-
-  test('starts with bulk-select mode off (default is a clean list)', async () => {
-    // Arrange
-    const store = await createTestStore()
-
-    // Act
-    const bulkSelectMode = store.getState().ui.bulkSelectMode
-
-    // Assert
-    expect(bulkSelectMode).toBe(false)
-  })
-
-  test('turns on bulk-select mode when the user enters it', async () => {
-    // Arrange
-    const store = await createTestStore()
-    const { enterBulkSelectMode } = await import('./uiSlice')
-
-    // Act
-    store.dispatch(enterBulkSelectMode())
-
-    // Assert
-    expect(store.getState().ui.bulkSelectMode).toBe(true)
-  })
-
-  test('turns off bulk-select mode when the user exits it', async () => {
-    // Arrange
-    const store = await createTestStore()
-    const { enterBulkSelectMode, exitBulkSelectMode } =
-      await import('./uiSlice')
-    store.dispatch(enterBulkSelectMode())
-
-    // Act
-    store.dispatch(exitBulkSelectMode())
-
-    // Assert
-    expect(store.getState().ui.bulkSelectMode).toBe(false)
-  })
-
-  test('exits bulk-select mode when the user switches tabs', async () => {
-    // Arrange
-    const store = await createTestStore()
-    const { enterBulkSelectMode, setActiveTab } = await import('./uiSlice')
-    store.dispatch(enterBulkSelectMode())
-    expect(store.getState().ui.bulkSelectMode).toBe(true)
-
-    // Act
-    store.dispatch(setActiveTab('marketplace'))
-
-    // Assert
-    expect(store.getState().ui.bulkSelectMode).toBe(false)
-  })
-
-  test('exits bulk-select mode when the user swaps agents', async () => {
-    // Arrange
-    const store = await createTestStore()
-    const { enterBulkSelectMode, selectAgent } = await import('./uiSlice')
-    store.dispatch(enterBulkSelectMode())
-
-    // Act
-    store.dispatch(selectAgent('cursor'))
-
-    // Assert
-    expect(store.getState().ui.bulkSelectMode).toBe(false)
-  })
-
-  test('exits bulk-select mode when a sync preview starts', async () => {
-    // Arrange
-    const store = await createTestStore()
-    const { enterBulkSelectMode, fetchSyncPreview } = await import('./uiSlice')
-    store.dispatch(enterBulkSelectMode())
-    let resolve!: (value: SyncPreviewResult) => void
-    mockSyncPreview.mockReturnValue(
-      new Promise<SyncPreviewResult>((r) => {
-        resolve = r
-      }),
-    )
-
-    // Act
-    const promise = store.dispatch(fetchSyncPreview())
-
-    // Assert
-    expect(store.getState().ui.bulkSelectMode).toBe(false)
-
-    resolve(previewNoConflicts)
-    await promise
-  })
-
-  test('exits bulk-select mode when a bulk delete begins (combined store)', async () => {
+describe('uiSlice modeless selection', () => {
+  test('lets a fresh store tick a skill without entering any mode first', async () => {
     // Arrange
     const store = await createCombinedStore()
-    const { enterBulkSelectMode } = await import('./uiSlice')
-    const { deleteSelectedSkills } = await import('./skillsSlice')
-    store.dispatch(enterBulkSelectMode())
-    let resolve!: (value: BulkDeleteResult) => void
-    mockDeleteSkills.mockReturnValue(
-      new Promise<BulkDeleteResult>((r) => {
-        resolve = r
-      }),
-    )
+    const { toggleSelection } = await import('./skillsSlice')
 
     // Act
-    const promise = store.dispatch(
-      deleteSelectedSkills([deleteTarget(toSkillName('task'))]),
-    )
+    store.dispatch(toggleSelection(toSkillName('task')))
 
-    // Assert
-    expect(store.getState().ui.bulkSelectMode).toBe(false)
-
-    resolve({ items: [] })
-    await promise
-  })
-
-  test('exits bulk-select mode when an orphan-symlink cleanup begins (combined store)', async () => {
-    // Arrange
-    const store = await createCombinedStore()
-    const { enterBulkSelectMode } = await import('./uiSlice')
-    const { clearSelectedOrphanSymlinks } = await import('./skillsSlice')
-    store.dispatch(enterBulkSelectMode())
-    let resolve!: (value: ClearOrphanSymlinksResult) => void
-    mockClearOrphanSymlinks.mockReturnValue(
-      new Promise<ClearOrphanSymlinksResult>((r) => {
-        resolve = r
-      }),
-    )
-
-    // Act
-    const promise = store.dispatch(
-      clearSelectedOrphanSymlinks([
-        {
-          skillName: toSkillName('task'),
-          agents: [
-            {
-              agentId: 'codex',
-              linkPath: toAbsolutePath('/home/user/.codex/skills/task'),
-              targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
-            },
-          ],
-        },
-      ]),
-    )
-
-    // Assert
-    expect(store.getState().ui.bulkSelectMode).toBe(false)
-
-    resolve({ items: [] })
-    await promise
-  })
-
-  test('exits bulk-select mode when a broken-slot cleanup begins (combined store)', async () => {
-    // Arrange
-    const store = await createCombinedStore()
-    const { enterBulkSelectMode } = await import('./uiSlice')
-    const { clearSelectedBrokenSymlinkSlots } = await import('./skillsSlice')
-    store.dispatch(enterBulkSelectMode())
-    let resolve!: (value: ClearBrokenSymlinkSlotsResult) => void
-    mockClearBrokenSymlinkSlots.mockReturnValue(
-      new Promise<ClearBrokenSymlinkSlotsResult>((r) => {
-        resolve = r
-      }),
-    )
-
-    // Act
-    const promise = store.dispatch(
-      clearSelectedBrokenSymlinkSlots({
-        items: [
-          {
-            agentId: 'codex',
-            linkName: toSkillName('task'),
-            displaySkillName: toSkillName('task'),
-            linkPath: toAbsolutePath('/home/user/.codex/skills/task'),
-            targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
-          },
-        ],
-      }),
-    )
-
-    // Assert
-    expect(store.getState().ui.bulkSelectMode).toBe(false)
-
-    resolve({ items: [] })
-    await promise
-  })
-
-  test('exits bulk-select mode when a bulk unlink begins (combined store)', async () => {
-    // Arrange
-    const store = await createCombinedStore()
-    const { enterBulkSelectMode } = await import('./uiSlice')
-    const { unlinkSelectedFromAgent } = await import('./skillsSlice')
-    store.dispatch(enterBulkSelectMode())
-    let resolve!: (value: BulkUnlinkResult) => void
-    mockUnlinkManyFromAgent.mockReturnValue(
-      new Promise<BulkUnlinkResult>((r) => {
-        resolve = r
-      }),
-    )
-
-    // Act
-    const promise = store.dispatch(
-      unlinkSelectedFromAgent({
-        agentId: 'cursor',
-        selectedNames: [unlinkTarget(toSkillName('task'))],
-      }),
-    )
-
-    // Assert
-    expect(store.getState().ui.bulkSelectMode).toBe(false)
-
-    resolve({ items: [] })
-    await promise
-  })
-
-  // ── Idempotency ───────────────────────────────────────────────────────
-  // Guards against a future refactor splitting the reducer into conditional
-  // branches; if "already-true enter" started side-effecting, toggling rapidly
-  // could wipe unrelated state. The invariant is a plain boolean assignment.
-
-  test('stays in bulk-select mode when entered twice in a row', async () => {
-    // Arrange
-    const store = await createTestStore()
-    const { enterBulkSelectMode } = await import('./uiSlice')
-
-    // Act
-    store.dispatch(enterBulkSelectMode())
-    store.dispatch(enterBulkSelectMode())
-
-    // Assert
-    expect(store.getState().ui.bulkSelectMode).toBe(true)
-  })
-
-  test('stays out of bulk-select mode when exited twice in a row', async () => {
-    // Arrange
-    const store = await createTestStore()
-    const { exitBulkSelectMode } = await import('./uiSlice')
-
-    // Act
-    store.dispatch(exitBulkSelectMode())
-    store.dispatch(exitBulkSelectMode())
-
-    // Assert
-    expect(store.getState().ui.bulkSelectMode).toBe(false)
+    // Assert — the ticked names alone are the selection; no mode gates them
+    expect(store.getState().skills.selectedSkillNames).toEqual(['task'])
   })
 })
 
 /**
- * Atomic-clear contract: every context-switch action that clears
- * `bulkSelectMode` MUST also clear `undoToast` + `bulkConfirm` in the same
- * reducer tick. These tests assert the *full* invariant (not individual
- * flags) so a future refactor that drops one co-clear fails CI instead of
- * regressing the hidden-selection anti-pattern in production.
+ * Atomic-clear contract: every context-switch action MUST clear `undoToast`
+ * and `bulkConfirm` in the same reducer tick. These tests assert the *full*
+ * invariant (not individual flags) so a future refactor that drops one
+ * co-clear fails CI instead of leaving a stale toast or dialog behind.
  */
 describe('uiSlice atomic-clear contract on context switch', () => {
   beforeEach(() => {
@@ -1147,16 +913,14 @@ describe('uiSlice atomic-clear contract on context switch', () => {
   })
 
   /**
-   * Pre-populate all three ephemeral flags so each test can assert co-clear.
+   * Pre-populate both ephemeral surfaces so each test can assert co-clear.
    * Narrowed to `{ dispatch }` so both the ui-only and combined stores satisfy
    * the signature — the helper never reads state, just seeds it.
    */
   async function seedAllEphemeralState(store: {
     dispatch: (action: UnknownAction) => unknown
   }): Promise<void> {
-    const { enterBulkSelectMode, setUndoToast, setBulkConfirm } =
-      await import('./uiSlice')
-    store.dispatch(enterBulkSelectMode())
+    const { setUndoToast, setBulkConfirm } = await import('./uiSlice')
     store.dispatch(
       setUndoToast({
         id: 'toast-seed',
@@ -1170,6 +934,7 @@ describe('uiSlice atomic-clear contract on context switch', () => {
     store.dispatch(
       setBulkConfirm({
         kind: 'delete',
+        origin: 'selection',
         skillNames: [toSkillName('a')],
         agentId: null,
         agentName: null,
@@ -1183,7 +948,7 @@ describe('uiSlice atomic-clear contract on context switch', () => {
     )
   }
 
-  test('clears bulk-select mode, the undo toast, and the bulk-confirm dialog together when switching tabs', async () => {
+  test('clears the undo toast and the bulk-confirm dialog together when switching tabs', async () => {
     // Arrange
     const store = await createTestStore()
     await seedAllEphemeralState(store)
@@ -1194,13 +959,12 @@ describe('uiSlice atomic-clear contract on context switch', () => {
 
     // Assert
     expect(store.getState().ui).toMatchObject({
-      bulkSelectMode: false,
       undoToast: null,
       bulkConfirm: null,
     })
   })
 
-  test('clears bulk-select mode, the undo toast, and the bulk-confirm dialog together when swapping agents', async () => {
+  test('clears the undo toast and the bulk-confirm dialog together when swapping agents', async () => {
     // Arrange
     const store = await createTestStore()
     await seedAllEphemeralState(store)
@@ -1211,7 +975,6 @@ describe('uiSlice atomic-clear contract on context switch', () => {
 
     // Assert
     expect(store.getState().ui).toMatchObject({
-      bulkSelectMode: false,
       undoToast: null,
       bulkConfirm: null,
     })
@@ -1234,7 +997,6 @@ describe('uiSlice atomic-clear contract on context switch', () => {
 
     // Assert
     expect(store.getState().ui).toMatchObject({
-      bulkSelectMode: false,
       undoToast: null,
       bulkConfirm: null,
     })
@@ -1262,7 +1024,6 @@ describe('uiSlice atomic-clear contract on context switch', () => {
 
     // Assert
     expect(store.getState().ui).toMatchObject({
-      bulkSelectMode: false,
       undoToast: null,
       bulkConfirm: null,
     })
@@ -1318,7 +1079,6 @@ describe('uiSlice atomic-clear contract on context switch', () => {
 
     // Assert
     expect(store.getState().ui).toMatchObject({
-      bulkSelectMode: false,
       undoToast: null,
       bulkConfirm: null,
     })
@@ -1353,70 +1113,6 @@ describe('uiSlice atomic-clear contract on context switch', () => {
 
     resolve({ items: [] })
     await promise
-  })
-})
-
-/**
- * Rejection-path coverage for bulkSelectMode. `.pending` clears the flag
- * (proved above), but nothing re-enters the mode on failure. These tests
- * document that behavior: after a failed bulk op or sync preview, the user
- * has to explicitly re-enter mode to retry — no auto-resume into a
- * partially-stale selection.
- */
-describe('uiSlice bulkSelectMode on rejection', () => {
-  beforeEach(() => {
-    vi.resetAllMocks()
-  })
-
-  test('does not re-enter bulk-select mode after a sync preview fails', async () => {
-    // Arrange
-    const store = await createTestStore()
-    const { enterBulkSelectMode, fetchSyncPreview } = await import('./uiSlice')
-    store.dispatch(enterBulkSelectMode())
-    mockSyncPreview.mockRejectedValue(new Error('Network error'))
-
-    // Act
-    await store.dispatch(fetchSyncPreview())
-
-    // Assert
-    expect(store.getState().ui.bulkSelectMode).toBe(false)
-  })
-
-  test('does not re-enter bulk-select mode after a bulk delete fails', async () => {
-    // Arrange
-    const store = await createCombinedStore()
-    const { enterBulkSelectMode } = await import('./uiSlice')
-    const { deleteSelectedSkills } = await import('./skillsSlice')
-    store.dispatch(enterBulkSelectMode())
-    mockDeleteSkills.mockRejectedValue(new Error('FS error'))
-
-    // Act
-    await store.dispatch(
-      deleteSelectedSkills([deleteTarget(toSkillName('task'))]),
-    )
-
-    // Assert
-    expect(store.getState().ui.bulkSelectMode).toBe(false)
-  })
-
-  test('does not re-enter bulk-select mode after a bulk unlink fails', async () => {
-    // Arrange
-    const store = await createCombinedStore()
-    const { enterBulkSelectMode } = await import('./uiSlice')
-    const { unlinkSelectedFromAgent } = await import('./skillsSlice')
-    store.dispatch(enterBulkSelectMode())
-    mockUnlinkManyFromAgent.mockRejectedValue(new Error('Permission denied'))
-
-    // Act
-    await store.dispatch(
-      unlinkSelectedFromAgent({
-        agentId: 'cursor',
-        selectedNames: [unlinkTarget(toSkillName('task'))],
-      }),
-    )
-
-    // Assert
-    expect(store.getState().ui.bulkSelectMode).toBe(false)
   })
 })
 
@@ -1771,6 +1467,7 @@ describe('uiSlice bulk confirm dialog', () => {
     store.dispatch(
       setBulkConfirm({
         kind: 'delete',
+        origin: 'selection',
         skillNames: [toSkillName('task')],
         agentId: null,
         agentName: null,
@@ -1788,6 +1485,38 @@ describe('uiSlice bulk confirm dialog', () => {
     store.dispatch(clearBulkConfirm())
 
     // Assert
+    expect(store.getState().ui.bulkConfirm).toBeNull()
+  })
+
+  test('closes an open bulk Delete confirmation when a skills refresh fails', async () => {
+    // Arrange — the Delete confirmation is open when the list refreshes
+    const store = await createCombinedStore()
+    const { setBulkConfirm } = await import('./uiSlice')
+    const { fetchSkills } = await import('./skillsSlice')
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        origin: 'selection',
+        skillNames: [toSkillName('task')],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+        deleteTargets: [deleteTarget(toSkillName('task'))],
+        orphanRecords: [],
+        staleDeleteErrors: [],
+        orphanErrors: [],
+        protectedErrors: [],
+      }),
+    )
+    expect(store.getState().ui.bulkConfirm).not.toBeNull()
+
+    // Act — the refresh rejects, so the list draws only its error text
+    store.dispatch(fetchSkills.pending('refresh-failed'))
+    store.dispatch(
+      fetchSkills.rejected(new Error('disk read failed'), 'refresh-failed'),
+    )
+
+    // Assert — no confirmation can act on rows the error screen hides
     expect(store.getState().ui.bulkConfirm).toBeNull()
   })
 })
@@ -1982,18 +1711,16 @@ describe('uiSlice selectors read the live ui state', () => {
     expect(selectSyncResult(rootState)).not.toBeNull()
   })
 
-  test('reads the bookmark, bulk, cleanup, and dialog surfaces back through their selectors', async () => {
+  test('reads the bookmark, bulk confirm, cleanup, and dialog surfaces back through their selectors', async () => {
     // Arrange — seed the foreground surfaces; order avoids the mutual-exclusion clears
     const store = await createTestStore()
     const {
       setSelectedBookmarkForDetail,
       setBulkConfirm,
-      enterBulkSelectMode,
       openSymlinkCleanupDialog,
       setCleanupAgentTarget,
       selectSelectedBookmarkForDetail,
       selectBulkConfirm,
-      selectBulkSelectMode,
       selectCleanupAgentTarget,
       selectSymlinkCleanupDialogOpen,
     } = await import('./uiSlice')
@@ -2009,6 +1736,7 @@ describe('uiSlice selectors read the live ui state', () => {
     store.dispatch(
       setBulkConfirm({
         kind: 'delete',
+        origin: 'selection',
         skillNames: [toSkillName('task')],
         agentId: null,
         agentName: null,
@@ -2020,7 +1748,6 @@ describe('uiSlice selectors read the live ui state', () => {
         protectedErrors: [],
       }),
     )
-    store.dispatch(enterBulkSelectMode())
     // openSymlinkCleanupDialog clears cleanupAgentTarget, so set the target last.
     store.dispatch(openSymlinkCleanupDialog())
     store.dispatch(setCleanupAgentTarget('cursor'))
@@ -2031,7 +1758,6 @@ describe('uiSlice selectors read the live ui state', () => {
     // Act + Assert
     expect(selectSelectedBookmarkForDetail(rootState)).not.toBeNull()
     expect(selectBulkConfirm(rootState)).not.toBeNull()
-    expect(selectBulkSelectMode(rootState)).toBe(true)
     expect(selectCleanupAgentTarget(rootState)).toBe('cursor')
     // setCleanupAgentTarget closes the dashboard dialog (one surface at a time).
     expect(selectSymlinkCleanupDialogOpen(rootState)).toBe(false)
