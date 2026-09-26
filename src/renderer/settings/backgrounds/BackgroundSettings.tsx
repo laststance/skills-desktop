@@ -152,17 +152,19 @@ function BackgroundSettingsContent(): ReactElement {
       </Button>
       <div role="status">
         {unavailable ? (
-          <p className="mt-2 text-xs">
+          <p className="mt-2 text-settings-description">
             Background unavailable. <BackgroundImageRetry />
           </p>
         ) : null}
       </div>
       {settings.background.selected && hidden ? (
-        <p className="mt-2 text-xs text-muted-foreground">
+        <p className="mt-2 text-settings-description text-muted-foreground">
           Hidden at 100% opacity.{' '}
           <Button
             variant="link"
             size="xs"
+            // Inline in prose: match the sentence size, not the 13px button base.
+            className="text-[length:inherit]"
             onClick={() =>
               document
                 .querySelector<HTMLInputElement>(
@@ -182,7 +184,9 @@ function BackgroundSettingsContent(): ReactElement {
         </p>
       ) : null}
       <div className="mt-4">
-        <div className="mb-2 text-xs font-medium">Image layout</div>
+        <div className="mb-2 text-settings-description font-medium text-muted-foreground">
+          Image layout
+        </div>
         <SegmentedControl
           aria-label="Background image layout"
           size="sm"

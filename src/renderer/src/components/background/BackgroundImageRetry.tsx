@@ -14,6 +14,8 @@ export function BackgroundImageRetry(): ReactElement {
     <Button
       variant="link"
       size="xs"
+      // Always sits inside a sentence; inherit its size, not the 13px button base.
+      className="text-[length:inherit]"
       disabled={pending}
       onClick={() =>
         startTransition(async () => {

@@ -61,7 +61,25 @@ const config: Config = {
           'Arial',
           'sans-serif',
         ],
-        mono: ['JetBrains Mono', 'monospace'],
+        // JetBrains Mono is not bundled, and Chromium maps bare `monospace`
+        // to Courier on macOS. Menlo is the first fallback Chromium resolves;
+        // same stack as `.skill-code-preview` in globals.css.
+        mono: [
+          'JetBrains Mono',
+          'ui-monospace',
+          'SFMono-Regular',
+          'Menlo',
+          'Monaco',
+          'Roboto Mono',
+          'Segoe UI Mono',
+          'monospace',
+        ],
+      },
+      fontSize: {
+        // Settings secondary text: descriptions, help, status, errors, and
+        // nested sub-labels. Same size as the row label (14/20): Settings
+        // is a reading surface; weight and color carry the hierarchy.
+        'settings-description': ['0.875rem', { lineHeight: '1.25rem' }],
       },
       borderRadius: {
         '2xl': '1.25rem',
