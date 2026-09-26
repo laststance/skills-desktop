@@ -69,7 +69,11 @@ GitHub security automation is tracked in issue #241. Every pull request runs:
 - [CodeQL](.github/workflows/security.yml) static analysis
 - [Dependency Review](.github/workflows/security.yml) of added dependencies
 - a production dependency audit (`pnpm audit --prod`) across the workspace
-- [Socket](.github/workflows/socket.yml) supply-chain scanning of the lockfile
+
+[Socket](.github/workflows/socket.yml) supply-chain scanning of the lockfile runs
+on pull requests from this repository, on every push to `main` and weekly. Pull
+requests from forks and Dependabot never receive the Socket token, so the scan
+after merge covers them.
 
 [OpenSSF Scorecard](.github/workflows/scorecard.yml) runs on `main` and uploads
 its results to code scanning. The repository also enables secret scanning and

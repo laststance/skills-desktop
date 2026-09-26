@@ -55,7 +55,7 @@ Inspected recording contact sheets: `native-qa/final-motion-main-contact.png`, `
 
 ## What the automated runs prove
 
-The [gallery Electron suite](../../e2e/spec/background-gallery.e2e.ts) uses isolated HOME/userData and actual files, Sharp decoding, preload IPC and native window closure. It covers accepted inputs surviving a delayed reply and both windows closing; same-source and unrelated-source removal; Clear on either side of the final settings rename check; crop pixels and retained originals; visible save failure/Retry; both renderer CSP probes; keyboard/virtual-focus behavior; and early release of the test reply gate.
+The [gallery Electron suite](../../apps/desktop/e2e/spec/background-gallery.e2e.ts) uses isolated HOME/userData and actual files, Sharp decoding, preload IPC and native window closure. It covers accepted inputs surviving a delayed reply and both windows closing; same-source and unrelated-source removal; Clear on either side of the final settings rename check; crop pixels and retained originals; visible save failure/Retry; both renderer CSP probes; keyboard/virtual-focus behavior; and early release of the test reply gate.
 
 Node and Chromium regressions additionally cover schema/defaults, image limits and animation rejection, serialized processing, offline local catalog access, search cancellation/refresh/pagination, explicit error recovery, failed-upload recropping, delayed Apply acceptance and Fill/Fit/Tile pixel boundaries. Controlled HTTP/CDN fixtures verify application behavior; they are not successful live-provider evidence. CSS/pixel assertions and native-window captures remain distinct from the completed physical compositor/video verification.
 

@@ -5,7 +5,7 @@
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
-    // Workspace packages ship .ts sources that Node loads natively (electron-vite config).
+    // The contract package uses explicit `.ts` import specifiers so Node can load it natively.
     "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "module": "esnext",

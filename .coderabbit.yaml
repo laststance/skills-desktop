@@ -39,17 +39,17 @@ reviews:
     - path: 'apps/desktop/src/main/**'
       instructions: |
         This is the Electron main process. Review for:
-        - IPC handlers MUST use `typedHandle()` from `src/main/ipc/typedHandle.ts` — never raw `ipcMain.handle()` with string channels.
-        - New IPC channels MUST be added to BOTH `IPC_CHANNELS` constant AND the corresponding contract type (`IpcInvokeContract` or `IpcEventContract`) in `src/shared/ipc-contract.ts`.
+        - IPC handlers MUST use `typedHandle()` from `apps/desktop/src/main/ipc/typedHandle.ts` — never raw `ipcMain.handle()` with string channels.
+        - New IPC channels MUST be added to BOTH `IPC_CHANNELS` constant AND the corresponding contract type (`IpcInvokeContract` or `IpcEventContract`) in `apps/desktop/src/shared/ipc-contract.ts`.
         - Destructive filesystem operations (delete, rm) must use two-phase pattern: preview first, then execute on confirmation.
         - `fs.rm` with `{ recursive: true }` requires explicit user confirmation before execution.
-        - Never import from `src/renderer/` — main process must not depend on renderer code.
+        - Never import from `apps/desktop/src/renderer/` — main process must not depend on renderer code.
 
     # Preload bridge
     - path: 'apps/desktop/src/preload/**'
       instructions: |
         This is the Electron preload script (context bridge). Review for:
-        - All IPC calls MUST use `typedInvoke()` from `src/preload/typedInvoke.ts` — never raw `ipcRenderer.invoke()`.
+        - All IPC calls MUST use `typedInvoke()` from `apps/desktop/src/preload/typedInvoke.ts` — never raw `ipcRenderer.invoke()`.
         - Only expose methods defined in `IpcInvokeContract` and `IpcEventContract`.
         - Never expose `ipcRenderer` or `fs` directly to the renderer — this is a security boundary.
         - The `window.electron` API surface should remain minimal.
@@ -73,7 +73,7 @@ reviews:
         - Type unions (AgentId, AgentName) MUST be derived from `AGENT_DEFINITIONS as const` — never manually maintained lists.
         - `UNIVERSAL_AGENT_IDS` must use `satisfies readonly AgentId[]` for compile-time validation.
         - `IPC_CHANNELS` must stay in sync with `IpcInvokeContract` and `IpcEventContract` — adding a channel to one but not the other will cause runtime errors.
-        - Constants must not import from `src/main/` or `src/renderer/` — shared is the dependency root.
+        - Constants must not import from `apps/desktop/src/main/` or `apps/desktop/src/renderer/` — shared is the dependency root.
 
     # Tests
     - path: '**/*.test.ts'

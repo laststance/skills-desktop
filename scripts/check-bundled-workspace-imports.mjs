@@ -19,9 +19,10 @@ const WORKSPACE_SCOPE = '@skills-desktop/'
 const outRoot = path.resolve(import.meta.dirname, '../apps/desktop/out')
 const bundleDirs = ['main', 'preload'].map((dir) => path.join(outRoot, dir))
 
-// Matches static imports, re-exports, dynamic import() and require() of the scope.
+// Matches static imports (minified `import"x"` included), re-exports, dynamic
+// import() and require() of the scope, with any quote style a bundler may emit.
 const runtimeImportPattern = new RegExp(
-  String.raw`(?:from\s*|import\s*\(\s*|require\s*\(\s*|import\s+)["']${WORKSPACE_SCOPE.replace('/', '\\/')}[^"']*["']`,
+  String.raw`(?:from\s*|import\s*\(\s*|require\s*\(\s*|import\s*)["'\`]${WORKSPACE_SCOPE.replace('/', '\\/')}[^"'\`]*["'\`]`,
 )
 
 /** Recursively lists bundle files under a directory. */
@@ -49,9 +50,18 @@ if (missingDirs.length > 0) {
   process.exit(1)
 }
 
-const offenders = bundleDirs
-  .flatMap(listBundleFiles)
-  .filter((file) => runtimeImportPattern.test(readFileSync(file, 'utf8')))
+const bundleFiles = bundleDirs.flatMap(listBundleFiles)
+// Empty output dirs would also pass vacuously (e.g. a renamed bundle extension).
+if (bundleFiles.length === 0) {
+  console.error(
+    `No Electron bundles found under ${bundleDirs.join(', ')}. Run \`pnpm build\` first.`,
+  )
+  process.exit(1)
+}
+
+const offenders = bundleFiles.filter((file) =>
+  runtimeImportPattern.test(readFileSync(file, 'utf8')),
+)
 
 if (offenders.length > 0) {
   console.error(

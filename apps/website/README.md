@@ -15,7 +15,7 @@ pnpm --filter skills-desktop-website start
 
 The root `pnpm validate:website` runs test, lint, build and typecheck in sequence.
 
-The public, server-free contract is the workspace package `@skills-desktop/unsplash-contract` (`packages/unsplash-contract`), listed in `transpilePackages`. Electron Main uses `unsplash.trackDownload`; Settings uses `unsplash.search` through oRPC 1.15.0 and `@orpc/tanstack-query`. Server implementation stays in `src/server/unsplash.ts` and is imported only by the Route Handler.
+The public, server-free contract is the workspace package `@skills-desktop/unsplash-contract` (`packages/unsplash-contract`), listed in `transpilePackages`. Electron Main uses `unsplash.trackDownload`; Settings uses `unsplash.search` through oRPC and `@orpc/tanstack-query`. Server implementation stays in `src/server/unsplash.ts` and is imported only by the Route Handler.
 
 ## Provider configuration
 
