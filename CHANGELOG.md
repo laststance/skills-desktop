@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Added
+
+- Skills Desktop is now MIT licensed, with contributing and code-of-conduct guides and an architecture overview for new contributors.
+- Report security issues privately through GitHub's vulnerability reporting, linked from the security policy.
+
 ### Changed
 
 - Adjust the whole window or each section from 0–100% background opacity while keeping text and icons solid. Settings, menus, notifications, and code previews retain opaque backgrounds.
