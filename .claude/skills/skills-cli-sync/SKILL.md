@@ -7,7 +7,7 @@ description: Sync skills-desktop's AGENT_DEFINITIONS and UNIVERSAL_AGENT_IDS wit
 
 This app mirrors the agent list of the upstream [`vercel-labs/skills`](https://github.com/vercel-labs/skills)
 CLI. When upstream ships a release, `AGENT_DEFINITIONS`, `UNIVERSAL_AGENT_IDS`,
-and `SKILLS_CLI_VERSION` in `src/shared/constants.ts` must be re-synced, the
+and `SKILLS_CLI_VERSION` in `apps/desktop/src/shared/constants.ts` must be re-synced, the
 docs refreshed, and the gates re-run. This skill encodes that procedure.
 
 > The steps below are **invariant** — they hold for any version bump. Concrete
@@ -19,7 +19,7 @@ docs refreshed, and the gates re-run. This skill encodes that procedure.
 - **Upstream:** `src/agents.ts` (agent list) and `src/types.ts` (the `Agent`
   shape + home-dir helpers) in `vercel-labs/skills`.
 - **This app:** the JSDoc on `AGENT_DEFINITIONS`, `UNIVERSAL_AGENT_IDS`, and
-  `SKILLS_CLI_VERSION` in `src/shared/constants.ts` is authoritative — read it
+  `SKILLS_CLI_VERSION` in `apps/desktop/src/shared/constants.ts` is authoritative — read it
   before editing. `CLAUDE.md` → **Domain Concepts → Skills CLI** lists the same
   pointers. Don't duplicate those rules here; this skill is the _procedure_.
 
@@ -88,7 +88,7 @@ Skip an upstream agent when:
 `showInUniversalList: false` also excludes an otherwise-eligible agent from
 `UNIVERSAL_AGENT_IDS`.
 
-## Phase 5 — Edit `src/shared/constants.ts`
+## Phase 5 — Edit `apps/desktop/src/shared/constants.ts`
 
 - **Add / modify `AGENT_DEFINITIONS` entries** (`id`, `cliId`, `name`,
   `installDir`, `scanDir`). Every field is required — no silent fallback.

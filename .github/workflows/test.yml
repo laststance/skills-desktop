@@ -16,6 +16,7 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -35,11 +36,11 @@ jobs:
 
       - name: Install Playwright (with system deps)
         if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: pnpm exec playwright install chromium --with-deps
+        run: pnpm --filter skills-desktop exec playwright install chromium --with-deps
 
       - name: Install Playwright system deps only
         if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: pnpm exec playwright install-deps chromium
+        run: pnpm --filter skills-desktop exec playwright install-deps chromium
 
       - name: Test (with coverage)
         # Bound worker startup and instrumentation contention like the macOS validation job.
@@ -47,13 +48,16 @@ jobs:
           VITEST_MAX_WORKERS: '1'
         run: pnpm test:coverage
 
-      - name: Test Website contract and proxy
-        run: pnpm --dir website test
+      - name: Test shared contract
+        run: pnpm test:contract
+
+      - name: Test Website proxy
+        run: pnpm --filter skills-desktop-website test
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage/lcov.info
+          files: ./apps/desktop/coverage/lcov.info
           flags: unittests
           fail_ci_if_error: false

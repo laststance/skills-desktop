@@ -140,8 +140,7 @@ test('surfaces an available update when the release feed advertises a newer vers
       await appWindow.waitForFunction(
         () => {
           const reduxState = window.__store__?.getState() as
-            | { update?: { status?: string } }
-            | undefined
+            { update?: { status?: string } } | undefined
           if (reduxState?.update?.status === 'available') return true
           // Nudge a fresh check; by now the renderer is subscribed so the
           // re-emitted update-available reaches Redux. The `update` channel is

@@ -1,5 +1,13 @@
 import { createORPCClient, safe } from '@orpc/client'
 import { RPCLink } from '@orpc/client/fetch'
+import {
+  UNSPLASH_REFERRAL_SOURCE,
+  UNSPLASH_RPC_URL,
+} from '@skills-desktop/unsplash-contract'
+import type {
+  UnsplashClient,
+  UnsplashPhoto,
+} from '@skills-desktop/unsplash-contract'
 
 import {
   BACKGROUND_HTTP_TIMEOUT_MS,
@@ -18,15 +26,6 @@ import {
   BACKGROUND_PREVIEW_LONG_EDGE_PX,
 } from '@/shared/constants'
 import { backgroundCropPixels } from '@/shared/utils/backgroundCropPixels'
-
-import {
-  UNSPLASH_REFERRAL_SOURCE,
-  UNSPLASH_RPC_URL,
-} from '../../../website/src/lib/constants'
-import type {
-  UnsplashClient,
-  UnsplashPhoto,
-} from '../../../website/src/lib/unsplash-contract'
 
 import {
   BackgroundImageError,

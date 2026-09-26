@@ -11,7 +11,7 @@ import {
   UNSPLASH_PAGE_SIZE,
   UNSPLASH_QUERY_MAX_LENGTH,
   UNSPLASH_URL_MAX_LENGTH,
-} from './constants'
+} from './constants.ts'
 
 /** Public photo IDs stay path-safe before either client requests a provider action. */
 const UnsplashPhotoIdSchema = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/)

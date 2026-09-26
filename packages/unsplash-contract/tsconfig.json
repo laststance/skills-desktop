@@ -4,20 +4,13 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "strict": true,
-    "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
     // Workspace packages ship .ts sources that Node loads natively (electron-vite config).
     "allowImportingTsExtensions": true,
-    "jsx": "react-jsx",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "paths": {
-      "@/*": ["./src/*"]
-    }
+    "lib": ["ES2022", "DOM"],
+    "types": []
   },
-  "include": ["src/**/*", ".storybook/**/*"],
-  "exclude": ["node_modules", "out", "dist"]
+  "include": ["src/**/*.ts"]
 }

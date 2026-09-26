@@ -1,4 +1,8 @@
 import { configureStore } from '@reduxjs/toolkit'
+import {
+  UnsplashSearchInputSchema,
+  type UnsplashPhoto,
+} from '@skills-desktop/unsplash-contract'
 import { onlineManager } from '@tanstack/react-query'
 import { Provider } from 'react-redux'
 import { toast } from 'sonner'
@@ -24,10 +28,6 @@ import {
 } from '@/shared/backgrounds'
 import { DEFAULT_SETTINGS, type Settings } from '@/shared/settings'
 
-import {
-  UnsplashSearchInputSchema,
-  type UnsplashPhoto,
-} from '../../../../website/src/lib/unsplash-contract'
 import { Appearance } from '../sections/Appearance'
 
 import { backgroundQueryClient } from './query'

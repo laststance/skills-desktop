@@ -4,13 +4,12 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { ORPCError } from '@orpc/client'
+import type { UnsplashPhoto } from '@skills-desktop/unsplash-contract'
 import sharp from 'sharp'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { type BackgroundApplyInput } from '@/shared/backgrounds'
 import { SettingsSchema } from '@/shared/settings'
-
-import type { UnsplashPhoto } from '../../../website/src/lib/unsplash-contract'
 
 import type * as BackgroundsModule from './backgrounds'
 import type * as RemoteModule from './backgroundsRemote'

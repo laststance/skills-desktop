@@ -22,9 +22,9 @@ reviews:
       - 'WIP'
       - 'DO NOT MERGE'
   path_filters:
-    - '!dist/**'
-    - '!out/**'
-    - '!node_modules/**'
+    - '!**/dist/**'
+    - '!**/out/**'
+    - '!**/node_modules/**'
     - '!pnpm-lock.yaml'
     - '!**/*.pen'
   tools:
@@ -36,7 +36,7 @@ reviews:
   # ── Architecture-specific review instructions ──
   path_instructions:
     # Main process (Electron Node.js side)
-    - path: 'src/main/**'
+    - path: 'apps/desktop/src/main/**'
       instructions: |
         This is the Electron main process. Review for:
         - IPC handlers MUST use `typedHandle()` from `src/main/ipc/typedHandle.ts` — never raw `ipcMain.handle()` with string channels.
@@ -46,7 +46,7 @@ reviews:
         - Never import from `src/renderer/` — main process must not depend on renderer code.
 
     # Preload bridge
-    - path: 'src/preload/**'
+    - path: 'apps/desktop/src/preload/**'
       instructions: |
         This is the Electron preload script (context bridge). Review for:
         - All IPC calls MUST use `typedInvoke()` from `src/preload/typedInvoke.ts` — never raw `ipcRenderer.invoke()`.
@@ -55,7 +55,7 @@ reviews:
         - The `window.electron` API surface should remain minimal.
 
     # Renderer (React + Redux)
-    - path: 'src/renderer/**'
+    - path: 'apps/desktop/src/renderer/**'
       instructions: |
         This is the React renderer process. Review for:
         - MUST NOT import `fs`, `path`, `child_process`, or any Node.js built-in modules — use `window.electron.*` IPC calls instead.
@@ -67,7 +67,7 @@ reviews:
         - Lucide icons only — do not introduce other icon libraries.
 
     # Shared types and constants
-    - path: 'src/shared/**'
+    - path: 'apps/desktop/src/shared/**'
       instructions: |
         This is the shared layer imported by both main and renderer. Review for:
         - Type unions (AgentId, AgentName) MUST be derived from `AGENT_DEFINITIONS as const` — never manually maintained lists.
@@ -90,8 +90,16 @@ reviews:
         - Prefer testing extracted pure functions over React component rendering (no RTL in this project).
         - `describe`/`it` names should clearly state the scenario and expected outcome.
 
+    # Shared workspace packages
+    - path: 'packages/**'
+      instructions: |
+        Workspace packages consumed by apps/desktop and apps/website. Review for:
+        - Keep them runtime-agnostic: no Node-only or DOM-only APIs beyond what both apps provide.
+        - Relative imports use explicit `.ts` extensions (Node loads them natively via the electron-vite config).
+        - apps/desktop must list them as devDependencies so electron-vite bundles them into out/main.
+
     # Website
-    - path: 'website/**'
+    - path: 'apps/website/**'
       instructions: |
         Marketing website (Next.js/Astro). Review for:
         - Download URLs must point to the latest release version on GitHub Releases.
@@ -104,7 +112,7 @@ chat:
 code_generation:
   docstrings:
     path_instructions:
-      - path: 'src/**/*.ts'
+      - path: 'apps/desktop/src/**/*.ts'
         instructions: |
           Use TSDoc format with @param, @returns, and @example tags.
           @example must include concrete input → output.
@@ -115,18 +123,18 @@ code_generation:
           Keep docstrings concise — focus on what scenario is being tested.
   unit_tests:
     path_instructions:
-      - path: 'src/main/**/*.ts'
+      - path: 'apps/desktop/src/main/**/*.ts'
         instructions: |
           Use Vitest. Mock the fs and `path` modules, matching the specifier the
           module under test imports (`node:fs/promises` vs `fs/promises`).
           For symlink-related tests, mock both `lstat` and `readlink`.
           Use `vi.mock()` at module level, `vi.mocked()` for type-safe assertions.
-      - path: 'src/renderer/**/*.ts'
+      - path: 'apps/desktop/src/renderer/**/*.ts'
         instructions: |
           Use Vitest. No React Testing Library — extract logic to pure helper
           functions and test those directly with input/output assertions.
           Stub `window.electron` via `vi.stubGlobal` when IPC calls are needed.
-      - path: 'src/shared/**/*.ts'
+      - path: 'apps/desktop/src/shared/**/*.ts'
         instructions: |
           Use Vitest. Test data validation, type derivation correctness,
           and compile-time type checks using `expectTypeOf` or `satisfies`.

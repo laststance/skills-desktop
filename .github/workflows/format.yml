@@ -1,4 +1,4 @@
-name: Typecheck
+name: Format
 
 on:
   push:
@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  typecheck:
+  format:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -27,15 +27,5 @@ jobs:
       - name: Prepare
         uses: ./.github/actions/prepare
 
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Typecheck E2E bridge
-        run: pnpm typecheck:e2e
-
-      - name: Typecheck shared contract
-        run: pnpm typecheck:contract
-
-      # The Website typecheck script generates Next route types first.
-      - name: Generate Website route types and typecheck
-        run: pnpm --filter skills-desktop-website typecheck
+      - name: Check formatting
+        run: pnpm format:check

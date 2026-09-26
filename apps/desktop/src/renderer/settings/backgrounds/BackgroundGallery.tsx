@@ -1,4 +1,5 @@
 import { isDefinedError } from '@orpc/client'
+import { UNSPLASH_QUERY_MAX_LENGTH } from '@skills-desktop/unsplash-contract'
 import { useQuery } from '@tanstack/react-query'
 import { Crop, Loader2, RefreshCw, Upload, X } from 'lucide-react'
 import { useRef, useState, type ReactElement } from 'react'
@@ -27,8 +28,6 @@ import {
 import { backgroundSourceKey } from '@/renderer/src/utils/backgroundSourceKey'
 import type { BackgroundSnapshot } from '@/shared/backgrounds'
 import type { Settings } from '@/shared/settings'
-
-import { UNSPLASH_QUERY_MAX_LENGTH } from '../../../../website/src/lib/constants'
 
 import { BackgroundCropEditor } from './BackgroundCropEditor'
 import { BackgroundPhotoGrid } from './BackgroundPhotoGrid'

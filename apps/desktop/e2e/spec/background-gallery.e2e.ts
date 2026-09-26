@@ -19,6 +19,11 @@ import {
   type ElectronApplication,
   type Page,
 } from '@playwright/test'
+import {
+  UNSPLASH_RPC_URL,
+  UnsplashSearchInputSchema,
+  UnsplashSearchResultSchema,
+} from '@skills-desktop/unsplash-contract'
 import sharp from 'sharp'
 
 import type {
@@ -29,11 +34,6 @@ import type {
   BackgroundUploadDraft,
 } from '../../src/shared/backgrounds'
 import { SettingsSchema } from '../../src/shared/settings'
-import { UNSPLASH_RPC_URL } from '../../website/src/lib/constants'
-import {
-  UnsplashSearchInputSchema,
-  UnsplashSearchResultSchema,
-} from '../../website/src/lib/unsplash-contract'
 import { expect, test } from '../fixtures/electron-app'
 import { holdBackgroundApplyReply } from '../helpers/hold-background-apply-reply'
 import { holdBackgroundRename } from '../helpers/hold-background-rename'

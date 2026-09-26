@@ -4,16 +4,21 @@
   // changes silently break editor validation between fallow upgrades — bump
   // this URL together with the package install when bumping fallow.
   "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/v3.27.0/schema.json",
-  // electron-vite uses two HTML entries declared in electron.vite.config.ts:
+  // The workspace (apps/desktop, apps/website, packages/unsplash-contract) is
+  // analyzed from the repository root so every package keeps dead-code/dupes/
+  // health coverage.
+  // electron-vite uses two HTML entries declared in apps/desktop/electron.vite.config.ts:
   //   src/renderer/index.html         → loads ./src/main.tsx (main window)
   //   src/renderer/settings/index.html → loads ./main.tsx (Settings window, see PR125)
   // Fallow's auto-discovery misses these (HTML lives outside the package.json
   // root), so without these explicit entries every renderer file looks unused.
   "entry": [
-    "src/renderer/index.html",
-    "src/renderer/settings/index.html",
+    "apps/desktop/src/renderer/index.html",
+    "apps/desktop/src/renderer/settings/index.html",
     // Build-time scripts referenced from package.json scripts but not imported
-    "scripts/generate-icons.js"
+    "apps/desktop/scripts/generate-icons.js",
+    // Root CI guard run from the root package.json `check:bundled-workspace` script
+    "scripts/check-bundled-workspace-imports.mjs"
   ],
   "ignoreDependencies": [
     // postcss-load-config is a transitive of @tailwindcss/postcss / postcss in the
@@ -32,7 +37,7 @@
     // which only exists after a Next build. CI runs fallow before any Next
     // build, so the import looks unresolved — ignore the file outright rather
     // than carrying a generated artifact in the dep graph.
-    "website/next-env.d.ts"
+    "apps/website/next-env.d.ts"
   ],
   "ignoreExports": [
     {
@@ -42,7 +47,7 @@
       // tree only consumes a subset. Ignoring the whole directory matches the
       // shadcn convention and prevents Fallow from churning on every new
       // primitive added.
-      "file": "src/renderer/src/components/ui/**",
+      "file": "apps/desktop/src/renderer/src/components/ui/**",
       "exports": ["*"]
     }
   ],
@@ -63,7 +68,7 @@
       "**/*.test.tsx",
       "**/*.spec.ts",
       "**/*.spec.tsx",
-      "e2e/**"
+      "**/e2e/**"
     ]
   },
   "health": {
@@ -81,9 +86,9 @@
       "**/*.test.tsx",
       "**/*.spec.ts",
       "**/*.spec.tsx",
-      "e2e/**",
-      ".storybook/**",
-      "scripts/**"
+      "**/e2e/**",
+      "**/.storybook/**",
+      "**/scripts/**"
     ],
     "suggestInlineSuppression": true
   }

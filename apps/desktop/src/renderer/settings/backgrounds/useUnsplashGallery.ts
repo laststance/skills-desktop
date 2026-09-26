@@ -1,14 +1,13 @@
+import {
+  UNSPLASH_DEFAULT_QUERY,
+  UNSPLASH_QUERY_STALE_TIME_MS,
+  UNSPLASH_SEARCH_DEBOUNCE_MS,
+} from '@skills-desktop/unsplash-contract'
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
 import { useRef, useState } from 'react'
 
 import { useDebouncedCallback } from '@/renderer/src/hooks/useDebouncedCallback'
 import type { BackgroundCatalogItem } from '@/shared/backgrounds'
-
-import {
-  UNSPLASH_DEFAULT_QUERY,
-  UNSPLASH_QUERY_STALE_TIME_MS,
-  UNSPLASH_SEARCH_DEBOUNCE_MS,
-} from '../../../../website/src/lib/constants'
 
 import { backgroundRpc } from './query'
 

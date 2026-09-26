@@ -1,0 +1,59 @@
+name: Socket
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '53 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: socket-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  socket:
+    name: Socket Dependency Scan
+    # Fork pull requests cannot access the Socket API token.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Install pnpm
+        uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
+        with:
+          install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            pnpm-workspace.yaml
+
+      - name: Scan dependencies with Socket
+        env:
+          SOCKET_SECURITY_API_TOKEN: ${{ secrets.SOCKET_SECURITY_API_TOKEN }}
+          SOCKET_REPOSITORY: ${{ github.event.repository.name }}
+          SOCKET_BRANCH: ${{ github.head_ref || github.ref_name }}
+          SOCKET_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          : "${SOCKET_SECURITY_API_TOKEN:?Set SOCKET_SECURITY_API_TOKEN in GitHub Actions secrets}"
+          pnpm dlx socket@1.1.167 ci --no-interactive \
+            --repo "$SOCKET_REPOSITORY" \
+            --branch "$SOCKET_BRANCH" \
+            --commit-hash "$SOCKET_COMMIT" .

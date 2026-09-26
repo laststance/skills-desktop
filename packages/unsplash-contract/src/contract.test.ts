@@ -6,7 +6,7 @@ import {
   UnsplashPhotoSchema,
   UnsplashSearchInputSchema,
   UnsplashSearchResultSchema,
-} from './unsplash-contract'
+} from './contract.ts'
 
 const photo = {
   id: '5oRIcisKaxU',

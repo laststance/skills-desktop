@@ -16,6 +16,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -29,5 +30,9 @@ jobs:
       - name: Build
         run: pnpm build
 
+      # Workspace packages are devDependencies, so a runtime import would crash the packaged app.
+      - name: Check workspace packages are bundled
+        run: pnpm check:bundled-workspace
+
       - name: Build Website
-        run: pnpm --dir website build
+        run: pnpm --filter skills-desktop-website build

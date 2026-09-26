@@ -8,13 +8,13 @@ import {
   UNSPLASH_PAGE_SIZE,
   UNSPLASH_REFERRAL_SOURCE,
   UNSPLASH_SEARCH_CACHE_SECONDS,
-} from '../lib/constants'
+} from '@skills-desktop/unsplash-contract'
 import {
   unsplashContract,
   UnsplashSearchResultSchema,
   type UnsplashSearchInput,
   type UnsplashSearchResult,
-} from '../lib/unsplash-contract'
+} from '@skills-desktop/unsplash-contract'
 
 import {
   MILLISECONDS_PER_SECOND,

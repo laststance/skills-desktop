@@ -1,6 +1,5 @@
+import { UnsplashPhotoSchema } from '@skills-desktop/unsplash-contract'
 import { z } from 'zod'
-
-import { UnsplashPhotoSchema } from '../../website/src/lib/unsplash-contract'
 
 import {
   BACKGROUND_CROP_ASPECTS,

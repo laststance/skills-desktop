@@ -1,0 +1,27 @@
+{
+  "name": "@skills-desktop/unsplash-contract",
+  "version": "0.0.0",
+  "private": true,
+  "description": "oRPC contract and limits shared by the Skills Desktop app and its Unsplash proxy on the website",
+  "license": "MIT",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint . --max-warnings 0 --concurrency=auto",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@orpc/contract": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@eslint/js": "catalog:",
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:",
+    "vitest": "catalog:"
+  }
+}

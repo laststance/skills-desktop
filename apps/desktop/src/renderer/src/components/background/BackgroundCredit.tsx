@@ -1,9 +1,8 @@
+import { UNSPLASH_REFERRAL_SOURCE } from '@skills-desktop/unsplash-contract'
 import type React from 'react'
 import { toast } from 'sonner'
 
 import type { BackgroundCredit as Credit } from '@/shared/backgrounds'
-
-import { UNSPLASH_REFERRAL_SOURCE } from '../../../../../website/src/lib/constants'
 
 /** Renders separate verified attribution links for gallery captions and the main background.
  * @returns Opaque attribution, with plain captions for invalid links and nothing for uploads.

@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto'
 import {
   UNSPLASH_IMAGE_ORIGIN,
   UNSPLASH_RPC_URL,
-} from '../../../website/src/lib/constants'
+} from '@skills-desktop/unsplash-contract'
 
 /** Injects a real file-compatible CSP after Vite transforms HTML, hashing only the build's trusted inline bootstraps.
  * @returns HTML with one policy before scripts; only development gains its actual renderer/HMR origins.

@@ -14,7 +14,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { OPTIONS, POST } from '../app/api/rpc/[...rest]/route'
-import type { UnsplashClient } from '../lib/unsplash-contract'
+import type { UnsplashClient } from '@skills-desktop/unsplash-contract'
 
 const upstreamPhoto = {
   id: '5oRIcisKaxU',

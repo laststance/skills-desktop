@@ -1,0 +1,61 @@
+{
+  "name": "skills-desktop-monorepo",
+  "private": true,
+  "description": "Skills Desktop monorepo: Electron app, website, and shared packages",
+  "homepage": "https://github.com/laststance/skills-desktop",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/laststance/skills-desktop.git"
+  },
+  "bugs": {
+    "url": "https://github.com/laststance/skills-desktop/issues"
+  },
+  "license": "MIT",
+  "author": "Laststance.io",
+  "packageManager": "pnpm@11.5.1+sha512.93f7b57422ea7068257235b4c16eb60762eb68e1dc23723199cc739043ea9be2c4143274a399d8c6defa2b1176226d9ca1c4b63482d6200c1a8fbaa78c1d1485",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "pnpm --filter skills-desktop dev",
+    "build": "pnpm --filter skills-desktop build",
+    "build:mac": "pnpm --filter skills-desktop build:mac",
+    "build:e2e": "pnpm --filter skills-desktop build:e2e",
+    "test": "pnpm --filter skills-desktop test",
+    "test:coverage": "pnpm --filter skills-desktop test:coverage",
+    "test:e2e": "pnpm --filter skills-desktop test:e2e",
+    "test:e2e:headed": "pnpm --filter skills-desktop test:e2e:headed",
+    "test:contract": "pnpm --filter @skills-desktop/unsplash-contract test",
+    "test:release:macos-window": "pnpm --filter skills-desktop test:release:macos-window",
+    "test:packaged:backgrounds": "pnpm --filter skills-desktop test:packaged:backgrounds",
+    "gen:e2e-snapshot": "pnpm --filter skills-desktop gen:e2e-snapshot",
+    "storybook": "pnpm --filter skills-desktop storybook",
+    "storybook:build": "pnpm --filter skills-desktop storybook:build",
+    "typecheck": "pnpm --filter skills-desktop typecheck",
+    "typecheck:e2e": "pnpm --filter skills-desktop typecheck:e2e",
+    "typecheck:contract": "pnpm --filter @skills-desktop/unsplash-contract typecheck",
+    "lint": "pnpm --filter skills-desktop lint",
+    "lint:contract": "pnpm --filter @skills-desktop/unsplash-contract lint",
+    "validate:website": "pnpm --filter skills-desktop-website test && pnpm --filter skills-desktop-website lint && pnpm --filter skills-desktop-website build && pnpm --filter skills-desktop-website typecheck",
+    "check:bundled-workspace": "node scripts/check-bundled-workspace-imports.mjs",
+    "sherif": "sherif",
+    "format": "prettier --ignore-unknown --write .",
+    "format:check": "prettier --ignore-unknown --check .",
+    "fallow:dead-code": "fallow dead-code --fail-on-issues",
+    "fallow:dupes": "fallow dupes --fail-on-issues",
+    "fallow:health": "fallow health --complexity --fail-on-issues",
+    "validate": "run-p sherif lint lint:contract test test:contract typecheck typecheck:e2e typecheck:contract validate:website fallow:dead-code fallow:dupes fallow:health storybook:build",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "fallow": "3.28.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.5.1",
+    "npm-run-all2": "^9.0.3",
+    "prettier": "catalog:",
+    "sherif": "1.13.0"
+  },
+  "lint-staged": {
+    "*": "prettier --ignore-unknown --write"
+  }
+}
