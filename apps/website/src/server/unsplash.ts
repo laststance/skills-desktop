@@ -8,8 +8,6 @@ import {
   UNSPLASH_PAGE_SIZE,
   UNSPLASH_REFERRAL_SOURCE,
   UNSPLASH_SEARCH_CACHE_SECONDS,
-} from '@skills-desktop/unsplash-contract'
-import {
   unsplashContract,
   UnsplashSearchResultSchema,
   type UnsplashSearchInput,

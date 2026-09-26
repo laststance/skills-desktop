@@ -2,22 +2,26 @@
 
 The landing page and the desktop gallery's shared API deploy together as a Next.js application. The API is a Node Route Handler at `/api/rpc/[...rest]`; static-export hosting does not run this route.
 
+This package lives in the repository's pnpm workspace (`apps/website`, package `skills-desktop-website`). Install from the repository root, which owns the only lockfile, then run the scripts through a filter:
+
 ```bash
 pnpm install --frozen-lockfile
-pnpm test
-pnpm lint
-pnpm typecheck
-pnpm build
-pnpm start
+pnpm --filter skills-desktop-website test
+pnpm --filter skills-desktop-website lint
+pnpm --filter skills-desktop-website typecheck
+pnpm --filter skills-desktop-website build
+pnpm --filter skills-desktop-website start
 ```
 
-The public, server-free contract is `src/lib/unsplash-contract.ts`. Electron Main uses `unsplash.trackDownload`; Settings uses `unsplash.search` through oRPC 1.15.0 and `@orpc/tanstack-query`. Server implementation stays in `src/server/unsplash.ts` and is imported only by the Route Handler.
+The root `pnpm validate:website` runs test, lint, build and typecheck in sequence.
+
+The public, server-free contract is the workspace package `@skills-desktop/unsplash-contract` (`packages/unsplash-contract`), listed in `transpilePackages`. Electron Main uses `unsplash.trackDownload`; Settings uses `unsplash.search` through oRPC 1.15.0 and `@orpc/tanstack-query`. Server implementation stays in `src/server/unsplash.ts` and is imported only by the Route Handler.
 
 ## Provider configuration
 
 Set `UNSPLASH_ACCESS_KEY` in the Laststance Vercel team's `skills-desktop` project environment. Local development may use an ignored `.env.local`. Never use a `NEXT_PUBLIC_` prefix or place credentials in the desktop application. The API returns a recoverable `UNAVAILABLE` response when no key is configured; built-in images and uploads remain usable.
 
-Use the Vercel project root `website`, the Next.js framework preset and its default output. Production RPC URL: `https://skills-desktop.vercel.app/api/rpc`. Enter credentials through provider configuration; commands, screenshots, logs and pull requests must not contain key values.
+Use the Vercel project Root Directory `apps/website` with "Include files outside the root directory" enabled, the Next.js framework preset and its default output. `vercel.json` installs only this package and its workspace dependencies (`--filter skills-desktop-website...`), and `next.config.ts` points `turbopack.root` and `outputFileTracingRoot` at the workspace root. Production RPC URL: `https://skills-desktop.vercel.app/api/rpc`. Enter credentials through provider configuration; commands, screenshots, logs and pull requests must not contain key values.
 
 The deployment gate includes an Unsplash application registration, configured access key, production approval/quota verification and a real search/credit/download-notification smoke test. [Unsplash documents application registration, quota and attribution requirements](https://unsplash.com/documentation).
 

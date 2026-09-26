@@ -2,10 +2,17 @@
 
 > Visualize installed Skills and symlink status across AI agents
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Test](https://github.com/laststance/skills-desktop/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/laststance/skills-desktop/actions/workflows/test.yml)
+[![Build](https://github.com/laststance/skills-desktop/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/laststance/skills-desktop/actions/workflows/build.yml)
+[![Lint](https://github.com/laststance/skills-desktop/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/laststance/skills-desktop/actions/workflows/lint.yml)
+[![E2E](https://github.com/laststance/skills-desktop/actions/workflows/e2e.yml/badge.svg?branch=main)](https://github.com/laststance/skills-desktop/actions/workflows/e2e.yml)
+[![Fallow](https://github.com/laststance/skills-desktop/actions/workflows/fallow.yml/badge.svg?branch=main)](https://github.com/laststance/skills-desktop/actions/workflows/fallow.yml)
+[![Security](https://github.com/laststance/skills-desktop/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/laststance/skills-desktop/actions/workflows/security.yml)
+[![Socket](https://github.com/laststance/skills-desktop/actions/workflows/socket.yml/badge.svg?branch=main)](https://github.com/laststance/skills-desktop/actions/workflows/socket.yml)
+[![Codecov](https://codecov.io/gh/laststance/skills-desktop/branch/main/graph/badge.svg)](https://codecov.io/gh/laststance/skills-desktop)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/laststance/skills-desktop/badge)](https://scorecard.dev/viewer/?uri=github.com/laststance/skills-desktop)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform: macOS](https://img.shields.io/badge/Platform-macOS-lightgrey.svg)](https://www.apple.com/macos/)
-[![codecov](https://codecov.io/gh/laststance/skills-desktop/branch/main/graph/badge.svg)](https://codecov.io/gh/laststance/skills-desktop)
-[![Security Policy](https://img.shields.io/badge/Security-Policy-green.svg)](SECURITY.md)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/laststance/skills-desktop)
 
 <p align="center">
@@ -21,7 +28,7 @@ Skills Desktop provides a GUI to manage and monitor skills installed via [`npx s
 - **Customizable Dashboard** - Widget-based home view with skill stats, symlink health, agent coverage, bookmarks, and quick actions — drag, resize, and arrange across multiple pages
 - **54 Themes** - 34 OKLCH color themes (17 hues × light/dark) + 2 pure neutral + 18 tinted neutral
 - **Background Opacity** - In Settings → Appearance, choose Entire or Section and adjust backgrounds from 0–100% while text and icons stay solid. Reset restores 100%; each mode keeps its own values. See the [opacity behavior](DESIGN.md#window-opacity) and [settings contract](SPEC.md#settings-window).
-- **Background Gallery** - In Settings → Appearance → Choose background, choose from four [bundled photos](resources/backgrounds/README.md), upload your own image, crop it, and apply Fill / Fit / Tile. Built-in photos and uploads work offline. Online Unsplash browsing requires [provider configuration](website/README.md); see the [verification record](docs/qa/background-gallery.md).
+- **Background Gallery** - In Settings → Appearance → Choose background, choose from four [bundled photos](apps/desktop/resources/backgrounds/README.md), upload your own image, crop it, and apply Fill / Fit / Tile. Built-in photos and uploads work offline. Online Unsplash browsing requires [provider configuration](apps/website/README.md); see the [verification record](docs/qa/background-gallery.md).
 - **Auto Update** - Automatic updates via GitHub Releases
 
 ## Supported Agents
@@ -64,22 +71,23 @@ allow marketplace webviews only from the expected skills.sh origin.
 macOS releases are built with Developer ID signing, notarization, and the
 hardened runtime enabled. The security posture tracked for
 [issue #241](https://github.com/laststance/skills-desktop/issues/241) includes
-CodeQL, dependency review, production dependency audit, GitHub secret scanning,
-Dependabot security updates, least-privilege Actions permissions, and branch
-protection.
+CodeQL, dependency review, production dependency audit, Socket dependency
+scanning, OpenSSF Scorecard, GitHub secret scanning, Dependabot security
+updates, SHA-pinned least-privilege Actions, and branch protection.
 
 ## Development
 
 ### Prerequisites
 
-- Node.js 20+
-- pnpm 11+
+- macOS (the app and its E2E suite are macOS-only)
+- Node.js 24 (the exact version is pinned in [`.node-version`](.node-version))
+- pnpm, pinned by the `packageManager` field (`corepack enable` or [pnpm/setup](https://pnpm.io/installation))
 
 ### Setup
 
 ```bash
-# Install dependencies
-pnpm install
+# Install every workspace package from the single root lockfile
+pnpm install --frozen-lockfile
 
 # Start development
 pnpm dev
@@ -110,13 +118,13 @@ pnpm test:e2e
 | Unit  | `pnpm test`     | Vitest (Node + browser mode via `*.browser.test.tsx`)                      |
 | E2E   | `pnpm test:e2e` | Playwright Electron — boots the real app per spec, isolated HOME each test |
 
-E2E specs live in `e2e/spec/*.e2e.ts`. The suite uses `cp -al` hardlink snapshots so each test starts from a fresh, populated `~/.agents/skills/` without re-running the skills CLI installer (~50 ms reset). CI runs on `macos-latest` (`.github/workflows/e2e.yml`); failures upload `playwright-report/` and `test-results/` as artifacts (traces + videos retained on failure).
+E2E specs live in `apps/desktop/e2e/spec/*.e2e.ts`. The suite uses `cp -al` hardlink snapshots so each test starts from a fresh, populated `~/.agents/skills/` without re-running the skills CLI installer (~50 ms reset). CI runs on `macos-latest` (`.github/workflows/e2e.yml`); failures upload `playwright-report/` and `test-results/` as artifacts (traces + videos retained on failure).
 
 > **⚠️ Hardlink caveat for spec authors.** Hardlinked files share inodes
 > across every working HOME, so in-place edits (`writeFileSync` over an
 > existing `SKILL.md`, `appendFileSync`, etc.) corrupt the snapshot for
 > every subsequent test. Safe ops only: `unlink`, `rmdir`, `mkdir` +
-> `writeFile` of NEW paths. See `e2e/fixtures/isolated-home.ts:82-85`
+> `writeFile` of NEW paths. See `apps/desktop/e2e/fixtures/isolated-home.ts:82-85`
 > for the canonical safe-ops list.
 
 ### Build
@@ -126,6 +134,7 @@ E2E specs live in `e2e/spec/*.e2e.ts`. The suite uses `cp -al` hardlink snapshot
 APPLE_KEYCHAIN_PROFILE=skills-desktop pnpm build:mac
 
 # Verify gallery assets, Sharp, upload ownership and CSP in both built packages
+# (bundle paths are relative to apps/desktop, where electron-builder writes dist/)
 pnpm test:packaged:backgrounds -- --arm64 'dist/mac-arm64/Skills Desktop.app' --x64 'dist/mac/Skills Desktop.app' --output /tmp/backgrounds.json
 
 # Verify that the packaged window reaches the native compositor (requires Screen Recording)
@@ -136,7 +145,7 @@ pnpm test:release:macos-window
 
 | Component | Technology                                           |
 | --------- | ---------------------------------------------------- |
-| Framework | Electron 43                                          |
+| Framework | Electron 44                                          |
 | Frontend  | React 19 + TypeScript                                |
 | State     | Redux Toolkit + @laststance/redux-storage-middleware |
 | Styling   | Tailwind CSS + shadcn/ui                             |
@@ -144,13 +153,39 @@ pnpm test:release:macos-window
 
 ## Project Structure
 
+A pnpm workspace with one lockfile. Dependencies used by more than one package
+are declared once in the `catalog:` of [`pnpm-workspace.yaml`](pnpm-workspace.yaml),
+and [sherif](https://github.com/QuiiBz/sherif) fails CI on version drift.
+
 ```
-src/
-├── main/           # Electron main process
-├── preload/        # Context bridge (IPC)
-├── renderer/       # React frontend
-└── shared/         # Shared types
+apps/
+├── desktop/                 # Electron app (package name: skills-desktop)
+│   ├── src/main/            #   Electron main process
+│   ├── src/preload/         #   Context bridge (IPC)
+│   ├── src/renderer/        #   React frontend
+│   ├── src/shared/          #   Types and constants shared across processes
+│   └── e2e/                 #   Playwright Electron suite
+└── website/                 # Next.js site + Unsplash oRPC proxy (Vercel)
+packages/
+└── unsplash-contract/       # oRPC contract and limits shared by desktop and website
 ```
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for how the pieces fit together.
+
+## Contributing
+
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) for setup,
+the quality gates and the pull request checklist, and follow the
+[Code of Conduct](CODE_OF_CONDUCT.md). Report vulnerabilities privately as
+described in [SECURITY.md](SECURITY.md).
+
+Every pull request runs these workflows: [Test](.github/workflows/test.yml),
+[Build](.github/workflows/build.yml), [TypeCheck](.github/workflows/typecheck.yml),
+[Lint](.github/workflows/lint.yml), [Format](.github/workflows/format.yml),
+[Fallow](.github/workflows/fallow.yml), [E2E](.github/workflows/e2e.yml),
+[Security](.github/workflows/security.yml) and [Socket](.github/workflows/socket.yml).
+[Scorecard](.github/workflows/scorecard.yml) runs on `main`. Socket uses the
+`SOCKET_SECURITY_API_TOKEN` secret and skips pull requests from forks.
 
 ## Related
 
@@ -162,4 +197,4 @@ src/
 
 ## License
 
-MIT - [Laststance.io](https://github.com/laststance)
+[MIT](LICENSE) © [Laststance.io](https://github.com/laststance)

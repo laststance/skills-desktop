@@ -8,11 +8,13 @@ unless the issue only affects the current development branch.
 
 ## Reporting a Vulnerability
 
-Please do not report security vulnerabilities through public GitHub issues.
-Use GitHub's private vulnerability reporting flow for this repository when it is
-available. If private reporting is unavailable, contact the maintainer through
-the Laststance.io GitHub organization and include a short note that the report
-is security-sensitive.
+Please do not report security vulnerabilities through public GitHub issues,
+pull requests, or discussions. Report them privately through
+[GitHub private vulnerability reporting](https://github.com/laststance/skills-desktop/security/advisories/new).
+If you cannot use that form, use the contact options on the
+[maintainer's GitHub profile](https://github.com/ryota-murakami) to arrange a
+private channel, and include a short note that the report is
+security-sensitive.
 
 Include:
 
@@ -42,6 +44,8 @@ In scope:
 - unintended filesystem access outside configured skills directories
 - unsafe external link, webview, or marketplace preview behavior
 - update, signing, notarization, or release artifact integrity issues
+- the website's Unsplash proxy (`apps/website`) and the shared request contract
+  (`packages/unsplash-contract`)
 - CI/CD, dependency, and GitHub Actions supply-chain risks
 
 Out of scope:
@@ -60,7 +64,15 @@ validates IPC arguments in the main process, validates filesystem paths against
 allowed skills locations, restricts external links to http(s), and notarizes
 macOS release builds with the hardened runtime enabled.
 
-GitHub security automation is tracked in issue #241 and includes CodeQL,
-dependency review, production dependency audit, secret scanning, Dependabot
-security updates, least-privilege GitHub Actions permissions, and branch
-protection.
+GitHub security automation is tracked in issue #241. Every pull request runs:
+
+- [CodeQL](.github/workflows/security.yml) static analysis
+- [Dependency Review](.github/workflows/security.yml) of added dependencies
+- a production dependency audit (`pnpm audit --prod`) across the workspace
+- [Socket](.github/workflows/socket.yml) supply-chain scanning of the lockfile
+
+[OpenSSF Scorecard](.github/workflows/scorecard.yml) runs on `main` and uploads
+its results to code scanning. The repository also enables secret scanning and
+Dependabot security updates, pins every GitHub Action to a full commit SHA with
+least-privilege permissions, protects `main`, and installs dependencies from a
+single frozen lockfile with a minimum release age for new versions.

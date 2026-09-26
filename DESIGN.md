@@ -46,7 +46,7 @@ Prefer precise structure over ornamental surfaces.
 ## Color System
 
 The app uses OKLCH CSS variables, driven by `THEME_PRESETS` in
-`src/shared/constants.ts` and consumed through `src/renderer/src/styles/globals.css`.
+`apps/desktop/src/shared/constants.ts` and consumed through `apps/desktop/src/renderer/src/styles/globals.css`.
 
 | Token            | Role                                                                 |
 | ---------------- | -------------------------------------------------------------------- |
@@ -188,7 +188,7 @@ of the main window's dense `text-xs`. Weight (`font-medium` labels) and color
 - `text-settings-description` is defined in `fontSize` in
   `tailwind.config.ts`. A custom `text-*` size must also be registered in the
   `font-size` class group of the `cn()` tailwind-merge config in
-  `src/renderer/src/lib/utils.ts`. Otherwise tailwind-merge reads it as a text
+  `apps/desktop/src/renderer/src/lib/utils.ts`. Otherwise tailwind-merge reads it as a text
   color and silently drops `text-muted-foreground`, or the size itself.
 
 ### Preview typography (user-adjustable)
