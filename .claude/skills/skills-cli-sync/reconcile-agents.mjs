@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Drift gate for the skills-cli-sync skill: asserts every AGENT_DEFINITIONS
-// entry in src/shared/constants.ts has a matching SPEC.md agent-table row on
+// entry in apps/desktop/src/shared/constants.ts has a matching SPEC.md agent-table row on
 // (cliId, detection-path), and vice-versa. Run after editing constants.ts +
 // SPEC.md during a Skills CLI sync. Exits non-zero on any drift so it can act
 // as a validation gate (CI or pre-PR). Machine-independent: resolves the repo
@@ -18,7 +18,10 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
  * agent's own symlinks (see the AGENT_DEFINITIONS JSDoc in constants.ts).
  */
 function readConstants() {
-  const src = readFileSync(`${ROOT}/src/shared/constants.ts`, 'utf-8')
+  const src = readFileSync(
+    `${ROOT}/apps/desktop/src/shared/constants.ts`,
+    'utf-8',
+  )
   const start = src.indexOf('export const AGENT_DEFINITIONS = [')
   const end = src.indexOf('] as const', start)
   if (start === -1 || end === -1) {

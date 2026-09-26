@@ -16,6 +16,7 @@ concurrency:
 jobs:
   typecheck:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -32,5 +33,9 @@ jobs:
       - name: Typecheck E2E bridge
         run: pnpm typecheck:e2e
 
+      - name: Typecheck shared contract
+        run: pnpm typecheck:contract
+
+      # The Website typecheck script generates Next route types first.
       - name: Generate Website route types and typecheck
-        run: pnpm --dir website exec next typegen && pnpm --dir website typecheck
+        run: pnpm --filter skills-desktop-website typecheck

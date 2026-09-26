@@ -1,10 +1,13 @@
 # Keep security-sensitive workflow and release changes reviewed by the repo admin.
 .github/ @ryota-murakami
-electron-builder.yml @ryota-murakami
+apps/desktop/electron-builder.yml @ryota-murakami
 package.json @ryota-murakami
+apps/*/package.json @ryota-murakami
+packages/*/package.json @ryota-murakami
 pnpm-lock.yaml @ryota-murakami
 pnpm-workspace.yaml @ryota-murakami
 scripts/ @ryota-murakami
-resources/ @ryota-murakami
-website/src/components/Download.tsx @ryota-murakami
-website/src/components/Hero.tsx @ryota-murakami
+apps/desktop/scripts/ @ryota-murakami
+apps/desktop/resources/ @ryota-murakami
+apps/website/src/components/Download.tsx @ryota-murakami
+apps/website/src/components/Hero.tsx @ryota-murakami

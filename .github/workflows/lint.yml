@@ -16,6 +16,7 @@ concurrency:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -26,8 +27,14 @@ jobs:
       - name: Prepare
         uses: ./.github/actions/prepare
 
+      - name: Check workspace dependency consistency
+        run: pnpm sherif
+
       - name: Lint
         run: pnpm lint
 
+      - name: Lint shared contract
+        run: pnpm lint:contract
+
       - name: Lint Website
-        run: pnpm --dir website lint
+        run: pnpm --filter skills-desktop-website lint

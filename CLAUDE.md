@@ -6,6 +6,20 @@ Electron desktop app (macOS) for visualizing Skills symlink status across AI age
 - Build macOS `APPLE_KEYCHAIN_PROFILE=skills-desktop pnpm build:mac`
 - For UI, visual polish, layout, motion, and design-token changes, read `DESIGN.md` first and follow it as the design source of truth.
 
+## Workspace
+
+pnpm workspace, one root lockfile. Run scripts from the repo root (they delegate via `pnpm --filter`). See `ARCHITECTURE.md` / `CONTRIBUTING.md`.
+
+| Package                             | Path                         | Notes                                                                                     |
+| ----------------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------- |
+| `skills-desktop`                    | `apps/desktop`               | Electron app. **Owns the app version.** Never rename the package: it derives `app.getName()` / userData |
+| `skills-desktop-website`            | `apps/website`               | Next.js site + `/api/rpc` Unsplash proxy. Vercel Root Directory = `apps/website`           |
+| `@skills-desktop/unsplash-contract` | `packages/unsplash-contract` | Shared oRPC contract/limits. TS source export; relative imports need explicit `.ts`        |
+
+- Shared deps go in `pnpm-workspace.yaml` `catalog:` and are referenced as `"catalog:"` (`catalogMode: strict`); `pnpm sherif` enforces consistency
+- Workspace packages must stay **devDependencies** of `apps/desktop` so electron-vite bundles them; `pnpm check:bundled-workspace` (CI `build` job) fails otherwise
+- Website-only commands: `pnpm --filter skills-desktop-website <script>`
+
 ### 🔴 Releases — Use `/electron-release` ONLY
 
 `/electron-release` is the single source of truth for the entire release pipeline:
@@ -14,9 +28,9 @@ Electron desktop app (macOS) for visualizing Skills symlink status across AI age
 
 **Forbidden:**
 
-- `/ship` MUST NOT bump `package.json` version. Version bumps are owned exclusively by `/electron-release`.
+- `/ship` MUST NOT bump the app version in `apps/desktop/package.json`. Version bumps are owned exclusively by `/electron-release`. The root `package.json` has no version.
 - Manual `gh release create` outside `/electron-release` (skips notarization check, ZIP rename, website update — auto-update breaks)
-- Manual edit of `package.json` `"version"` field
+- Manual edit of the `apps/desktop/package.json` `"version"` field
 
 For local production build verification (no release):
 
@@ -24,7 +38,7 @@ For local production build verification (no release):
 APPLE_KEYCHAIN_PROFILE=skills-desktop pnpm build:mac
 ```
 
-Without `APPLE_KEYCHAIN_PROFILE`: signing succeeds but notarization fails → Gatekeeper blocks the app.
+Without `APPLE_KEYCHAIN_PROFILE`: signing succeeds but notarization fails → Gatekeeper blocks the app. Artifacts land in `apps/desktop/dist/`. Website download URLs live in `apps/website/src/components/{Hero,Download}.tsx` and `apps/website/public/llms.txt`.
 
 ## Skill Execution Contract
 
@@ -63,7 +77,7 @@ Before opening or merging a PR, run the fast gates first:
 pnpm validate
 ```
 
-Runs nine gates via `run-p`: `lint`, `test`, `typecheck`, `typecheck:e2e`, `validate:website`, `fallow:dead-code`, `fallow:dupes`, `fallow:health`, and `storybook:build`. Website validation includes its tests, lint, build and typecheck. Hosted macOS CI runs `VITEST_MAX_WORKERS=1 pnpm validate --max-parallel 1` to bound concurrency.
+Runs thirteen gates in one flat `run-p`: `sherif`, `lint`, `lint:contract`, `test`, `test:contract`, `typecheck`, `typecheck:e2e`, `typecheck:contract`, `validate:website`, `fallow:dead-code`, `fallow:dupes`, `fallow:health`, and `storybook:build`. Website validation includes its tests, lint, build and typecheck. Fallow runs from the root over all three packages. Hosted macOS CI runs `VITEST_MAX_WORKERS=1 pnpm validate --max-parallel 1` to bound concurrency. `pnpm format:check` runs as its own CI job.
 
 Only after it passes, run the Electron e2e suite:
 
@@ -78,9 +92,9 @@ PRs are ready to ship only when `validate` and e2e both pass in that order.
 | Entity    | Location             | Description                                                                              |
 | --------- | -------------------- | ---------------------------------------------------------------------------------------- |
 | Skill     | `~/.agents/skills/`  | Directory with SKILL.md                                                                  |
-| Agent     | `~/.<agent>/skills/` | AI agents (count = `AGENT_DEFINITIONS.length` in `src/shared/constants.ts`)              |
+| Agent     | `~/.<agent>/skills/` | AI agents (count = `AGENT_DEFINITIONS.length` in `apps/desktop/src/shared/constants.ts`)              |
 | Symlink   | Agent→Skill          | `valid` / `broken` / `inaccessible` / `missing`                                          |
-| Universal | `~/.agents/skills/`  | 19 agents share this source dir (see `UNIVERSAL_AGENT_IDS` in `src/shared/constants.ts`) |
+| Universal | `~/.agents/skills/`  | 19 agents share this source dir (see `UNIVERSAL_AGENT_IDS` in `apps/desktop/src/shared/constants.ts`) |
 
 ### Skills CLI
 
@@ -89,9 +103,9 @@ PRs are ready to ship only when `validate` and e2e both pass in that order.
 | Repository     | https://github.com/vercel-labs/skills (paths below are inside that repo)                                                                         |
 | CLI agent list | `src/agents.ts`                                                                                                                                  |
 | CLI types      | `src/types.ts`                                                                                                                                   |
-| Pinned version | `SKILLS_CLI_VERSION` in `src/shared/constants.ts` (currently `1.6.0`) — bump when re-syncing `AGENT_DEFINITIONS` against the upstream skills CLI |
+| Pinned version | `SKILLS_CLI_VERSION` in `apps/desktop/src/shared/constants.ts` (currently `1.6.0`) — bump when re-syncing `AGENT_DEFINITIONS` against the upstream skills CLI |
 
-`AGENT_DEFINITIONS` in `src/shared/constants.ts` mirrors the CLI's agent
+`AGENT_DEFINITIONS` in `apps/desktop/src/shared/constants.ts` mirrors the CLI's agent
 list. Each entry: `id` (app state), `cliId` (`--agent` flag), `name`
 (display), `installDir` (home subpath where the CLI installs skills
 globally, like `.claude`), `scanDir` (home subpath this app scans for the

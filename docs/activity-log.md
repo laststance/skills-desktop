@@ -9,13 +9,15 @@ sync's_ per-item results (read from `uiSlice.syncResult`) and was wiped on
 restart.
 
 > **Status: dark.** The whole feature is gated behind
-> `FEATURE_FLAGS.ENABLE_DASHBOARD_EXPERIMENTAL` (`src/shared/featureFlags.ts`),
+> `FEATURE_FLAGS.ENABLE_DASHBOARD_EXPERIMENTAL` (`apps/desktop/src/shared/featureFlags.ts`),
 > which is **off**. With the flag off: the widget is hidden from the picker
 > (`registry.ts` / `WidgetPicker.tsx`), the renderer sync hook is a no-op, and
 > the main-process recorder is a no-op. Shipping this PR therefore changes **zero
 > production behavior**. See [Acceptance criteria](#acceptance-criteria).
 
 ## Architecture
+
+Paths in this section are relative to `apps/desktop/`.
 
 Persistence is **owned by the main process**, mirroring `settings.ts`. The
 renderer never touches the file; it caches a copy in Redux and converges via an

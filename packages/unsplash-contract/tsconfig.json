@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    // The contract package uses explicit `.ts` import specifiers so Node can load it natively.
+    "allowImportingTsExtensions": true,
+    "lib": ["ES2022", "DOM"],
+    "types": []
+  },
+  "include": ["src/**/*.ts"]
+}

@@ -44,7 +44,7 @@ Skills Desktop provides a GUI to manage and monitor skills installed via `npx sk
 Agents are **auto-detected** by scanning for skills directories at standard paths.
 Agent definitions are synced with [vercel-labs/skills CLI](https://github.com/vercel-labs/skills/blob/main/src/agents.ts).
 
-> **Source of truth**: `AGENT_DEFINITIONS` in `src/shared/constants.ts`. `cliId`
+> **Source of truth**: `AGENT_DEFINITIONS` in `apps/desktop/src/shared/constants.ts`. `cliId`
 > is the `--agent` flag passed to the Skills CLI. `Detection Path` mirrors
 > the `scanDir` field — i.e. the directory the app scans for that agent's
 > own symlinks. For most agents `scanDir === installDir`; the divergent
@@ -479,7 +479,7 @@ const initialState: ThemeState = {
 Theme switching is implemented via Redux Toolkit's `listenerMiddleware`:
 
 ```typescript
-// src/renderer/src/redux/listener.ts
+// apps/desktop/src/renderer/src/redux/listener.ts
 listenerMiddleware.startListening({
   matcher: isAnyOf(setTheme, setColorTheme, setNeutralTheme, toggleMode),
   effect: async (_action, listenerApi) => {
@@ -689,85 +689,94 @@ interface MarketplaceState {
 ## Project Structure
 
 ```
-skills-desktop/
-├── electron.vite.config.ts
-├── package.json
-├── tsconfig.json
-├── tailwind.config.ts
-├── components.json           # shadcn/ui config
-├── src/
-│   ├── main/                 # Electron main process
-│   │   ├── index.ts
-│   │   ├── ipc/
-│   │   │   ├── handlers.ts
-│   │   │   ├── skills.ts
-│   │   │   ├── agents.ts
-│   │   │   ├── source.ts
-│   │   │   ├── files.ts
-│   │   │   ├── sync.ts           # Sync handlers (agent-scoped via `agentId`)
-│   │   │   ├── settings.ts       # settings:get / set / open IPC
-│   │   │   └── skillsCli.ts      # Marketplace CLI handlers
-│   │   ├── updater.ts
-│   │   ├── constants.ts
-│   │   └── services/
-│   │       ├── skillScanner.ts
-│   │       ├── agentScanner.ts
-│   │       ├── symlinkChecker.ts
-│   │       ├── metadataParser.ts
-│   │       ├── fileReader.ts
-│   │       ├── settings.ts          # Atomic-write settings.json + load/parse
-│   │       ├── settingsWindow.ts    # Settings BrowserWindow lifecycle
-│   │       ├── syncService.ts       # Preview/execute sync (scoped or global)
-│   │       └── skillsCliService.ts  # npx skills CLI wrapper
-│   ├── preload/
-│   │   ├── index.ts          # Context bridge
-│   │   └── index.d.ts
-│   ├── renderer/
-│   │   ├── index.html
-│   │   ├── settings/             # Separately-rendered Settings window
-│   │   │   ├── index.html
-│   │   │   ├── main.tsx
-│   │   │   ├── SettingsApp.tsx
-│   │   │   └── sections/
-│   │   │       ├── About.tsx
-│   │   │       ├── Appearance.tsx
-│   │   │       ├── AutoUpdates.tsx
-│   │   │       ├── General.tsx
-│   │   │       ├── Keybindings.tsx
-│   │   │       └── SectionFrame.tsx
-│   │   └── src/
-│   │       ├── main.tsx
-│   │       ├── App.tsx
-│   │       ├── redux/
-│   │       │   └── slices/
-│   │       │       ├── skillsSlice.ts
-│   │       │       ├── agentsSlice.ts
-│   │       │       ├── themeSlice.ts
-│   │       │       ├── uiSlice.ts
-│   │       │       ├── updateSlice.ts
-│   │       │       ├── settingsSlice.ts
-│   │       │       └── marketplaceSlice.ts
-│   │       ├── components/
-│   │       │   ├── layout/
-│   │       │   ├── marketplace/    # Marketplace UI
-│   │       │   │   ├── SkillsMarketplace.tsx
-│   │       │   │   ├── MarketplaceSearch.tsx
-│   │       │   │   ├── SkillRowMarketplace.tsx
-│   │       │   │   └── InstallModal.tsx
-│   │       │   └── ui/             # shadcn/ui components
-│   │       ├── views/
-│   │       ├── hooks/
-│   │       │   └── useMarketplaceProgress.ts
-│   │       └── styles/
-│   └── shared/
-│       ├── types.ts
-│       ├── constants.ts            # AGENT_DEFINITIONS, THEME_PRESETS, KEYBINDINGS, SKILLS_CLI_VERSION
-│       ├── settings.ts             # SettingsSchema (Zod) + DEFAULT_SETTINGS
-│       ├── ipc-contract.ts         # Typed IPC contract (zod schemas)
-│       └── ipc-channels.ts
-├── resources/
-│   └── icon.icns
-└── website/                  # Landing page (Next.js)
+skills-desktop/               # pnpm workspace root (private, no version)
+├── package.json              # Delegating scripts + flat `validate`
+├── pnpm-workspace.yaml       # packages, catalog (shared dependency versions)
+├── pnpm-lock.yaml            # The only lockfile
+├── apps/
+│   ├── desktop/              # package `skills-desktop` (owns the app version)
+│   │   ├── electron.vite.config.ts
+│   │   ├── electron-builder.yml
+│   │   ├── package.json
+│   │   ├── tsconfig.json
+│   │   ├── tailwind.config.ts
+│   │   ├── components.json   # shadcn/ui config
+│   │   ├── e2e/              # Playwright Electron suite
+│   │   ├── src/
+│   │   │   ├── main/                 # Electron main process
+│   │   │   │   ├── index.ts
+│   │   │   │   ├── ipc/
+│   │   │   │   │   ├── handlers.ts
+│   │   │   │   │   ├── skills.ts
+│   │   │   │   │   ├── agents.ts
+│   │   │   │   │   ├── source.ts
+│   │   │   │   │   ├── files.ts
+│   │   │   │   │   ├── sync.ts           # Sync handlers (agent-scoped via `agentId`)
+│   │   │   │   │   ├── settings.ts       # settings:get / set / open IPC
+│   │   │   │   │   └── skillsCli.ts      # Marketplace CLI handlers
+│   │   │   │   ├── updater.ts
+│   │   │   │   ├── constants.ts
+│   │   │   │   └── services/
+│   │   │   │       ├── skillScanner.ts
+│   │   │   │       ├── agentScanner.ts
+│   │   │   │       ├── symlinkChecker.ts
+│   │   │   │       ├── metadataParser.ts
+│   │   │   │       ├── fileReader.ts
+│   │   │   │       ├── settings.ts          # Atomic-write settings.json + load/parse
+│   │   │   │       ├── settingsWindow.ts    # Settings BrowserWindow lifecycle
+│   │   │   │       ├── syncService.ts       # Preview/execute sync (scoped or global)
+│   │   │   │       └── skillsCliService.ts  # npx skills CLI wrapper
+│   │   │   ├── preload/
+│   │   │   │   ├── index.ts          # Context bridge
+│   │   │   │   └── index.d.ts
+│   │   │   ├── renderer/
+│   │   │   │   ├── index.html
+│   │   │   │   ├── settings/             # Separately-rendered Settings window
+│   │   │   │   │   ├── index.html
+│   │   │   │   │   ├── main.tsx
+│   │   │   │   │   ├── SettingsApp.tsx
+│   │   │   │   │   └── sections/
+│   │   │   │   │       ├── About.tsx
+│   │   │   │   │       ├── Appearance.tsx
+│   │   │   │   │       ├── AutoUpdates.tsx
+│   │   │   │   │       ├── General.tsx
+│   │   │   │   │       ├── Keybindings.tsx
+│   │   │   │   │       └── SectionFrame.tsx
+│   │   │   │   └── src/
+│   │   │   │       ├── main.tsx
+│   │   │   │       ├── App.tsx
+│   │   │   │       ├── redux/
+│   │   │   │       │   └── slices/
+│   │   │   │       │       ├── skillsSlice.ts
+│   │   │   │       │       ├── agentsSlice.ts
+│   │   │   │       │       ├── themeSlice.ts
+│   │   │   │       │       ├── uiSlice.ts
+│   │   │   │       │       ├── updateSlice.ts
+│   │   │   │       │       ├── settingsSlice.ts
+│   │   │   │       │       └── marketplaceSlice.ts
+│   │   │   │       ├── components/
+│   │   │   │       │   ├── layout/
+│   │   │   │       │   ├── marketplace/    # Marketplace UI
+│   │   │   │       │   │   ├── SkillsMarketplace.tsx
+│   │   │   │       │   │   ├── MarketplaceSearch.tsx
+│   │   │   │       │   │   ├── SkillRowMarketplace.tsx
+│   │   │   │       │   │   └── InstallModal.tsx
+│   │   │   │       │   └── ui/             # shadcn/ui components
+│   │   │   │       ├── views/
+│   │   │   │       ├── hooks/
+│   │   │   │       │   └── useMarketplaceProgress.ts
+│   │   │   │       └── styles/
+│   │   │   └── shared/
+│   │   │       ├── types.ts
+│   │   │       ├── constants.ts            # AGENT_DEFINITIONS, THEME_PRESETS, KEYBINDINGS, SKILLS_CLI_VERSION
+│   │   │       ├── settings.ts             # SettingsSchema (Zod) + DEFAULT_SETTINGS
+│   │   │       ├── ipc-contract.ts         # Typed IPC contract (zod schemas)
+│   │   │       └── ipc-channels.ts
+│   │   └── resources/
+│   │       └── icon.icns
+│   └── website/              # Landing page + Unsplash oRPC proxy (Next.js)
+└── packages/
+    └── unsplash-contract/    # @skills-desktop/unsplash-contract (shared oRPC contract)
 ```
 
 ## Window Configuration
@@ -792,23 +801,23 @@ A dedicated, separately-rendered Settings window (Inkdrop-style) — not a modal
 - Sidebar gear icon
 - App menu **Settings…** (⌘,)
 
-Both routes converge on the same `BrowserWindow` instance owned by `src/main/services/settingsWindow.ts`.
+Both routes converge on the same `BrowserWindow` instance owned by `apps/desktop/src/main/services/settingsWindow.ts`.
 
 **Sections:**
 
-| Section     | Purpose                                                                       |
-| ----------- | ----------------------------------------------------------------------------- |
-| About       | App version, updater status, links                                            |
-| Agents      | Hide/show installed agents from the sidebar (visibility-only toggle)          |
-| Appearance  | Theme presets, light/dark mode, 0–100% background opacity, preview typography |
-| AutoUpdates | Update channel and check cadence                                              |
-| General     | Default skill detail tab, preferred terminal, startup window size             |
-| Keybindings | Read-only display sourced from `KEYBINDINGS` in `src/shared/constants.ts`     |
+| Section     | Purpose                                                                                |
+| ----------- | -------------------------------------------------------------------------------------- |
+| About       | App version, updater status, links                                                     |
+| Agents      | Hide/show installed agents from the sidebar (visibility-only toggle)                   |
+| Appearance  | Theme presets, light/dark mode, 0–100% background opacity, preview typography          |
+| AutoUpdates | Update channel and check cadence                                                       |
+| General     | Default skill detail tab, preferred terminal, startup window size                      |
+| Keybindings | Read-only display sourced from `KEYBINDINGS` in `apps/desktop/src/shared/constants.ts` |
 
 **Persistence:**
 
 User-editable values are stored in `app.getPath('userData')/settings.json` by
-`src/main/services/settings.ts`. Startup {@link loadSettings} and subsequent
+`apps/desktop/src/main/services/settings.ts`. Startup {@link loadSettings} and subsequent
 {@link saveSettings} calls share one queue. Each edit reads the latest cache,
 merges and validates the patch, writes a temporary file, renames it, then replaces the cache.
 An individual write failure leaves the previous file and cache available and
@@ -861,7 +870,7 @@ Switching Entire / Section preserves the hidden mode's values.
 
 **Schema:**
 
-{@link SettingsSchema} in `src/shared/settings.ts` defines the complete contract.
+{@link SettingsSchema} in `apps/desktop/src/shared/settings.ts` defines the complete contract.
 The opacity fields below also share validation with the strict `settings:set`
 IPC schema; unrelated patches do not inject defaults for absent fields.
 
@@ -962,8 +971,8 @@ APPLE_KEYCHAIN_PROFILE=skills-desktop pnpm build:mac
 
 | Setting   | Value                     |
 | --------- | ------------------------- |
-| Framework | Next.js 15 + Tailwind CSS |
-| Directory | `website/`                |
+| Framework | Next.js 16 + Tailwind CSS |
+| Directory | `apps/website/`           |
 | Deploy    | Vercel (laststance team)  |
 | URL       | skills-desktop.vercel.app |
 
@@ -976,7 +985,7 @@ APPLE_KEYCHAIN_PROFILE=skills-desktop pnpm build:mac
 
 ## Skills CLI Integration
 
-The Marketplace feature wraps `npx skills@<SKILLS_CLI_VERSION>` CLI commands (version pinned in `src/shared/constants.ts`):
+The Marketplace feature wraps `npx skills@<SKILLS_CLI_VERSION>` CLI commands (version pinned in `apps/desktop/src/shared/constants.ts`):
 
 | Feature | CLI Command                                    | Options                          |
 | ------- | ---------------------------------------------- | -------------------------------- |
@@ -994,7 +1003,7 @@ The Marketplace feature wraps `npx skills@<SKILLS_CLI_VERSION>` CLI commands (ve
 Internal IDs map to CLI identifiers via `AGENT_DEFINITIONS`:
 
 ```typescript
-// src/shared/constants.ts
+// apps/desktop/src/shared/constants.ts
 // Common case (most agents): installDir === scanDir
 {
   id: 'claude-code',

@@ -43,8 +43,8 @@ temp/
 *.tmp
 
 # Website (Next.js)
-website/.next/
-website/out/
+apps/website/.next/
+apps/website/out/
 
 # Claude Code
 CLAUDE.md
@@ -64,9 +64,9 @@ qa-reports/
 **/__screenshots__/
 
 # Playwright E2E
-e2e/.snapshot/
-e2e/test-results/
-e2e/playwright-report/
+apps/desktop/e2e/.snapshot/
+apps/desktop/e2e/test-results/
+apps/desktop/e2e/playwright-report/
 playwright/.cache/
 
 # understand-anything knowledge-graph cache (local tool artifact)

@@ -17,6 +17,7 @@ jobs:
   fallow:
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -40,5 +41,6 @@ jobs:
       - name: Prepare
         uses: ./.github/actions/prepare
 
+      # Runs at the repository root so every workspace package is analyzed.
       - name: Fallow ${{ matrix.name }}
         run: pnpm exec fallow ${{ matrix.command }} ${{ matrix.args }} --fail-on-issues --format compact
