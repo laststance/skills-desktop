@@ -5,7 +5,8 @@ import { create } from 'storybook/theming'
  *
  * The app itself is dark-first, OKLCH-driven, and developer-tool dense. The
  * manager follows that same mood: charcoal chrome, cyan-green accents, the
- * system UI face for text, and the app's mono stack for code-like labels.
+ * system UI face for text, and a mono stack mirroring the app's (Menlo
+ * fallback) for code-like labels.
  *
  * @returns Theme object consumed by `.storybook/manager.ts`.
  * @example
