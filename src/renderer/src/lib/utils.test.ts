@@ -64,6 +64,18 @@ describe('cn', () => {
     expect(merged).toBe('text-sm text-destructive')
   })
 
+  test('keeps the link color when an inline link button inherits the sentence size', () => {
+    // Arrange — Button base size + link variant color, then the inline override.
+    const linkButtonDefaults = 'text-[13px] text-primary'
+    const inlineOverride = 'text-[length:inherit]'
+
+    // Act
+    const merged = cn(linkButtonDefaults, inlineOverride)
+
+    // Assert
+    expect(merged).toBe('text-primary text-[length:inherit]')
+  })
+
   test('keeps the muted color for every custom font size in tailwind.config.ts', () => {
     // Arrange — a size added to the config but not to cn()'s font-size group
     // would be merged as a color and drop text-muted-foreground.

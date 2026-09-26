@@ -140,7 +140,7 @@ export function BackgroundCropEditor({
               htmlFor="background-crop-zoom"
             >
               Zoom{' '}
-              <span className="tabular-nums text-muted-foreground">
+              <span className="tabular-nums text-foreground">
                 {editor.zoom.toFixed(2)}×
               </span>
             </label>
