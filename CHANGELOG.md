@@ -17,6 +17,7 @@
 
 ### Fixed
 
+- The app now always uses the macOS system font (SF Pro). Before, it switched to Inter on Macs that had Inter installed, so text looked different from one machine to the next.
 - Completed slider adjustments now save before navigating away or closing Settings; Reset saves immediately.
 - Rapid slider adjustments keep the latest value even when an earlier save finishes late.
 - Failed settings saves now show an error and recover saved values without overwriting newer changes. Both windows display recovery notifications.

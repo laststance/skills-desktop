@@ -309,7 +309,7 @@ Based on Terminal Minimal style with OKLCH dynamic theming.
 | Token                   | Value                                               |
 | ----------------------- | --------------------------------------------------- |
 | Font Mono               | JetBrains Mono, falling back to Menlo (not bundled) |
-| Font Sans               | Inter, falling back to `system-ui` (not bundled)    |
+| Font Sans               | `system-ui` (SF Pro on macOS)                       |
 | Settings secondary text | `text-settings-description` (14/20px)               |
 | Border Radius           | 0.5rem (--radius)                                   |
 

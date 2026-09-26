@@ -4,8 +4,8 @@ import { create } from 'storybook/theming'
  * Branded Storybook manager theme.
  *
  * The app itself is dark-first, OKLCH-driven, and developer-tool dense. The
- * manager follows that same mood: charcoal chrome, cyan-green accents, Inter
- * for UI text, and JetBrains Mono for code-like labels.
+ * manager follows that same mood: charcoal chrome, cyan-green accents, the
+ * system UI face for text, and the app's mono stack for code-like labels.
  *
  * @returns Theme object consumed by `.storybook/manager.ts`.
  * @example
@@ -40,6 +40,6 @@ export const skillsDesktopTheme = create({
   inputBorderRadius: 6,
 
   fontBase:
-    '"Inter", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-  fontCode: '"JetBrains Mono", "SFMono-Regular", Consolas, monospace',
+    'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  fontCode: '"JetBrains Mono", Menlo, Monaco, Consolas, monospace',
 })
