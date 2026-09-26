@@ -223,18 +223,34 @@ export const selectConsentedLockEntryNames = (state: RootState): SkillName[] =>
   state.skillLock.consentedNames
 
 /**
- * Stale records the scan refused to offer for deletion, with the reason each
- * one is blocked. Empty while the scan is unavailable, for the same reason
+ * Shared empty result for {@link selectUnprunableLockEntries}. react-redux
+ * compares selector results with `===`, so a fresh `[]` per read would
+ * re-render the always-mounted {@link LockPruneDialog} on every dispatch and
+ * log the dev-mode stability warning on its first render, before any scan.
+ * Frozen like the immer-frozen `ok` list, so a stray mutation throws instead
+ * of leaking into every later read.
+ */
+const EMPTY_UNPRUNABLE_LOCK_ENTRIES: readonly UnprunableLockEntry[] =
+  Object.freeze([])
+
+/**
+ * Stale records the scan refused to offer for deletion, each with why; read by
+ * {@link LockPruneDialog}. Empty unless the status is `ok`, for the same reason
  * {@link selectStaleLockEntryCount} reports zero there: a scan that read
  * nothing cannot name a blocked record any more than it can name a stale one.
  * @param state - Root Redux state.
- * @returns Blocked lock records and why.
+ * @returns
+ * - `ok`: the blocked lock records and why
+ * - `idle` / `unavailable`: {@link EMPTY_UNPRUNABLE_LOCK_ENTRIES}, the same reference on every read
  * @example useAppSelector(selectUnprunableLockEntries) // => [{ name: 'a', reason: 'agent-copy' }]
+ * @example selectUnprunableLockEntries(stateBeforeFirstScan) // => [] (same reference every read)
  */
 export const selectUnprunableLockEntries = (
   state: RootState,
-): UnprunableLockEntry[] =>
-  state.skillLock.status === 'ok' ? state.skillLock.unprunableEntries : []
+): readonly UnprunableLockEntry[] =>
+  state.skillLock.status === 'ok'
+    ? state.skillLock.unprunableEntries
+    : EMPTY_UNPRUNABLE_LOCK_ENTRIES
 
 /**
  * Every lock record that disagrees with disk, prunable or not. Drives the

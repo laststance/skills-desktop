@@ -659,4 +659,50 @@ describe('skillLockSlice', () => {
     ])
     expect(selectLockRecordsNeedingAttention(readState(store))).toBe(2)
   })
+
+  test('does not trip the dev-mode selector stability warning when the prune dialog mounts before the first scan', async () => {
+    // Arrange
+    // {@link LockPruneDialog} mounts with the app, before any scan has answered.
+    // On that first render react-redux calls the selector twice on the same
+    // state and warns unless both calls return the same reference.
+    const store = createTestStore()
+    const idleState = readState(store)
+
+    // Act
+    const firstRead = selectUnprunableLockEntries(idleState)
+    const secondRead = selectUnprunableLockEntries(idleState)
+
+    // Assert
+    expect(firstRead).toEqual([])
+    expect(secondRead).toBe(firstRead)
+  })
+
+  test('does not re-render the closed prune dialog on every dispatch while the lock cannot be read', async () => {
+    // Arrange
+    // react-redux re-renders a subscriber whenever its selector result changes
+    // by reference. The dialog is always mounted, so a fresh empty list per
+    // read would re-render it on every dispatch for as long as the lock stays
+    // unreadable.
+    const store = createTestStore()
+    store.dispatch(fetchStaleLockEntries.pending('req-1', undefined))
+    store.dispatch(
+      fetchStaleLockEntries.fulfilled(
+        { status: 'unavailable' },
+        'req-1',
+        undefined,
+      ),
+    )
+    const stateBeforeDispatch = readState(store)
+    const readBeforeDispatch = selectUnprunableLockEntries(stateBeforeDispatch)
+
+    // Act — the next scan starting rewrites the slice but leaves it unavailable.
+    store.dispatch(fetchStaleLockEntries.pending('req-2', undefined))
+    const stateAfterDispatch = readState(store)
+    const readAfterDispatch = selectUnprunableLockEntries(stateAfterDispatch)
+
+    // Assert — a new state object, yet the same list: nothing to re-render on.
+    expect(stateAfterDispatch).not.toBe(stateBeforeDispatch)
+    expect(readBeforeDispatch).toEqual([])
+    expect(readAfterDispatch).toBe(readBeforeDispatch)
+  })
 })
