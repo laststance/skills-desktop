@@ -131,14 +131,14 @@ Rules:
 
 ## Typography
 
-| Use              | Typeface           | Size guidance | Notes                                      |
-| ---------------- | ------------------ | ------------- | ------------------------------------------ |
-| App UI           | Inter              | 12-14px       | Default interface text                     |
-| Dense labels     | Inter              | 11-12px       | Sidebar meta, counters, compact badges     |
-| Section headings | Inter              | 13-16px       | Use weight and spacing, not oversized type |
-| Dialog titles    | Inter              | 16-20px       | Keep compact and direct                    |
-| Paths and code   | JetBrains Mono     | 11-13px       | Paths, previews, technical identifiers     |
-| Numbers          | Inter tabular nums | inherit       | Counts, ratios, status metrics             |
+| Use              | Typeface            | Size guidance | Notes                                      |
+| ---------------- | ------------------- | ------------- | ------------------------------------------ |
+| App UI           | SF Pro (system-ui)  | 12-14px       | Default interface text                     |
+| Dense labels     | SF Pro (system-ui)  | 11-12px       | Sidebar meta, counters, compact badges     |
+| Section headings | SF Pro (system-ui)  | 13-16px       | Use weight and spacing, not oversized type |
+| Dialog titles    | SF Pro (system-ui)  | 16-20px       | Keep compact and direct                    |
+| Paths and code   | JetBrains Mono      | 11-13px       | Paths, previews, technical identifiers     |
+| Numbers          | SF Pro tabular nums | inherit       | Counts, ratios, status metrics             |
 
 Rules:
 
@@ -146,12 +146,23 @@ Rules:
 - Do not use hero-scale type inside the app shell.
 - Use mono only for technical values, file paths, code, and exact commands.
 - Prefer sentence case for UI labels.
-- Neither Inter nor JetBrains Mono is bundled; the app uses them only when the
-  user has them installed. Otherwise `font-sans` renders as `system-ui` (SF Pro
-  on macOS) and `font-mono` falls back to Menlo. Keep a named fallback before
-  the bare `monospace` keyword: Chromium maps bare `monospace` to Courier on
-  macOS, which reads thin at 12px. `ui-monospace` and `SFMono-Regular` do not
-  resolve in Chromium.
+- The UI face is the macOS system font (SF Pro), reached through `system-ui`
+  at the head of `font-sans`. Do not put a web font ahead of it unless the
+  font is bundled: an unbundled name renders only on machines that happen to
+  have it installed, so screenshots and QA stop matching what users see.
+  Inter was evaluated and not bundled: it measured about 1% wider than SF Pro
+  at 13px, changed line breaks in skill descriptions and Settings help text,
+  and adds a web font to a macOS-only app for no gain in legibility.
+- JetBrains Mono is not bundled either; the app uses it only when the user has
+  it installed. Otherwise `font-mono` falls back to Menlo. Keep a named
+  fallback before the bare `monospace` keyword: Chromium maps bare `monospace`
+  to Courier on macOS, which reads thin at 12px. `ui-monospace` and
+  `SFMono-Regular` do not resolve in Chromium.
+- Story content inherits these stacks from `globals.css`; do not load web fonts
+  in `.storybook/`, or stories render a face the app never shows. Two places
+  copy the stacks by hand and must change with `tailwind.config.ts`:
+  `.skills-story-label` in `.storybook/preview.css` and the manager theme in
+  `.storybook/theme.ts`.
 
 ### Settings typography
 

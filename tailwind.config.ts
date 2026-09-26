@@ -51,8 +51,10 @@ const config: Config = {
         ring: 'var(--ring)',
       },
       fontFamily: {
+        // The macOS system face (SF Pro) is the UI typeface. No web font is
+        // bundled, so the stack starts at `system-ui`: every Mac renders the
+        // same face, whatever fonts the user has installed.
         sans: [
-          'Inter',
           'system-ui',
           '-apple-system',
           'Segoe UI',
