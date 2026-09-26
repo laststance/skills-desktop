@@ -1,6 +1,87 @@
 import { describe, expect, test } from 'vitest'
 
-import { formatInstallCount, toggleArrayMember } from './utils'
+import tailwindConfig from '../../../../tailwind.config'
+
+import { cn, formatInstallCount, toggleArrayMember } from './utils'
+
+describe('cn', () => {
+  test('keeps the muted color when a Settings description overrides the size', () => {
+    // Arrange — DialogDescription's defaults plus the crop view's override.
+    const componentDefaults = 'text-sm text-muted-foreground'
+    const callerOverride = 'mt-1 truncate text-settings-description'
+
+    // Act
+    const merged = cn(componentDefaults, callerOverride)
+
+    // Assert — text-sm loses to the custom size; the color survives.
+    expect(merged).toBe(
+      'text-muted-foreground mt-1 truncate text-settings-description',
+    )
+  })
+
+  test('keeps the Settings description size when a color class follows it', () => {
+    // Arrange / Act
+    const merged = cn('text-settings-description text-muted-foreground')
+
+    // Assert
+    expect(merged).toBe('text-settings-description text-muted-foreground')
+  })
+
+  test('lets a later Tailwind size replace the Settings description size', () => {
+    // Arrange
+    const settingsDescription =
+      'text-settings-description text-muted-foreground'
+    const laterSize = 'text-xs'
+
+    // Act
+    const merged = cn(settingsDescription, laterSize)
+
+    // Assert — both are font sizes, so only the last one survives.
+    expect(merged).toBe('text-muted-foreground text-xs')
+  })
+
+  test('still resolves a built-in size override the same way as before the custom token', () => {
+    // Arrange
+    const componentDefaults = 'text-sm text-muted-foreground'
+    const callerOverride = 'text-xs'
+
+    // Act
+    const merged = cn(componentDefaults, callerOverride)
+
+    // Assert
+    expect(merged).toBe('text-muted-foreground text-xs')
+  })
+
+  test('still resolves a built-in color override the same way as before the custom token', () => {
+    // Arrange
+    const componentDefaults = 'text-sm text-muted-foreground'
+    const callerOverride = 'text-destructive'
+
+    // Act
+    const merged = cn(componentDefaults, callerOverride)
+
+    // Assert
+    expect(merged).toBe('text-sm text-destructive')
+  })
+
+  test('keeps the muted color for every custom font size in tailwind.config.ts', () => {
+    // Arrange — a size added to the config but not to cn()'s font-size group
+    // would be merged as a color and drop text-muted-foreground.
+    const customSizes = Object.keys(
+      tailwindConfig.theme?.extend?.fontSize ?? {},
+    )
+
+    // Act
+    const mergedBySize = customSizes.map((size) =>
+      cn('text-sm text-muted-foreground', `text-${size}`),
+    )
+
+    // Assert
+    expect(mergedBySize).toEqual([
+      'text-muted-foreground text-settings-description',
+    ])
+  })
+})
 
 describe('formatInstallCount', () => {
   test('shows an em dash when the install count is unknown', () => {
