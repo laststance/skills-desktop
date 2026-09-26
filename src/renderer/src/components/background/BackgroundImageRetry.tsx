@@ -14,6 +14,9 @@ export function BackgroundImageRetry(): ReactElement {
     <Button
       variant="link"
       size="xs"
+      // Follows its status text (Settings prose, BackgroundCanvas text-xs pill);
+      // inherit that size, not the 13px button base.
+      className="text-[length:inherit]"
       disabled={pending}
       onClick={() =>
         startTransition(async () => {

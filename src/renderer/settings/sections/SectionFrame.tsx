@@ -62,7 +62,9 @@ export const SectionRow = function SectionRow({
       <div>
         <div className="text-sm font-medium">{label}</div>
         {description && (
-          <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+          <p className="mt-0.5 text-settings-description text-muted-foreground">
+            {description}
+          </p>
         )}
       </div>
       <div>{children}</div>

@@ -115,13 +115,13 @@ export const About = function About(): React.ReactElement {
           Check for Updates
         </Button>
         {!isUpdaterAvailable && (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-settings-description text-muted-foreground">
             Auto-updates are disabled in development builds.
           </p>
         )}
         {status && (
           <p
-            className="text-xs text-muted-foreground"
+            className="text-settings-description text-muted-foreground"
             role="status"
             aria-live="polite"
           >

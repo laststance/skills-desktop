@@ -306,11 +306,15 @@ Each skill displays:
 
 Based on Terminal Minimal style with OKLCH dynamic theming.
 
-| Token         | Value             |
-| ------------- | ----------------- |
-| Font Mono     | JetBrains Mono    |
-| Font Sans     | Inter             |
-| Border Radius | 0.5rem (--radius) |
+| Token                   | Value                                               |
+| ----------------------- | --------------------------------------------------- |
+| Font Mono               | JetBrains Mono, falling back to Menlo (not bundled) |
+| Font Sans               | Inter, falling back to `system-ui` (not bundled)    |
+| Settings secondary text | `text-settings-description` (14/20px)               |
+| Border Radius           | 0.5rem (--radius)                                   |
+
+See [DESIGN.md](DESIGN.md#typography) for the full typography rules, including
+the Settings typography roles.
 
 ### Theme System
 

@@ -146,6 +146,39 @@ Rules:
 - Do not use hero-scale type inside the app shell.
 - Use mono only for technical values, file paths, code, and exact commands.
 - Prefer sentence case for UI labels.
+- Neither Inter nor JetBrains Mono is bundled; the app uses them only when the
+  user has them installed. Otherwise `font-sans` renders as `system-ui` (SF Pro
+  on macOS) and `font-mono` falls back to Menlo. Keep a named fallback before
+  the bare `monospace` keyword: Chromium maps bare `monospace` to Courier on
+  macOS, which reads thin at 12px. `ui-monospace` and `SFMono-Regular` do not
+  resolve in Chromium.
+
+### Settings typography
+
+The Settings window is a reading surface: its rows carry sentence-long
+descriptions, so its secondary text matches the row label size (14px) instead
+of the main window's dense `text-xs`. Weight (`font-medium` labels) and color
+(`text-muted-foreground` descriptions) carry the hierarchy.
+
+| Role                                              | Class                                                         | Size / line-height |
+| ------------------------------------------------- | ------------------------------------------------------------- | ------------------ |
+| Pane title                                        | `text-xl font-semibold`                                       | 20/28px            |
+| Pane description, row label, nav item             | `text-sm` (`font-medium` for labels/nav)                      | 14/20px            |
+| Row description, help, status, errors             | `text-settings-description`                                   | 14/20px            |
+| Nested sub-label (e.g. "Image layout")            | `text-settings-description font-medium text-muted-foreground` | 14/20px            |
+| Compact chips, kbd hints, truncated grid captions | `text-xs`                                                     | 12/16px            |
+
+- Never set Settings prose in `text-xs`. A sub-label must not render smaller
+  than the description beside it.
+- A nested sub-label must not match its row label in size, weight, and color
+  at once, or it reads as a sibling row. Keep the size and mute the color.
+- An inline link inside Settings prose (`Button variant="link"`) takes
+  `text-[length:inherit]` so it matches the sentence, not the 13px button base.
+- `text-settings-description` is defined in `fontSize` in
+  `tailwind.config.ts`. A custom `text-*` size must also be registered in the
+  `font-size` class group of the `cn()` tailwind-merge config in
+  `src/renderer/src/lib/utils.ts`. Otherwise tailwind-merge reads it as a text
+  color and silently drops `text-muted-foreground`, or the size itself.
 
 ### Preview typography (user-adjustable)
 

@@ -347,7 +347,7 @@ export const Appearance = function Appearance(): React.ReactElement {
           }
           options={OPACITY_MODE_CHOICES}
         />
-        <p className="mt-2 text-xs text-muted-foreground">
+        <p className="mt-2 text-settings-description text-muted-foreground">
           {OPACITY_MODE_DESCRIPTIONS[windowOpacityMode]}
         </p>
         {/* Keep both modes mounted so switching retains drafts and pending saves. */}

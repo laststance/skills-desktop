@@ -113,13 +113,15 @@ export function BackgroundCropEditor({
         </div>
         <p
           id="background-crop-instructions"
-          className="mt-2 text-xs text-muted-foreground"
+          className="mt-2 text-settings-description text-muted-foreground"
         >
           Drag the image or focus it and use arrow keys to move.
         </p>
         <div className="mt-4 flex flex-wrap items-end gap-4">
           <div>
-            <div className="mb-2 text-xs font-medium">Aspect ratio</div>
+            <div className="mb-2 text-settings-description font-medium text-muted-foreground">
+              Aspect ratio
+            </div>
             <SegmentedControl
               aria-label="Crop aspect ratio"
               size="sm"
@@ -134,11 +136,11 @@ export function BackgroundCropEditor({
           </div>
           <div className="min-w-40 flex-1">
             <label
-              className="mb-1 block text-xs font-medium"
+              className="mb-1 block text-settings-description font-medium text-muted-foreground"
               htmlFor="background-crop-zoom"
             >
               Zoom{' '}
-              <span className="tabular-nums text-muted-foreground">
+              <span className="tabular-nums text-foreground">
                 {editor.zoom.toFixed(2)}×
               </span>
             </label>
@@ -177,12 +179,14 @@ export function BackgroundCropEditor({
             </div>
           </div>
         </div>
-        <p className="mt-3 text-xs tabular-nums">
+        <p className="mt-3 text-settings-description tabular-nums">
           Selected area: {quality.width} × {quality.height} px
         </p>
         <div id="background-crop-error" role="status">
           {error ? (
-            <p className="mt-2 text-xs text-destructive">{error}</p>
+            <p className="mt-2 text-settings-description text-destructive">
+              {error}
+            </p>
           ) : null}
         </div>
         <Button
@@ -203,7 +207,7 @@ export function BackgroundCropEditor({
           <RotateCcw />
           Reset crop
         </Button>
-        <p className="mt-2 text-xs text-muted-foreground">
+        <p className="mt-2 text-settings-description text-muted-foreground">
           Your original image is kept.
         </p>
       </div>

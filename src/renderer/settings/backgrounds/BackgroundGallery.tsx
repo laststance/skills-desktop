@@ -113,7 +113,9 @@ export function BackgroundGallery(props: GalleryProps): ReactElement {
             </DialogTitle>
             <DialogDescription
               className={
-                gallery.view === 'crop' ? 'mt-1 truncate text-xs' : 'sr-only'
+                gallery.view === 'crop'
+                  ? 'mt-1 truncate text-settings-description'
+                  : 'sr-only'
               }
             >
               {gallery.view === 'crop'
@@ -144,7 +146,7 @@ export function BackgroundGallery(props: GalleryProps): ReactElement {
         </DialogHeader>
         <div role="status" className="shrink-0">
           {status || gallery.checking ? (
-            <p className="border-b px-4 py-2 text-xs">
+            <p className="border-b px-4 py-2 text-settings-description">
               {gallery.checking ? 'Checking image…' : status}
             </p>
           ) : null}
@@ -395,7 +397,7 @@ function BackgroundGalleryResults({
     <>
       <div role="status" className="shrink-0">
         {error ? (
-          <div className="flex shrink-0 items-center justify-between gap-2 py-2 text-xs">
+          <div className="flex shrink-0 items-center justify-between gap-2 py-2 text-settings-description">
             <span>
               {connected
                 ? backgroundErrorMessage(
@@ -423,7 +425,7 @@ function BackgroundGalleryResults({
               {online.isFetchingNextPage ? 'Loading more…' : 'Load more'}
             </Button>
           ) : (
-            <p className="py-1 text-xs text-muted-foreground">
+            <p className="py-1 text-settings-description text-muted-foreground">
               You have reached the end.
             </p>
           )}
@@ -498,7 +500,7 @@ function BackgroundGalleryFooter({
       </footer>
       <div id="background-draft-error" role="status" className="shrink-0">
         {reason ? (
-          <p className="shrink-0 px-4 pb-2 text-xs text-destructive">
+          <p className="shrink-0 px-4 pb-2 text-settings-description text-destructive">
             {reason}
           </p>
         ) : null}

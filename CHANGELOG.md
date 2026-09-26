@@ -13,6 +13,7 @@
 - After a Delete or Unlink from the list header, rows that failed stay selected and flash, ready to retry.
 - List header tooltips show the keyboard shortcut for their action.
 - The Name sort toggle shows A→Z and Z→A icons, and the "Toolbar text" option for the Installed search count is now called "List header".
+- Settings descriptions, help, status and error text are now 14px instead of 12px, the same size as row labels, so Settings is easier to read. Nested labels like "Image layout" stay the same size and are dimmed, and inline links such as "Adjust opacity" match the sentence around them.
 
 ### Fixed
 
@@ -23,3 +24,5 @@
 - Long source repository names stay on one line in narrow windows instead of pushing a card into the next one.
 - While an Installed-list Delete, Unlink, or Copy runs, the Dashboard's symlink cleanup stays disabled and a card's Unlink button does nothing, so two actions never work on the same links at once.
 - Skills removed outside the app no longer stay selected after the list refreshes.
+- Keyboard shortcut hints and other monospace text render in Menlo instead of falling back to Courier on macOS.
+- Settings descriptions no longer lose their dimmed color when a component combines its default text styles with the Settings text size.

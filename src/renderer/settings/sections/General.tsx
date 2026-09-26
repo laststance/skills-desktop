@@ -353,12 +353,12 @@ export const General = function General(): React.ReactElement {
               />
 
               {isDraftBlank ? (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-settings-description text-muted-foreground">
                   Enter the macOS app name (e.g. <code>Hyper</code>). The app
                   must be installed in <code>/Applications</code>.
                 </p>
               ) : (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-settings-description text-muted-foreground">
                   Saved when you click outside the field.
                 </p>
               )}
@@ -369,7 +369,7 @@ export const General = function General(): React.ReactElement {
           {/* don't honor `cwd` from the macOS `open -a` flag and may */}
           {/* launch at $HOME instead of the requested folder. We can't */}
           {/* fix that from our side — surface it so the user isn't surprised. */}
-          <p className="text-xs text-muted-foreground">
+          <p className="text-settings-description text-muted-foreground">
             Note: some terminals (Warp, Ghostty) may open at your home directory
             instead of the skill folder.
           </p>
@@ -410,12 +410,12 @@ export const General = function General(): React.ReactElement {
             </Button>
           </div>
           {!isMainWindowAvailable && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-settings-description text-muted-foreground">
               Main window is closed — open it again, then reopen Settings to
               capture its size.
             </p>
           )}
-          <p className="text-xs text-muted-foreground">
+          <p className="text-settings-description text-muted-foreground">
             Takes effect the next time you launch the app.
           </p>
         </div>
@@ -443,17 +443,19 @@ export const General = function General(): React.ReactElement {
               {cliCommandButtonLabel}
             </Button>
             {isCliCommandBusy && (
-              <span className="text-xs text-muted-foreground">Working...</span>
+              <span className="text-settings-description text-muted-foreground">
+                Working...
+              </span>
             )}
           </div>
           <p
-            className="text-xs text-muted-foreground"
+            className="text-settings-description text-muted-foreground"
             aria-label="Command line command status"
           >
             {cliCommandStatusMessage}
           </p>
           {cliCommandStatus && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-settings-description text-muted-foreground">
               Path: <code>{cliCommandStatus.commandPath}</code>
             </p>
           )}

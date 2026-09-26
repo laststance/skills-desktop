@@ -97,7 +97,7 @@ export const Agents = function Agents(): React.ReactElement {
       ) : (
         <>
           <div className="flex items-center justify-between" aria-live="polite">
-            <p className="text-xs text-muted-foreground tabular-nums">
+            <p className="text-settings-description text-muted-foreground tabular-nums">
               {visibleCount} visible · {hiddenCount} hidden
             </p>
             <Button
@@ -128,7 +128,7 @@ export const Agents = function Agents(): React.ReactElement {
 
           {notInstalled.length > 0 && (
             <details className="mt-1">
-              <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground select-none">
+              <summary className="text-settings-description text-muted-foreground cursor-pointer hover:text-foreground select-none">
                 {notInstalled.length} not installed
               </summary>
               <ul

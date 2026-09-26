@@ -1,10 +1,28 @@
 import { type ClassValue, clsx } from 'clsx'
-import { twMerge } from 'tailwind-merge'
+import { extendTailwindMerge } from 'tailwind-merge'
+
+/**
+ * tailwind-merge only knows Tailwind's built-in font sizes, so it would treat
+ * a custom `text-*` size as a text color: `text-settings-description` would
+ * drop `text-muted-foreground`, or the reverse. This list hand-mirrors
+ * `fontSize` in tailwind.config.ts (utils.test.ts fails when they drift) and
+ * keeps size and color in their own conflict groups.
+ */
+const twMerge = extendTailwindMerge({
+  extend: {
+    classGroups: {
+      'font-size': [{ text: ['settings-description'] }],
+    },
+  },
+})
 
 /**
  * Merge Tailwind classes with clsx
  * @param inputs - Class values to merge
  * @returns Merged class string
+ * @example
+ * cn('text-sm text-muted-foreground', 'text-settings-description')
+ * // => 'text-muted-foreground text-settings-description'
  */
 export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs))
