@@ -5,8 +5,9 @@ import { create } from 'storybook/theming'
  *
  * The app itself is dark-first, OKLCH-driven, and developer-tool dense. The
  * manager follows that same mood: charcoal chrome, cyan-green accents, the
- * system UI face for text, and a mono stack mirroring the app's (Menlo
- * fallback) for code-like labels.
+ * system UI face for text, and a mono stack that resolves to the app's face
+ * on macOS (Menlo fallback) for code-like labels. Both strings are hand-copied
+ * from tailwind.config.ts; update them together.
  *
  * @returns Theme object consumed by `.storybook/manager.ts`.
  * @example

@@ -158,8 +158,11 @@ Rules:
   fallback before the bare `monospace` keyword: Chromium maps bare `monospace`
   to Courier on macOS, which reads thin at 12px. `ui-monospace` and
   `SFMono-Regular` do not resolve in Chromium.
-- Storybook inherits these stacks from `globals.css`; do not load web fonts in
-  `.storybook/`, or stories render a face the app never shows.
+- Story content inherits these stacks from `globals.css`; do not load web fonts
+  in `.storybook/`, or stories render a face the app never shows. Two places
+  copy the stacks by hand and must change with `tailwind.config.ts`:
+  `.skills-story-label` in `.storybook/preview.css` and the manager theme in
+  `.storybook/theme.ts`.
 
 ### Settings typography
 
