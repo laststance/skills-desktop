@@ -83,5 +83,5 @@ minimumReleaseAgeExclude:
   - '@rolldown/binding-win32-x64-msvc@1.2.9'
   - react-draggable@4.7.2
   - rolldown@1.2.9
-  # Keep the cooldown for future versions while allowing this 2026-09-21 refresh.
-  - '@tanstack/query-core@5.103.2'
+  # Keep the cooldown for future versions while allowing this 2026-09-26 refresh.
+  - '@tanstack/query-core@5.104.0'
