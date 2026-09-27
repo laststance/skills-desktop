@@ -23,8 +23,12 @@ beforeEach(() => {
 
 // A Storage spy left in place by a failed assertion (before its mockRestore()
 // call) would leak into the next test, so restore unconditionally here too.
+// restoreAllMocks() only reverts vi.spyOn spies; it doesn't clear the
+// passthrough codeToHtml mock's queued mockReturnValueOnce, so a test that
+// fails before consuming its queued hang would otherwise leak it forward.
 afterEach(() => {
   vi.restoreAllMocks()
+  vi.mocked(shikiPreview.codeToHtml).mockClear()
 })
 
 // Passthrough spy over the real Shiki highlighter: every test keeps genuine

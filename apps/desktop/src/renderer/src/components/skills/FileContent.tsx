@@ -11,7 +11,10 @@ import {
 import type { PreviewContent } from '@/renderer/src/hooks/useCodePreview'
 import { useCycleEffect } from '@/renderer/src/hooks/useCycleEffect'
 import { cn } from '@/renderer/src/lib/utils'
-import { DEFAULT_CODE_THEME_ID } from '@/shared/constants'
+import {
+  DEFAULT_CODE_THEME_ID,
+  MARKDOWN_PREVIEW_MODE_KEY,
+} from '@/shared/constants'
 import type { CodeThemeId } from '@/shared/constants'
 import { formatBytes } from '@/shared/fileTypes'
 import {
@@ -53,6 +56,44 @@ const TEXT_PREVIEW_MODE_OPTIONS: ReadonlyArray<
     ariaLabel: 'Show rendered Markdown',
   },
 ]
+
+/**
+ * Read the last-selected Markdown preview mode from localStorage.
+ * @returns The persisted mode, or `'code'` when unset or storage is unavailable.
+ * @example
+ * readStoredTextPreviewMode() // => 'reading'
+ */
+function readStoredTextPreviewMode(): TextPreviewMode {
+  try {
+    const stored = window.localStorage.getItem(MARKDOWN_PREVIEW_MODE_KEY)
+    const isKnownMode = TEXT_PREVIEW_MODE_OPTIONS.some(
+      (option) => option.value === stored,
+    )
+    return isKnownMode ? (stored as TextPreviewMode) : 'code'
+  } catch {
+    // localStorage can throw in restricted-storage environments; default to code view.
+    return 'code'
+  }
+}
+
+/**
+ * Persist the selected Markdown preview mode so it reopens the same way next time.
+ * @param mode - The mode the user just selected.
+ * @example
+ * writeStoredTextPreviewMode('reading')
+ */
+function writeStoredTextPreviewMode(mode: TextPreviewMode): void {
+  try {
+    window.localStorage.setItem(MARKDOWN_PREVIEW_MODE_KEY, mode)
+  } catch (error) {
+    // Best-effort persistence only; a failing write must not break the toggle,
+    // but log it so a silently-reverting preference leaves a diagnostic trail.
+    console.error(
+      '[FileContent] persisting markdown preview mode failed',
+      error,
+    )
+  }
+}
 
 /**
  * Right-panel file preview. Switches on `content.kind`:
@@ -119,15 +160,11 @@ const TextPreview = function TextPreview({
   codeThemeId,
 }: TextPreviewProps): React.ReactElement {
   const isMarkdown = isMarkdownPreview(file)
-  const fileIdentity = `${file.name}:${file.extension}`
-  const [mode, setMode] = useState<TextPreviewMode>('code')
-
-  useCycleEffect(() => {
-    setMode('code')
-  }, [fileIdentity])
+  const [mode, setMode] = useState<TextPreviewMode>(readStoredTextPreviewMode)
 
   const handleModeChange = (nextMode: TextPreviewMode): void => {
     setMode(nextMode)
+    writeStoredTextPreviewMode(nextMode)
   }
 
   return (
