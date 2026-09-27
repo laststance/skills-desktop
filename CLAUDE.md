@@ -38,7 +38,9 @@ For local production build verification (no release):
 APPLE_KEYCHAIN_PROFILE=skills-desktop pnpm build:mac
 ```
 
-Without `APPLE_KEYCHAIN_PROFILE`: signing succeeds but notarization fails → Gatekeeper blocks the app. Artifacts land in `apps/desktop/dist/`. Website download URLs live in `apps/website/src/components/{Hero,Download}.tsx` and `apps/website/public/llms.txt`.
+Without `APPLE_KEYCHAIN_PROFILE`: signing succeeds but notarization fails → Gatekeeper blocks the app. Artifacts land in `apps/desktop/dist/`.
+
+`/electron-release` runs the release scripts in order: `pnpm release:prepare-assets` (notarize + staple DMGs, rewrite their `latest-mac.yml` hashes, hyphenate ZIPs) → `gh release create` → `pnpm release:bump-website` → `pnpm release:verify` (must print `LIVE_VERIFY_ALL_OK`).
 
 ## Skill Execution Contract
 
