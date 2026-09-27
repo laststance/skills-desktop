@@ -196,6 +196,49 @@ describe('FileContent Markdown modes', () => {
       .toHaveAttribute('aria-checked', 'true')
   })
 
+  test('restores Reading Mode when switching away to a non-Markdown file and back', async () => {
+    // Arrange
+    const { FileContent } = await import('./FileContent')
+    const screen = await render(
+      <FileContent content={makeTextContent({ content: '# First\n' })} />,
+    )
+    await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
+    await expect
+      .element(screen.getByRole('heading', { name: 'First' }))
+      .toBeVisible()
+
+    // Act — switch to a non-Markdown file: the toggle must disappear entirely.
+    await screen.rerender(
+      <FileContent
+        content={makeTextContent({
+          content: 'const ok = true\n',
+          name: 'index.ts',
+          extension: '.ts',
+        })}
+      />,
+    )
+
+    // Assert
+    await expect
+      .element(
+        screen.getByRole('radiogroup', { name: /Markdown preview mode/i }),
+      )
+      .not.toBeInTheDocument()
+
+    // Act — switch back to a Markdown file.
+    await screen.rerender(
+      <FileContent content={makeTextContent({ content: '# First\n' })} />,
+    )
+
+    // Assert
+    await expect
+      .element(screen.getByRole('heading', { name: 'First' }))
+      .toBeVisible()
+    await expect
+      .element(screen.getByRole('radio', { name: /Show rendered Markdown/i }))
+      .toHaveAttribute('aria-checked', 'true')
+  })
+
   test('reopens Markdown in Reading Mode after an app restart when Reading was last selected', async () => {
     // Arrange
     const { FileContent } = await import('./FileContent')
@@ -287,6 +330,9 @@ describe('FileContent Markdown modes', () => {
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new Error('QuotaExceededError')
     })
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {})
     const { FileContent } = await import('./FileContent')
     const screen = await render(
       <FileContent content={makeTextContent({ content: '# Install\n' })} />,
@@ -296,6 +342,10 @@ describe('FileContent Markdown modes', () => {
     await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
 
     // Assert
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[FileContent] persisting markdown preview mode failed',
+      expect.any(Error),
+    )
     await expect
       .element(screen.getByRole('heading', { name: 'Install' }))
       .toBeVisible()

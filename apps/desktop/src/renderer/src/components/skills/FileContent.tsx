@@ -57,9 +57,12 @@ const TEXT_PREVIEW_MODE_OPTIONS: ReadonlyArray<
   },
 ]
 
+/** Preview mode used when nothing valid is stored yet, or storage is unavailable. */
+const DEFAULT_TEXT_PREVIEW_MODE: TextPreviewMode = 'code'
+
 /**
  * Read the last-selected Markdown preview mode from localStorage.
- * @returns The persisted mode, or `'code'` when unset or storage is unavailable.
+ * @returns The persisted mode, or {@link DEFAULT_TEXT_PREVIEW_MODE} when unset or storage is unavailable.
  * @example
  * readStoredTextPreviewMode() // => 'reading'
  */
@@ -69,10 +72,10 @@ function readStoredTextPreviewMode(): TextPreviewMode {
     const isKnownMode = TEXT_PREVIEW_MODE_OPTIONS.some(
       (option) => option.value === stored,
     )
-    return isKnownMode ? (stored as TextPreviewMode) : 'code'
+    return isKnownMode ? (stored as TextPreviewMode) : DEFAULT_TEXT_PREVIEW_MODE
   } catch {
-    // localStorage can throw in restricted-storage environments; default to code view.
-    return 'code'
+    // localStorage can throw in restricted-storage environments.
+    return DEFAULT_TEXT_PREVIEW_MODE
   }
 }
 
