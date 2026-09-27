@@ -924,6 +924,17 @@ export const RELEASE_NOTES_LAST_SEEN_VERSION_KEY =
   'skills-desktop:last-seen-version'
 
 /**
+ * localStorage key tracking the last-selected Markdown preview mode (Code vs
+ * Reading) in the right-pane file preview. Read on mount so the preview
+ * opens in whichever mode the user last picked, and written on every
+ * toggle so the choice survives file switches and app restarts.
+ *
+ * Why a string here rather than a Redux slice: this is a single UI
+ * preference with one reader/writer — a slice would just add ceremony.
+ */
+export const MARKDOWN_PREVIEW_MODE_KEY = 'skills-desktop:markdown-preview-mode'
+
+/**
  * Agent IDs that use ~/.agents/skills/ directly (no symlinks needed).
  * Derived from skills CLI: agents where skillsDir === '.agents/skills'
  * and showInUniversalList !== false.
