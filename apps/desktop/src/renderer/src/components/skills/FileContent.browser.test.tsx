@@ -239,6 +239,41 @@ describe('FileContent Markdown modes', () => {
       .toHaveAttribute('aria-checked', 'true')
   })
 
+  test('resets Reading Mode scroll position when switching to another Markdown file', async () => {
+    // Arrange
+    const { FileContent } = await import('./FileContent')
+    const longContent = `# First\n\n${'line\n'.repeat(200)}`
+    const screen = await render(
+      <FileContent
+        content={makeTextContent({ content: longContent, name: 'FIRST.md' })}
+      />,
+    )
+    await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
+    const firstScrollContainer = document.querySelector<HTMLElement>(
+      '[data-markdown-reading-scroll]',
+    )
+    if (!firstScrollContainer) {
+      throw new Error('expected a markdown reading scroll container')
+    }
+    firstScrollContainer.scrollTop = 1200
+
+    // Act — switch to a different Markdown file while still in Reading Mode.
+    await screen.rerender(
+      <FileContent
+        content={makeTextContent({ content: '# Second\n', name: 'SECOND.md' })}
+      />,
+    )
+
+    // Assert
+    await expect
+      .element(screen.getByRole('heading', { name: 'Second' }))
+      .toBeVisible()
+    const secondScrollContainer = document.querySelector<HTMLElement>(
+      '[data-markdown-reading-scroll]',
+    )
+    expect(secondScrollContainer?.scrollTop).toBe(0)
+  })
+
   test('reopens Markdown in Reading Mode after an app restart when Reading was last selected', async () => {
     // Arrange
     const { FileContent } = await import('./FileContent')

@@ -186,6 +186,10 @@ const TextPreview = function TextPreview({
 
       {isMarkdown && mode === 'reading' ? (
         <MarkdownReadingPreview
+          // Remounts the scroll container per file so switching Markdown
+          // files always starts at the top, even though the preview mode
+          // itself is preserved across the switch.
+          key={file.name}
           content={file.content}
           fontSizePx={markdownFontSizePx}
         />
