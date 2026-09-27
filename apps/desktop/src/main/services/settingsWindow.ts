@@ -36,8 +36,8 @@ export function createOrFocusSettingsWindow(): void {
   }
 
   const window = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: 960,
+    height: 720,
     minWidth: 600,
     minHeight: 400,
     show: false,
