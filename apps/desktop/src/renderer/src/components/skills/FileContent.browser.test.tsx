@@ -1,8 +1,9 @@
-import { describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { PreviewContent } from '@/renderer/src/hooks/useCodePreview'
 import '@/renderer/src/styles/globals.css'
+import { MARKDOWN_PREVIEW_MODE_KEY } from '@/shared/constants'
 import {
   toDataUrl,
   toFileExtension,
@@ -13,6 +14,18 @@ import {
 } from '@/shared/types'
 
 import * as shikiPreview from './shikiPreview'
+
+// The Markdown preview mode toggle persists to real localStorage; reset it so
+// one test's selection can't leak into the next test's default-mode assertions.
+beforeEach(() => {
+  window.localStorage.removeItem(MARKDOWN_PREVIEW_MODE_KEY)
+})
+
+// A Storage spy left in place by a failed assertion (before its mockRestore()
+// call) would leak into the next test, so restore unconditionally here too.
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 // Passthrough spy over the real Shiki highlighter: every test keeps genuine
 // highlighting by default, while the file-switch cancellation test uses
@@ -150,6 +163,138 @@ describe('FileContent Markdown modes', () => {
       screen.container.querySelector('[data-markdown-reading-scroll]'),
     ).toBeNull()
     expect(screen.getByRole('heading', { name: 'Install' }).query()).toBeNull()
+  })
+
+  test('keeps Reading Mode selected when switching to another Markdown file', async () => {
+    // Arrange
+    const { FileContent } = await import('./FileContent')
+    const screen = await render(
+      <FileContent content={makeTextContent({ content: '# First\n' })} />,
+    )
+    await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
+    await expect
+      .element(screen.getByRole('heading', { name: 'First' }))
+      .toBeVisible()
+
+    // Act
+    await screen.rerender(
+      <FileContent
+        content={makeTextContent({ content: '# Second\n', name: 'README.md' })}
+      />,
+    )
+
+    // Assert
+    await expect
+      .element(screen.getByRole('heading', { name: 'Second' }))
+      .toBeVisible()
+    await expect
+      .element(screen.getByRole('radio', { name: /Show rendered Markdown/i }))
+      .toHaveAttribute('aria-checked', 'true')
+  })
+
+  test('reopens Markdown in Reading Mode after an app restart when Reading was last selected', async () => {
+    // Arrange
+    const { FileContent } = await import('./FileContent')
+    const firstScreen = await render(
+      <FileContent content={makeTextContent({ content: '# Restored\n' })} />,
+    )
+    await firstScreen
+      .getByRole('radio', { name: /Show rendered Markdown/i })
+      .click()
+    await firstScreen.unmount()
+
+    // Act
+    const screen = await render(
+      <FileContent content={makeTextContent({ content: '# Restored\n' })} />,
+    )
+
+    // Assert
+    expect(window.localStorage.getItem(MARKDOWN_PREVIEW_MODE_KEY)).toBe(
+      'reading',
+    )
+    await expect
+      .element(screen.getByRole('heading', { name: 'Restored' }))
+      .toBeVisible()
+  })
+
+  test('reopens Markdown in Code mode after an app restart when Code was re-selected after Reading', async () => {
+    // Arrange
+    const { FileContent } = await import('./FileContent')
+    const firstScreen = await render(
+      <FileContent content={makeTextContent({ content: '# Install\n' })} />,
+    )
+    await firstScreen
+      .getByRole('radio', { name: /Show rendered Markdown/i })
+      .click()
+    await firstScreen
+      .getByRole('radio', { name: /Show Markdown source/i })
+      .click()
+    await firstScreen.unmount()
+
+    // Act
+    const screen = await render(
+      <FileContent content={makeTextContent({ content: '# Install\n' })} />,
+    )
+
+    // Assert
+    expect(window.localStorage.getItem(MARKDOWN_PREVIEW_MODE_KEY)).toBe('code')
+    await expect
+      .element(screen.getByRole('radio', { name: /Show Markdown source/i }))
+      .toHaveAttribute('aria-checked', 'true')
+  })
+
+  test('falls back to Code mode when the stored preview mode is unrecognized', async () => {
+    // Arrange
+    window.localStorage.setItem(MARKDOWN_PREVIEW_MODE_KEY, 'garbage')
+    const { FileContent } = await import('./FileContent')
+
+    // Act
+    const screen = await render(
+      <FileContent content={makeTextContent({ content: '# Install\n' })} />,
+    )
+
+    // Assert
+    await expect
+      .element(screen.getByRole('radio', { name: /Show Markdown source/i }))
+      .toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('heading', { name: 'Install' }).query()).toBeNull()
+  })
+
+  test('still opens Markdown in Code mode when localStorage reads throw', async () => {
+    // Arrange
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('SecurityError')
+    })
+    const { FileContent } = await import('./FileContent')
+
+    // Act
+    const screen = await render(
+      <FileContent content={makeTextContent({ content: '# Install\n' })} />,
+    )
+
+    // Assert
+    await expect
+      .element(screen.getByRole('radio', { name: /Show Markdown source/i }))
+      .toHaveAttribute('aria-checked', 'true')
+  })
+
+  test('still switches to Reading Mode when localStorage writes throw', async () => {
+    // Arrange
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('QuotaExceededError')
+    })
+    const { FileContent } = await import('./FileContent')
+    const screen = await render(
+      <FileContent content={makeTextContent({ content: '# Install\n' })} />,
+    )
+
+    // Act
+    await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
+
+    // Assert
+    await expect
+      .element(screen.getByRole('heading', { name: 'Install' }))
+      .toBeVisible()
   })
 
   test('keeps the new file preview when a previous file highlight rejects after switching files', async () => {
