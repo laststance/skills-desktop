@@ -26,7 +26,10 @@
     "typecheck:e2e": "tsc -p e2e/tsconfig.json --noEmit",
     "lint": "eslint . --max-warnings 0 --concurrency=auto",
     "lint:fix": "eslint . --fix --concurrency=auto",
-    "clean": "rm -rf dist out .vite node_modules"
+    "clean": "rm -rf dist out .vite node_modules",
+    "release:prepare-assets": "node scripts/prepare-release-assets.mjs",
+    "release:bump-website": "node scripts/bump-website-downloads.mjs",
+    "release:verify": "node scripts/verify-release.mjs"
   },
   "dependencies": {
     "@laststance/redux-storage-middleware": "^0.4.0",

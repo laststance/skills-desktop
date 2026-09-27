@@ -17,6 +17,9 @@
     "apps/desktop/src/renderer/settings/index.html",
     // Build-time scripts referenced from package.json scripts but not imported
     "apps/desktop/scripts/generate-icons.js",
+    "apps/desktop/scripts/prepare-release-assets.mjs",
+    "apps/desktop/scripts/bump-website-downloads.mjs",
+    "apps/desktop/scripts/verify-release.mjs",
     // Root CI guard run from the root package.json `check:bundled-workspace` script
     "scripts/check-bundled-workspace-imports.mjs"
   ],
