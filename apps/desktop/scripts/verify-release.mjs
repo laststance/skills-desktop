@@ -61,6 +61,11 @@ try {
     )
 
   const yml = parseLatestMacYml(publishedYml)
+  // The updater decides "update available" from this field alone.
+  check(
+    yml.version === version,
+    `published latest-mac.yml version is ${version}`,
+  )
   const hashes = new Map()
   for (const file of yml.files) {
     const bytes = await download(`${releaseBase}/${file.url}`)

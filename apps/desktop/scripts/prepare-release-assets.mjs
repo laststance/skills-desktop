@@ -10,7 +10,7 @@
  * Run by `/electron-release` after the build: `pnpm release:prepare-assets`.
  * Idempotent: an already-stapled DMG is not resubmitted.
  */
-import { copyFile, readFile, writeFile } from 'node:fs/promises'
+import { copyFile, readFile, rename, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import {
@@ -74,7 +74,9 @@ for (const arch of ARCHES) {
     throw new Error(`${names.dmg[arch]} missing from latest-mac.yml`)
   yml = yml.replace(pattern, `$1${sha512Base64(bytes)}$2${bytes.length}`)
 }
-await writeFile(ymlPath, yml)
+// Temp file + rename so an interrupted run never leaves a truncated manifest.
+await writeFile(`${ymlPath}.tmp`, yml)
+await rename(`${ymlPath}.tmp`, ymlPath)
 
 console.log(`✅ v${version} assets ready in ${DIST_DIR}:`)
 for (const asset of [

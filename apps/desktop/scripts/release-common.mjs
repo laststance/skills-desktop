@@ -50,20 +50,23 @@ export function sha512Base64(bytes) {
   return createHash('sha512').update(bytes).digest('base64')
 }
 
-/** Reads `files:` entries plus the top-level `path`/`sha512` the updater actually downloads.
+/** Reads `files:` entries plus the top-level `version`/`path`/`sha512` the updater compares and downloads.
  * @param {string} yml - `latest-mac.yml` contents.
- * @returns {{ files: { url: string, sha512: string, size: number }[], path: string, sha512: string }}
+ * @returns {{ files: { url: string, sha512: string, size: number }[], version: string, path: string, sha512: string }}
  */
 export function parseLatestMacYml(yml) {
   const files = [
     ...yml.matchAll(/- url: (\S+)\n\s+sha512: (\S+)\n\s+size: (\d+)/g),
   ].map(([, url, sha512, size]) => ({ url, sha512, size: Number(size) }))
+  const version = yml.match(/^version: (\S+)$/m)?.[1]
   const path = yml.match(/^path: (\S+)$/m)?.[1]
   const sha512 = yml.match(/^sha512: (\S+)$/m)?.[1]
-  if (!path || !sha512 || files.length !== 4) {
-    throw new Error('latest-mac.yml does not have 4 files plus path/sha512')
+  if (!version || !path || !sha512 || files.length !== 4) {
+    throw new Error(
+      'latest-mac.yml does not have 4 files plus version/path/sha512',
+    )
   }
-  return { files, path, sha512 }
+  return { files, version, path, sha512 }
 }
 
 /** `stapler validate` exits 0 only when the notarization ticket is attached to this exact file.

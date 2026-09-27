@@ -6,7 +6,7 @@
  * Run by `/electron-release` after the GitHub release exists (never before, or
  * the live links 404 during the build): `pnpm release:bump-website [version]`.
  */
-import { readFile, writeFile } from 'node:fs/promises'
+import { readFile, rename, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { REPO_ROOT, resolveVersion } from './release-common.mjs'
@@ -18,7 +18,7 @@ const WEBSITE_DOWNLOAD_FILES = [
 ]
 const EXPECTED_URL_COUNT = 6
 const RELEASE_URL =
-  /releases\/download\/v\d+\.\d+\.\d+\/skills-desktop-\d+\.\d+\.\d+-/g
+  /releases\/download\/v\d+\.\d+\.\d+\/skills-desktop-\d+\.\d+\.\d+-(?=(arm64|x64)\.dmg)/g
 
 const version = await resolveVersion(process.argv[2])
 const replacement = `releases/download/v${version}/skills-desktop-${version}-`
@@ -26,10 +26,13 @@ const sources = await Promise.all(
   WEBSITE_DOWNLOAD_FILES.map(async (relativePath) => {
     const path = join(REPO_ROOT, relativePath)
     const source = await readFile(path, 'utf8')
-    const count = source.match(RELEASE_URL)?.length ?? 0
-    // Every file carries an arm64 and an x64 link; zero means the markup moved.
-    if (count === 0)
-      throw new Error(`${relativePath}: no release download URLs found`)
+    const arches = [...source.matchAll(RELEASE_URL)].map(([, arch]) => arch)
+    const count = arches.length
+    // Every file carries exactly one arm64 and one x64 link; anything else means the markup moved.
+    if (count !== 2 || !arches.includes('arm64') || !arches.includes('x64'))
+      throw new Error(
+        `${relativePath}: expected one arm64 + one x64 DMG URL, found [${arches.join(', ')}]`,
+      )
     return { relativePath, path, source, count }
   }),
 )
@@ -43,7 +46,9 @@ if (total !== EXPECTED_URL_COUNT) {
 }
 
 for (const { relativePath, path, source, count } of sources) {
-  await writeFile(path, source.replaceAll(RELEASE_URL, replacement))
+  // Temp file + rename so an interrupted run never leaves a half-written source.
+  await writeFile(`${path}.tmp`, source.replaceAll(RELEASE_URL, replacement))
+  await rename(`${path}.tmp`, path)
   console.log(`${relativePath}: ${count} URL(s) → v${version}`)
 }
 console.log(`✅ ${total} website download URLs point at v${version}`)
