@@ -843,4 +843,43 @@ describe('MainContent list header integration', () => {
       )
       .toBeVisible()
   })
+
+  test('disables Copy to… with a reason while the source-view Orphan toggle owns the list', async () => {
+    // Arrange — orphan mode active with the orphan row ticked. Every visible
+    // row is a dead symlink, so the Copy action would open a "0 selected"
+    // dead-end modal; the header disables it with the reason as its name.
+    const orphanSkill: Skill = {
+      name: toSkillName('abandoned'),
+      description: 'Orphan symlink — source skill no longer exists',
+      path: toAbsolutePath('/Users/test/.cursor/skills/abandoned'),
+      symlinkCount: toSymlinkCount(0),
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          status: 'broken',
+          linkPath: toAbsolutePath('/Users/test/.cursor/skills/abandoned'),
+          targetPath: toAbsolutePath('/Users/test/.agents/skills/abandoned'),
+          isLocal: false,
+        },
+      ],
+      isSource: false,
+      isOrphan: true,
+    }
+    const { screen, store } = await renderMainContentWithListHeader()
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    store.dispatch(fetchSkills.fulfilled([orphanSkill], 'skills-req'))
+    store.dispatch(toggleSelection(toSkillName('abandoned')))
+    await screen
+      .getByRole('button', { name: 'Orphan view, show 1 orphaned skill' })
+      .click()
+
+    // Assert — the Copy button is disabled and names why
+    const copyButton = screen.getByRole('button', {
+      name: 'Orphaned skills have no source directory to copy',
+    })
+    await expect.element(copyButton).toBeVisible()
+    await expect.element(copyButton).toBeDisabled()
+  })
 })

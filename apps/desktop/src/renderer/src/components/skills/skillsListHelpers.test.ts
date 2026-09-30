@@ -2,7 +2,10 @@ import { describe, expect, test } from 'vitest'
 
 import { repositoryId } from '@/shared/types'
 
-import { getEmptyListMessage } from './skillsListHelpers'
+import {
+  getEmptyListMessage,
+  shouldShowOrphanToggle,
+} from './skillsListHelpers'
 
 describe('getEmptyListMessage', () => {
   test('names the active repo in the empty state when a search and a single source are both active', () => {
@@ -278,4 +281,130 @@ describe('getEmptyListMessage', () => {
     // Assert
     expect(message).toBe('No skills match your search')
   })
+})
+
+describe('source-view Orphan toggle', () => {
+  test('names the orphan population when the source-view Orphan toggle is on and nothing matches', () => {
+    // Arrange: source view with the orphan mode active and zero orphan rows.
+    // Act
+    const message = getEmptyListMessage({
+      searchQuery: '',
+      selectedSources: [],
+      selectedAgentId: null,
+      skillTypeFilter: 'orphan',
+    })
+
+    // Assert
+    expect(message).toBe('No orphaned skills')
+  })
+
+  test('keeps the orphan message when repo ticks are still selected underneath the suppressed narrowing', () => {
+    // Arrange: orphan mode with repo ticks left in state — the narrowing is
+    // suppressed in orphan mode, so the copy must not blame the repo filter.
+    // Act
+    const message = getEmptyListMessage({
+      searchQuery: '',
+      selectedSources: [repositoryId('vercel-labs/skills')],
+      selectedAgentId: null,
+      skillTypeFilter: 'orphan',
+    })
+
+    // Assert — the orphan arm wins over the repo arm
+    expect(message).toBe('No orphaned skills')
+  })
+
+  test('still blames the search when orphan mode is on — the search itself is not suppressed', () => {
+    // Arrange: orphan mode + a search query + a stale repo tick. Only the repo
+    // narrowing is masked; the search arm stays honest.
+    // Act
+    const message = getEmptyListMessage({
+      searchQuery: 'brain',
+      selectedSources: [repositoryId('vercel-labs/skills')],
+      selectedAgentId: null,
+      skillTypeFilter: 'orphan',
+    })
+
+    // Assert
+    expect(message).toBe('No skills match your search')
+  })
+
+  test('names the Orphan type filter when an agent view has no orphan rows', () => {
+    // Arrange: agent view keeps 'orphan' as a normal type filter — distinct
+    // from the source-view population swap.
+    // Act
+    const message = getEmptyListMessage({
+      searchQuery: '',
+      selectedSources: [],
+      selectedAgentId: 'claude-code',
+      skillTypeFilter: 'orphan',
+    })
+
+    // Assert
+    expect(message).toBe('No orphan skills for this agent')
+  })
+
+  test('does not claim an orphan empty state for an inert persisted filter in source view', () => {
+    // Arrange: 'local' persisted across an agent→source switch is inert in
+    // source view — it must fall through to the plain fallback, not lie.
+    // Act
+    const message = getEmptyListMessage({
+      searchQuery: '',
+      selectedSources: [],
+      selectedAgentId: null,
+      skillTypeFilter: 'local',
+    })
+
+    // Assert
+    expect(message).toBe('No skills match your filter')
+  })
+
+  test('never appends the exclude suffix in source view where excludes do not apply', () => {
+    // Arrange: a persisted exclude carried into source view (selectAgent no
+    // longer clears it) must not produce "No orphaned skills while excluding X".
+    // Act
+    const message = getEmptyListMessage({
+      searchQuery: '',
+      selectedSources: [],
+      selectedAgentId: null,
+      skillTypeFilter: 'orphan',
+      excludedSkillTypeFilters: ['gstack'],
+    })
+
+    // Assert
+    expect(message).toBe('No orphaned skills')
+  })
+
+  test('blames the search alone when orphan mode, a query, and repo ticks are all active', () => {
+    // Arrange: search applies in orphan mode but repo narrowing is suppressed —
+    // "…in <repo>" would name a filter that isn't running.
+    // Act
+    const message = getEmptyListMessage({
+      searchQuery: 'zzz',
+      selectedSources: [repositoryId('vercel-labs/skills')],
+      selectedAgentId: null,
+      skillTypeFilter: 'orphan',
+    })
+
+    // Assert — the repo phrase is dropped; the search arm wins
+    expect(message).toBe('No skills match your search')
+  })
+})
+
+describe('shouldShowOrphanToggle', () => {
+  test.each([
+    [null, 3, true],
+    [null, 1, true],
+    [null, 0, false],
+    ['cursor', 3, false],
+    ['cursor', 0, false],
+  ] as const)(
+    'shows the source-view Orphan toggle only in source view with orphans (agent=%s, count=%s → %s)',
+    (selectedAgentId, orphanCount, expected) => {
+      // Act + Assert — source view + at least one orphan → visible; agent
+      // view or zero orphans → hidden (the pill owns the exit at 0 anyway).
+      expect(shouldShowOrphanToggle(selectedAgentId, orphanCount)).toBe(
+        expected,
+      )
+    },
+  )
 })

@@ -25,12 +25,14 @@ import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import { fetchAgents } from '@/renderer/src/redux/slices/agentsSlice'
 import { fetchSkills } from '@/renderer/src/redux/slices/skillsSlice'
 import {
+  clearExcludedSkillTypeFilters,
   clearSelectedSources,
   fetchSourceStats,
   fetchSyncPreview,
   selectAgent,
   setActiveTab,
   setSearchQuery,
+  setSkillTypeFilter,
   setSyncPreview,
 } from '@/renderer/src/redux/slices/uiSlice'
 import { toSearchQuery } from '@/shared/types'
@@ -76,6 +78,11 @@ export const SourceCard = function SourceCard(): React.ReactElement {
     // all filters and show all skills") was previously half-kept, leaving a
     // repo narrow active after the click.
     dispatch(clearSelectedSources())
+    // selectAgent no longer resets the skill-type axes (filters persist across
+    // agent switches), so the clear-all contract resets them explicitly —
+    // otherwise a persisted 'orphan'/'local' survives this click.
+    dispatch(setSkillTypeFilter('all'))
+    dispatch(clearExcludedSkillTypeFilters())
   }
 
   /**

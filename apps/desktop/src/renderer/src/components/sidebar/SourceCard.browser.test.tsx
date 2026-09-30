@@ -136,6 +136,30 @@ describe('Sidebar → SourceCard navigation', () => {
     expect(store.getState().ui.selectedAgentId).toBeNull()
     expect(store.getState().ui.searchQuery).toBe('')
   })
+
+  test('resets a persisted skill-type filter and excludes when the card is clicked', async () => {
+    // Arrange — 'orphan' plus an exclude carried over from an agent view.
+    // selectAgent no longer resets the type axes, so the card's clear-all
+    // contract has to reset them explicitly or the click strands the list on
+    // an invisible orphan/type filter.
+    const { screen, store } = await renderSourceCard()
+    const { selectAgent, setSkillTypeFilter, toggleExcludedSkillTypeFilter } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    store.dispatch(selectAgent('claude-code'))
+    store.dispatch(setSkillTypeFilter('orphan'))
+    // 'gstack' is the only exclude getAvailableExcludeTypes('orphan') allows —
+    // a 'local' toggle here would no-op and leave the assert below vacuous.
+    store.dispatch(toggleExcludedSkillTypeFilter('gstack'))
+    expect(store.getState().ui.excludedSkillTypeFilters).toEqual(['gstack'])
+
+    // Act
+    await screen.getByText('~/.agents/skills').click()
+
+    // Assert — source view restored with every filter axis cleared
+    expect(store.getState().ui.selectedAgentId).toBeNull()
+    expect(store.getState().ui.skillTypeFilter).toBe('all')
+    expect(store.getState().ui.excludedSkillTypeFilters).toEqual([])
+  })
 })
 
 describe('Sidebar → SourceCard refresh', () => {

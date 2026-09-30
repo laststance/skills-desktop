@@ -27,6 +27,7 @@ import {
 } from '@/renderer/src/components/skills/reviewedDestructiveTargets'
 import { SearchBox } from '@/renderer/src/components/skills/SearchBox'
 import { SkillsList } from '@/renderer/src/components/skills/SkillsList'
+import { shouldShowOrphanToggle } from '@/renderer/src/components/skills/skillsListHelpers'
 import { UndoToast } from '@/renderer/src/components/skills/UndoToast'
 import { UnlinkDialog } from '@/renderer/src/components/skills/UnlinkDialog'
 import { Button } from '@/renderer/src/components/ui/button'
@@ -55,6 +56,11 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/renderer/src/components/ui/tabs'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/renderer/src/components/ui/tooltip'
 import { useCycleEffect } from '@/renderer/src/hooks/useCycleEffect'
 import { useInitialEffect } from '@/renderer/src/hooks/useInitialEffect'
 import { useMarketplaceProgress } from '@/renderer/src/hooks/useMarketplaceProgress'
@@ -65,6 +71,7 @@ import {
   type RepoFacetOption,
   selectBulkSelectableVisibleSkillNames,
   selectFilteredSkillCount,
+  selectOrphanCount,
   selectRepoFacetOptions,
   selectSelectedVisibleNames,
   selectSourceFilterViewModel,
@@ -93,6 +100,7 @@ import {
   clearUndoToast,
   clearUndoToastIfCurrent,
   getAvailableExcludeTypes,
+  isSourceOrphanMode,
   selectAgent,
   selectBulkConfirm,
   selectExcludedSkillTypeFilters,
@@ -307,6 +315,9 @@ interface CreatePrimaryBulkActionOptions {
   selectedAgentId: Agent['id'] | null
   selectedAgentName: Agent['name'] | null
   sourceFilter: SourceFilterViewModel
+  /** Source-view Orphan toggle active — repo narrowing is paused, so the
+   *  confirm dialog must not claim a repo scope that isn't running. */
+  orphanMode: boolean
   skills: Skill[]
   protectedNamesSet: ReadonlySet<Skill['name']>
 }
@@ -328,12 +339,14 @@ function createPrimaryBulkAction({
   selectedAgentId,
   selectedAgentName,
   sourceFilter,
+  orphanMode,
   skills,
   protectedNamesSet,
 }: CreatePrimaryBulkActionOptions): PrimaryBulkActionResult {
   if (selectedVisibleNames.length === 0) return { kind: 'empty' }
   const sourceSummary: BulkConfirmState['sourceSummary'] =
-    sourceFilter.validRepoIds.length > 0 || sourceFilter.localHiddenCount > 0
+    !orphanMode &&
+    (sourceFilter.validRepoIds.length > 0 || sourceFilter.localHiddenCount > 0)
       ? {
           repositoryIds: sourceFilter.validRepoIds,
           localHiddenCount: sourceFilter.localHiddenCount,
@@ -404,6 +417,7 @@ function usePrimaryBulkAction({
   selectedAgentId,
   selectedAgentName,
   sourceFilter,
+  orphanMode,
   skills,
   protectedNamesSet,
 }: CreatePrimaryBulkActionOptions): () => void {
@@ -415,6 +429,7 @@ function usePrimaryBulkAction({
       selectedAgentId,
       selectedAgentName,
       sourceFilter,
+      orphanMode,
       skills,
       protectedNamesSet,
     })
@@ -1103,6 +1118,10 @@ export const MainContent = function MainContent(): React.ReactElement {
   const bulkConfirm = useAppSelector(selectBulkConfirm)
   const isBulkOpBusy = useAppSelector(selectIsBulkOpBusy)
   const sourceFilter = useAppSelector(selectSourceFilterViewModel)
+  const orphanCount = useAppSelector(selectOrphanCount)
+  // Source-view orphan mode: the Orphan toolbar toggle flipped the list from
+  // source rows to orphan rows. Repo narrowing/pills are suppressed while on.
+  const orphanMode = isSourceOrphanMode(selectedAgentId, skillTypeFilter)
   const repoFacetOptions = useAppSelector(selectRepoFacetOptions)
   const filteredSkillCount = useAppSelector(selectFilteredSkillCount)
   const installedSearchCountDisplay = useAppSelector(
@@ -1165,6 +1184,7 @@ export const MainContent = function MainContent(): React.ReactElement {
     selectedAgentId,
     selectedAgentName: selectedAgent?.name ?? null,
     sourceFilter,
+    orphanMode,
     skills,
     protectedNamesSet,
   })
@@ -1208,6 +1228,8 @@ export const MainContent = function MainContent(): React.ReactElement {
           <InstalledToolbar
             sourceFilter={sourceFilter}
             selectedAgentId={selectedAgentId}
+            orphanCount={orphanCount}
+            orphanMode={orphanMode}
             selectedSkillTypeLabel={selectedSkillTypeLabel}
             skillTypeFilter={skillTypeFilter}
             excludedSkillTypeFilters={excludedSkillTypeFilters}
@@ -1227,9 +1249,11 @@ export const MainContent = function MainContent(): React.ReactElement {
           <InstalledFilterPills
             selectedAgent={selectedAgent}
             sourceFilter={sourceFilter}
+            orphanMode={orphanMode}
             onClearAgent={handleClearFilter}
             onClearSourceFilter={handleClearSourceFilter}
             onToggleSource={handleToggleSource}
+            onClearOrphanMode={() => handleSkillTypeFilterChange('all')}
           />
 
           {/* The header sits outside the list's scroller, so it never scrolls away. */}
@@ -1240,6 +1264,13 @@ export const MainContent = function MainContent(): React.ReactElement {
               <InstalledListHeader
                 onPrimaryAction={handlePrimaryAction}
                 onCopyAction={handleCopyAction}
+                // Orphan rows have no real directory — `path` is a dead agent
+                // symlink — so copying one would replicate the broken link.
+                copyDisabledReason={
+                  orphanMode
+                    ? 'Orphaned skills have no source directory to copy'
+                    : undefined
+                }
                 agentDisplayName={selectedAgent?.name}
               />
             </div>
@@ -1292,6 +1323,10 @@ export const MainContent = function MainContent(): React.ReactElement {
 interface InstalledToolbarProps {
   sourceFilter: SourceFilterViewModel
   selectedAgentId: Agent['id'] | null
+  /** Orphan row count — gates the source-view Orphan toggle's visibility. */
+  orphanCount: number
+  /** True while the source-view Orphan toggle is active. */
+  orphanMode: boolean
   selectedSkillTypeLabel: string
   skillTypeFilter: SkillTypeFilter
   excludedSkillTypeFilters: ExcludableSkillTypeFilter[]
@@ -1317,6 +1352,8 @@ interface InstalledToolbarProps {
 const InstalledToolbar = function InstalledToolbar({
   sourceFilter,
   selectedAgentId,
+  orphanCount,
+  orphanMode,
   selectedSkillTypeLabel,
   skillTypeFilter,
   excludedSkillTypeFilters,
@@ -1338,11 +1375,24 @@ const InstalledToolbar = function InstalledToolbar({
 
       <SourceRepositoryFilterMenu
         sourceFilter={sourceFilter}
+        disabled={orphanMode}
         onSelectShowAllRepos={onSelectShowAllRepos}
         onSelectAllRepos={onSelectAllRepos}
         onToggleSource={onToggleSource}
         onKeepDropdownOpen={onKeepDropdownOpen}
       />
+
+      {/* Source-view orphan toggle — rendered only while orphans exist so the
+          toolbar carries no permanent chrome for a normally-empty state. While
+          active, the "marked as orphaned" FilterPill below keeps a labeled
+          exit even if cleanup drops the count to zero. */}
+      {shouldShowOrphanToggle(selectedAgentId, orphanCount) ? (
+        <OrphanModeToggle
+          orphanCount={orphanCount}
+          active={orphanMode}
+          onToggle={onSkillTypeFilterChange}
+        />
+      ) : null}
 
       {selectedAgentId ? (
         <SkillTypeFilterMenu
@@ -1363,8 +1413,76 @@ const InstalledToolbar = function InstalledToolbar({
   )
 }
 
+interface OrphanModeToggleProps {
+  orphanCount: number
+  /** True while the toggle is on — drives `aria-pressed` and the tint. */
+  active: boolean
+  onToggle: (value: 'all' | 'orphan') => void
+}
+
+/**
+ * Source-view-only toggle that swaps the Installed list between source rows
+ * and orphan rows. Rendered by {@link InstalledToolbar} only when no agent is
+ * selected and at least one orphan exists — a normally-empty state gets no
+ * permanent chrome. The active state is also surfaced by the
+ * "Showing skills marked as orphaned" {@link FilterPill} banner, which keeps
+ * a labeled exit when cleanup drops the count to zero and this toggle
+ * unmounts.
+ *
+ * Accepted tradeoff (plan-acknowledged): toggling routes through
+ * {@link setSkillTypeFilter}, which prunes `excludedSkillTypeFilters` to the
+ * 'orphan'-compatible set — entering the mode can drop a persisted exclude.
+ * Excludes are an agent-view-only, transient power-user axis, so the loss is
+ * deliberate rather than preserved like `selectedSources` ticks.
+ * @param props - Orphan row count, active state, and the filter-change handler.
+ * @returns Ghost button toggle matching the adjacent dropdown triggers.
+ * @example
+ * <OrphanModeToggle orphanCount={3} active={false} onToggle={setFilter} />
+ */
+const OrphanModeToggle = function OrphanModeToggle({
+  orphanCount,
+  active,
+  onToggle,
+}: OrphanModeToggleProps): React.ReactElement {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-pressed={active}
+          // WCAG 2.5.3 (Label in Name): the accessible name must start with
+          // the visible "Orphan" text so voice control can target it.
+          aria-label={
+            active
+              ? `Orphan view on, showing ${orphanCount} ${pluralize(orphanCount, 'orphan')} — show source skills`
+              : `Orphan view, show ${orphanCount} ${pluralize(orphanCount, 'orphaned skill')}`
+          }
+          onClick={() => onToggle(active ? 'all' : 'orphan')}
+          className={cn(
+            'shrink-0 gap-1.5',
+            active
+              ? 'text-primary'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          {/* Same destructive dot as the Orphan entry in
+              SKILL_TYPE_FILTER_OPTIONS (DESIGN.md: Orphan → --destructive). */}
+          <span className="h-2 w-2 rounded-full bg-destructive" />
+          <span className="max-w-36 truncate">Orphan ({orphanCount})</span>
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">
+        Source folder is gone, but agent links remain
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
 interface SourceRepositoryFilterMenuProps {
   sourceFilter: SourceFilterViewModel
+  /** Disable + mute the trigger while the source-view Orphan toggle owns the list. */
+  disabled: boolean
   onSelectShowAllRepos: (event: Event) => void
   onSelectAllRepos: (event: Event) => void
   onToggleSource: (source: RepositoryId) => void
@@ -1380,6 +1498,7 @@ interface SourceRepositoryFilterMenuProps {
  */
 const SourceRepositoryFilterMenu = function SourceRepositoryFilterMenu({
   sourceFilter,
+  disabled,
   onSelectShowAllRepos,
   onSelectAllRepos,
   onToggleSource,
@@ -1391,10 +1510,18 @@ const SourceRepositoryFilterMenu = function SourceRepositoryFilterMenu({
         <Button
           variant="ghost"
           size="sm"
-          aria-label={sourceFilter.triggerAriaLabel}
+          disabled={disabled}
+          // While disabled (orphan mode), the narrowing is paused — announce
+          // the pause rather than claiming a filter that isn't running, and
+          // drop the active-filter tint for the same reason the pills hide.
+          aria-label={
+            disabled
+              ? 'Filter by source repository (paused while viewing orphans)'
+              : sourceFilter.triggerAriaLabel
+          }
           className={cn(
             'shrink-0 gap-1.5 max-w-44',
-            sourceFilter.selectedSources.length > 0
+            sourceFilter.selectedSources.length > 0 && !disabled
               ? 'text-primary'
               : 'text-muted-foreground hover:text-foreground',
           )}
@@ -1576,9 +1703,12 @@ const SkillTypeFilterMenu = function SkillTypeFilterMenu({
 interface InstalledFilterPillsProps {
   selectedAgent: Agent | undefined
   sourceFilter: SourceFilterViewModel
+  /** True while the source-view Orphan toggle is active. */
+  orphanMode: boolean
   onClearAgent: () => void
   onClearSourceFilter: () => void
   onToggleSource: (source: RepositoryId) => void
+  onClearOrphanMode: () => void
 }
 
 /**
@@ -1591,9 +1721,11 @@ interface InstalledFilterPillsProps {
 const InstalledFilterPills = function InstalledFilterPills({
   selectedAgent,
   sourceFilter,
+  orphanMode,
   onClearAgent,
   onClearSourceFilter,
   onToggleSource,
+  onClearOrphanMode,
 }: InstalledFilterPillsProps): React.ReactElement {
   return (
     <>
@@ -1609,35 +1741,51 @@ const InstalledFilterPills = function InstalledFilterPills({
         />
       ) : null}
 
-      {sourceFilter.selectedSources.length > SOURCE_FILTER_MAX_VISIBLE_REPOS ? (
+      {/* Orphan-mode banner — always rendered while the source-view toggle is
+          on so a labeled exit survives the orphan count dropping to zero (the
+          toolbar toggle unmounts at 0). Repo pills and the hidden-local hint
+          are suppressed for the same mode: their narrowing is paused, so
+          showing them would claim a filter that isn't running. */}
+      {orphanMode ? (
         <FilterPill
-          label={
-            <>
-              from{' '}
-              <strong className="text-primary">
-                {sourceFilter.selectedSources.length} repos
-              </strong>
-            </>
-          }
-          onClear={onClearSourceFilter}
-          testId="source-filter-pill"
+          label="marked as orphaned"
+          onClear={onClearOrphanMode}
+          testId="orphan-filter-pill"
         />
       ) : (
-        sourceFilter.selectedSources.map((source) => (
-          <SourceFilterPill
-            key={source}
-            source={source}
-            onClear={onToggleSource}
-          />
-        ))
-      )}
+        <>
+          {sourceFilter.selectedSources.length >
+          SOURCE_FILTER_MAX_VISIBLE_REPOS ? (
+            <FilterPill
+              label={
+                <>
+                  from{' '}
+                  <strong className="text-primary">
+                    {sourceFilter.selectedSources.length} repos
+                  </strong>
+                </>
+              }
+              onClear={onClearSourceFilter}
+              testId="source-filter-pill"
+            />
+          ) : (
+            sourceFilter.selectedSources.map((source) => (
+              <SourceFilterPill
+                key={source}
+                source={source}
+                onClear={onToggleSource}
+              />
+            ))
+          )}
 
-      {sourceFilter.localHiddenCount > 0 ? (
-        <p className="px-4 py-2 border-b border-border text-xs text-muted-foreground shrink-0">
-          {sourceFilter.localHiddenCount}{' '}
-          {pluralize(sourceFilter.localHiddenCount, 'local skill')} hidden
-        </p>
-      ) : null}
+          {sourceFilter.localHiddenCount > 0 ? (
+            <p className="px-4 py-2 border-b border-border text-xs text-muted-foreground shrink-0">
+              {sourceFilter.localHiddenCount}{' '}
+              {pluralize(sourceFilter.localHiddenCount, 'local skill')} hidden
+            </p>
+          ) : null}
+        </>
+      )}
     </>
   )
 }
