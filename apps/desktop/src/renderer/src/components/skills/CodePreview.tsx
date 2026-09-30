@@ -83,6 +83,7 @@ export const CodePreview = function CodePreview({
         >
           <FileContent
             content={content}
+            filePath={activeFilePath}
             markdownFontSizePx={markdownFontSizePx}
             codeFontSizePx={codeFontSizePx}
             codeThemeId={codeThemeId}

@@ -21,7 +21,12 @@ import {
   CODE_FONT_SIZE_DEFAULT_PX,
   MARKDOWN_FONT_SIZE_DEFAULT_PX,
 } from '@/shared/settings'
-import type { FileName, FileSizeBytes, SkillFileContent } from '@/shared/types'
+import type {
+  AbsolutePath,
+  FileName,
+  FileSizeBytes,
+  SkillFileContent,
+} from '@/shared/types'
 
 import { resolveCodeTheme } from './codeThemeHelpers'
 import { isMarkdownPreview, languageForPreview } from './filePreviewLanguage'
@@ -29,6 +34,16 @@ import { codeToHtml } from './shikiPreview'
 
 interface FileContentProps {
   content: PreviewContent
+  /**
+   * Stable identity of the currently previewed file — its absolute path.
+   * Keys the Markdown reading pane so switching between files that share a
+   * basename (`docs/README.md` -> `guide/README.md`) still remounts and resets
+   * scroll. Typed as {@link AbsolutePath} (not a bare string) so a caller can't
+   * quietly pass a basename or relative path and reintroduce that stale-scroll
+   * bug. Optional because isolated renders (tests, Storybook) may not have a
+   * path; falls back to `file.name`, which is enough when basenames differ.
+   */
+  filePath?: AbsolutePath
   /** Markdown reading-mode body font size (CSS px). */
   markdownFontSizePx?: number
   /** Shiki code preview font size (CSS px). */
@@ -62,6 +77,11 @@ const DEFAULT_TEXT_PREVIEW_MODE: TextPreviewMode = 'code'
 
 /**
  * Read the last-selected Markdown preview mode from localStorage.
+ * Read once per {@link TextPreview} mount — there is no `storage`-event
+ * listener, on the deliberate single-consumer assumption that only one
+ * FileContent surface exists (SkillDetail's CodePreview). A second mounted
+ * surface would diverge silently; add event sync or shared state if that ever
+ * changes.
  * @returns The persisted mode, or {@link DEFAULT_TEXT_PREVIEW_MODE} when unset or storage is unavailable.
  * @example
  * readStoredTextPreviewMode() // => 'reading'
@@ -110,6 +130,7 @@ function writeStoredTextPreviewMode(mode: TextPreviewMode): void {
  */
 export const FileContent = function FileContent({
   content,
+  filePath,
   markdownFontSizePx = MARKDOWN_FONT_SIZE_DEFAULT_PX,
   codeFontSizePx = CODE_FONT_SIZE_DEFAULT_PX,
   codeThemeId = DEFAULT_CODE_THEME_ID,
@@ -134,6 +155,7 @@ export const FileContent = function FileContent({
     .with({ kind: 'text' }, ({ data }) => (
       <TextPreview
         file={data}
+        filePath={filePath}
         markdownFontSizePx={markdownFontSizePx}
         codeFontSizePx={codeFontSizePx}
         codeThemeId={codeThemeId}
@@ -144,6 +166,8 @@ export const FileContent = function FileContent({
 
 interface TextPreviewProps {
   file: SkillFileContent
+  /** Absolute path of the previewed file; see {@link FileContentProps.filePath}. */
+  filePath?: AbsolutePath
   markdownFontSizePx: number
   codeFontSizePx: number
   codeThemeId: CodeThemeId
@@ -158,6 +182,7 @@ interface TextPreviewProps {
  */
 const TextPreview = function TextPreview({
   file,
+  filePath,
   markdownFontSizePx,
   codeFontSizePx,
   codeThemeId,
@@ -188,8 +213,18 @@ const TextPreview = function TextPreview({
         <MarkdownReadingPreview
           // Remounts the scroll container per file so switching Markdown
           // files always starts at the top, even though the preview mode
-          // itself is preserved across the switch.
-          key={file.name}
+          // itself is preserved across the switch. Two identities are keyed:
+          // (1) the path, not the basename — nested dirs can hold distinct
+          // files that share a name (docs/README.md vs guide/README.md), and
+          // name alone would keep the previous file's scroll offset; and
+          // (2) the loaded document's shape — useCodePreview commits the new
+          // activeFile synchronously while its content lags one IPC read, so
+          // without the length/lineCount segment the remount fires on the OLD
+          // document and scroll accrued during that window survives into the
+          // newly-arrived file. Same-file rerenders (font-size tweaks, a
+          // reload with identical content) keep one key, so mid-read scroll
+          // is never wiped.
+          key={`${filePath ?? file.name}:${file.lineCount}:${file.content.length}`}
           content={file.content}
           fontSizePx={markdownFontSizePx}
         />

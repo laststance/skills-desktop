@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { PreviewContent } from '@/renderer/src/hooks/useCodePreview'
+import { MARKDOWN_PREVIEW_MODE_KEY } from '@/shared/constants'
 import { DEFAULT_SETTINGS, type Settings } from '@/shared/settings'
 import type { AbsolutePath, SkillFile } from '@/shared/types'
 import {
@@ -99,6 +100,9 @@ async function renderCodePreview(overrides: Partial<Settings> = {}) {
 describe('CodePreview', () => {
   beforeEach(() => {
     mockUseCodePreview.mockReset()
+    // Browser-mode files share one Chromium origin: clear the persisted preview
+    // mode so a Reading Mode selection can't leak into tests expecting Code.
+    window.localStorage.removeItem(MARKDOWN_PREVIEW_MODE_KEY)
   })
 
   test('shows a loading placeholder while the file list is still being fetched', async () => {
@@ -200,6 +204,94 @@ describe('CodePreview', () => {
 
     // Assert
     expect(setActiveFileSpy).toHaveBeenCalledWith(readmeFile.path)
+  })
+
+  test('resets Reading Mode scroll when the active file switches between same-named Markdown files', async () => {
+    // Arrange — two nested files share the basename README.md; only the
+    // absolute path CodePreview passes to FileContent (filePath) tells them
+    // apart, so this seam test fails iff that prop is dropped at the call site.
+    const docsReadme = makeFile({
+      name: toFileName('README.md'),
+      path: toAbsolutePath(`${SKILL_PATH}/docs/README.md`),
+      relativePath: toPosixRelativePath('docs/README.md'),
+    })
+    const guideReadme = makeFile({
+      name: toFileName('README.md'),
+      path: toAbsolutePath(`${SKILL_PATH}/guide/README.md`),
+      relativePath: toPosixRelativePath('guide/README.md'),
+    })
+    const readmeContent = (heading: string): PreviewContent => ({
+      kind: 'text',
+      data: {
+        name: toFileName('README.md'),
+        content: `# ${heading}\n\n${'line\n'.repeat(200)}`,
+        extension: toFileExtension('.md'),
+        lineCount: toLineCount(202),
+      },
+    })
+    mockUseCodePreview.mockReturnValue(
+      makeHookReturn({
+        files: [docsReadme, guideReadme],
+        activeFile: docsReadme.path,
+        content: readmeContent('First'),
+      }),
+    )
+    const { default: settingsReducer } =
+      await import('@/renderer/src/redux/slices/settingsSlice')
+    const store = configureStore({
+      reducer: { settings: settingsReducer },
+      preloadedState: { settings: DEFAULT_SETTINGS },
+    })
+    const { CodePreview } = await import('./CodePreview')
+    // The fixed-height flex wrapper bounds the preview pane so the reading
+    // scroll container actually overflows; without it scrollTop clamps to 0
+    // and the reset assertion below would pass vacuously. `tree` is a factory,
+    // not a shared element: passing the same element object to rerender is a
+    // no-op, so each call must build a fresh tree to flush the new mock data.
+    const tree = (
+      <div style={{ display: 'flex', height: 220 }}>
+        <Provider store={store}>
+          <CodePreview skillPath={toAbsolutePath(SKILL_PATH)} />
+        </Provider>
+      </div>
+    )
+    const tree2 = (
+      <div style={{ display: 'flex', height: 220 }}>
+        <Provider store={store}>
+          <CodePreview skillPath={toAbsolutePath(SKILL_PATH)} />
+        </Provider>
+      </div>
+    )
+    const screen = await render(tree)
+    await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
+    const firstPane = document.querySelector<HTMLElement>(
+      '[data-markdown-reading-scroll]',
+    )
+    if (!firstPane)
+      throw new Error('expected a markdown reading scroll container')
+    firstPane.scrollTop = 1200
+    expect(firstPane.scrollTop).toBeGreaterThan(0)
+
+    // Act — the hook now reports the other README.md as the active file.
+    mockUseCodePreview.mockReturnValue(
+      makeHookReturn({
+        files: [docsReadme, guideReadme],
+        activeFile: guideReadme.path,
+        content: readmeContent('Second'),
+      }),
+    )
+    await screen.rerender(tree2)
+
+    // Assert — the second file's pane remounted at the top. If CodePreview
+    // stops passing filePath, both files key as 'README.md' and the stale
+    // offset survives.
+    await expect
+      .element(screen.getByRole('heading', { name: 'Second' }))
+      .toBeVisible()
+    const secondPane = document.querySelector<HTMLElement>(
+      '[data-markdown-reading-scroll]',
+    )
+    expect(secondPane?.scrollTop).toBe(0)
   })
 
   test('renders the code preview at the user-configured code font size from settings', async () => {
