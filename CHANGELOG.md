@@ -38,3 +38,9 @@
 - Skills removed outside the app no longer stay selected after the list refreshes.
 - Keyboard shortcut hints and other monospace text render in Menlo instead of falling back to Courier on macOS.
 - Settings descriptions no longer lose their dimmed color when a component combines its default text styles with the Settings text size.
+- Disabled row checkboxes now explain why a skill cannot be bulk-selected (protected, local folder, inaccessible or broken link, or no link for the selected agent), both in the tooltip and the accessible name.
+- In narrow windows the two "+N" counters in the list header are now told apart by icons — a funnel for rows hidden by search and a ban for rows that cannot take the action.
+- Closing a bulk-action dialog with the keyboard now returns focus to the list header's select-all checkbox (or the main content when it is unavailable) instead of dropping focus on the page.
+- When the skill list fails to load, the "+N" counters no longer claim selected rows are hidden or ineligible — the counts reflect the error state.
+- Rows being unlinked now fade during the operation exactly like rows being deleted.
+- Starting a second bulk delete or unlink while one is still running is now ignored instead of corrupting the in-flight row markers.

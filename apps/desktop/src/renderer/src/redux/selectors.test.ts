@@ -1609,6 +1609,20 @@ describe('selectHiddenSelectedCount', () => {
     // Act & Assert
     expect(selectHiddenSelectedCount(state as never)).toBe(0)
   })
+
+  test('reports zero hidden selections while the skills error screen replaces the rows', () => {
+    // Arrange — ticks survive a failed bulk op for retry, but the error
+    // screen draws no rows, so "hidden by filter" must not appear.
+    const skills = [makeSkill('alpha', 'claude-code')]
+    const state = buildState({
+      skills,
+      selectedSkillNames: [toSkillName('alpha'), toSkillName('hidden-1')],
+      skillsError: 'Failed to copy skill',
+    })
+
+    // Act & Assert
+    expect(selectHiddenSelectedCount(state as never)).toBe(0)
+  })
 })
 
 describe('selectVisibleIneligibleSelectedCount', () => {
@@ -1631,6 +1645,28 @@ describe('selectVisibleIneligibleSelectedCount', () => {
     // Act & Assert
     expect(selectVisibleIneligibleSelectedCount(state as never)).toBe(1)
   })
+
+  test('reports zero not-eligible selections while the skills error screen replaces the rows', () => {
+    // Arrange — a rejected bulk op leaves ticks on the state while the error
+    // screen draws no rows; every ticked name would misread as "not eligible"
+    // without the error gate.
+    const skills = [
+      makeSkill('valid-task', 'cursor'),
+      makeSkill('broken-task', 'cursor', false, undefined, 'broken'),
+    ]
+    const state = buildState({
+      skills,
+      selectedAgentId: 'cursor',
+      selectedSkillNames: [
+        toSkillName('valid-task'),
+        toSkillName('broken-task'),
+      ],
+      skillsError: 'Failed to unlink skills',
+    })
+
+    // Act & Assert
+    expect(selectVisibleIneligibleSelectedCount(state as never)).toBe(0)
+  })
 })
 
 describe('selectAnyInFlightRemovalSet', () => {
@@ -1648,6 +1684,36 @@ describe('selectAnyInFlightRemovalSet', () => {
     expect(inFlightSet.has(toSkillName('skill-b'))).toBe(true)
     expect(inFlightSet.has(toSkillName('skill-c'))).toBe(false)
     expect(inFlightSet.size).toBe(2)
+  })
+
+  test('marks the rows of an active bulk unlink as fading the same way deletes do', () => {
+    // Arrange
+    const state = buildState({
+      inFlightUnlinkNames: [toSkillName('skill-u')],
+    })
+
+    // Act
+    const inFlightSet = selectAnyInFlightRemovalSet(state as never)
+
+    // Assert
+    expect(inFlightSet.has(toSkillName('skill-u'))).toBe(true)
+    expect(inFlightSet.has(toSkillName('skill-a'))).toBe(false)
+  })
+
+  test('unions delete and unlink names when both ops run', () => {
+    // Arrange
+    const state = buildState({
+      inFlightDeleteNames: [toSkillName('skill-a')],
+      inFlightUnlinkNames: [toSkillName('skill-u')],
+    })
+
+    // Act
+    const inFlightSet = selectAnyInFlightRemovalSet(state as never)
+
+    // Assert
+    expect(inFlightSet.size).toBe(2)
+    expect(inFlightSet.has(toSkillName('skill-a'))).toBe(true)
+    expect(inFlightSet.has(toSkillName('skill-u'))).toBe(true)
   })
 
   test('returns the shared empty Set when no bulk delete is in flight so idle renders allocate nothing', () => {

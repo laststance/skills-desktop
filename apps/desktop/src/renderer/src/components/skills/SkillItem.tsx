@@ -10,7 +10,7 @@ import {
   Plus,
   X,
 } from 'lucide-react'
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 
 import { StatusBadge } from '@/renderer/src/components/status/StatusBadge'
 import { badgeVariants } from '@/renderer/src/components/ui/badge'
@@ -78,6 +78,7 @@ import { canBookmarkSkill, skillToBookmarkData } from './bookmarkHelpers'
 import { computeRangeSelection } from './bulkDeleteHelpers'
 import { partitionGlobalDeleteTargets } from './reviewedDestructiveTargets'
 import {
+  getBulkIneligibilityReason,
   getCardClickIntent,
   getCardContentPaddingClass,
   getSkillItemVisibility,
@@ -231,23 +232,24 @@ function getSymlinkStatusBuckets(
 /**
  * Decide whether this rendered row can be ticked for a bulk action.
  * @param selectedAgentId - Current agent filter, or null in global view.
- * @param eligibleNames - Visible names the bulk selectors allow in the agent view.
+ * @param eligibleNames - Visible names the bulk selectors allow in the agent
+ *   view, as a Set so per-row membership stays O(1).
  * @param skillName - Skill row currently rendered by SkillItem.
  * @returns
  * - true in the global view, where every row can be ticked
  * - true in an agent view when the row is among the eligible names
  * - false otherwise; the row's checkbox stays disabled unless already ticked
  * @example
- * canBulkSelectRenderedSkill(null, [], 'task') // => true
- * canBulkSelectRenderedSkill('cursor', ['task'], 'tdd') // => false
+ * canBulkSelectRenderedSkill(null, new Set(), 'task') // => true
+ * canBulkSelectRenderedSkill('cursor', new Set(['task']), 'tdd') // => false
  */
 function canBulkSelectRenderedSkill(
   selectedAgentId: AgentId | null,
-  eligibleNames: readonly SkillName[],
+  eligibleNames: ReadonlySet<SkillName>,
   skillName: SkillName,
 ): boolean {
   if (selectedAgentId === null) return true
-  return eligibleNames.includes(skillName)
+  return eligibleNames.has(skillName)
 }
 
 interface GlobalStatusBadgesProps {
@@ -450,7 +452,7 @@ export const SkillItem = function SkillItem({
   skill,
 }: SkillItemProps): React.ReactElement {
   const dispatch = useAppDispatch()
-  const { selectedSkill } = useAppSelector((state) => state.skills)
+  const selectedSkill = useAppSelector((state) => state.skills.selectedSkill)
   const { selectedAgentId } = useAppSelector((state) => state.ui)
   const { items: agents } = useAppSelector((state) => state.agents)
   const isSelected = selectedSkill?.path === skill.path
@@ -463,17 +465,27 @@ export const SkillItem = function SkillItem({
   const showBookmark = canBookmarkSkill(skill)
 
   const selectedNamesSet = useAppSelector(selectSelectedSkillNamesSet)
-  const inFlightRemovalSet = useAppSelector(selectAnyInFlightRemovalSet)
+  // Per-row boolean subscription: unaffected rows keep a stable `false` and
+  // skip the re-render each time the union Set's identity changes.
+  const isInFlight = useAppSelector((state) =>
+    selectAnyInFlightRemovalSet(state).has(skill.name),
+  )
   const selectionAnchor = useAppSelector(selectSelectionAnchor)
   const visibleNames = useAppSelector(selectVisibleSkillNames)
   const eligibleNames = useAppSelector(selectBulkSelectableVisibleSkillNames)
+  // O(1) membership for canBulkSelectRenderedSkill/range selection — the
+  // array identity is stable (memoized selector), so the Set rebuilds only
+  // when the eligible list actually changes.
+  const eligibleNamesSet = useMemo(
+    () => new Set(eligibleNames),
+    [eligibleNames],
+  )
   // Once anything is ticked, every row shows its checkbox.
   const isAnyRowSelected = useAppSelector(
     (state) => selectSelectedCount(state) > 0,
   )
   const isBulkOpBusy = useAppSelector(selectIsBulkOpBusy)
   const isTicked = selectedNamesSet.has(skill.name)
-  const isInFlight = inFlightRemovalSet.has(skill.name)
 
   const symlinkStatusBuckets = getSymlinkStatusBuckets(skill.symlinks)
 
@@ -494,9 +506,19 @@ export const SkillItem = function SkillItem({
   const showUnlinkButton = showUnlinkButtonBase && !isProtected
   const isBulkSelectable = canBulkSelectRenderedSkill(
     selectedAgentId,
-    eligibleNames,
+    eligibleNamesSet,
     skill.name,
   )
+  // A disabled box reads as a glitch without a reason — name it for the
+  // tooltip and the accessible label. Busy-disabled rows keep no reason:
+  // their spinner already explains the state.
+  const bulkIneligibilityReason = isBulkSelectable
+    ? null
+    : getBulkIneligibilityReason({
+        isProtected,
+        isLocalSkill,
+        selectedAgentSymlinkStatus: selectedAgentSymlink?.status ?? null,
+      })
 
   // Get selected agent name for tooltip
   const selectedAgentName =
@@ -597,7 +619,7 @@ export const SkillItem = function SkillItem({
       anchorName,
       skill.name,
       visibleNames,
-      new Set(eligibleNames),
+      eligibleNamesSet,
     )
     if (namesInRange.length === 0) return
     dispatch(selectRange(namesInRange))
@@ -820,6 +842,7 @@ export const SkillItem = function SkillItem({
                 isAnyRowSelected={isAnyRowSelected}
                 isBulkOpBusy={isBulkOpBusy}
                 skillName={skill.name}
+                ineligibilityReason={bulkIneligibilityReason}
                 onCheckedChange={handleCheckedChange}
                 onPointerDown={handleCheckboxPointerDown}
                 onClick={handleCheckboxClick}
@@ -1013,6 +1036,13 @@ interface BulkSelectionCheckboxProps {
   /** True while a bulk op runs; the checkbox is disabled until it settles. */
   isBulkOpBusy: boolean
   skillName: SkillName
+  /**
+   * Why the row cannot be bulk-selected, or null when it can. Shown as a
+   * tooltip on the hit-area label and folded into the checkbox's accessible
+   * name — a disabled control takes no pointer events or focus, so both
+   * channels are needed.
+   */
+  ineligibilityReason: string | null
   onCheckedChange: (checked: boolean | 'indeterminate') => void
   onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => void
   onClick: (event: React.MouseEvent<HTMLButtonElement>) => void
@@ -1036,10 +1066,12 @@ function handleBulkSelectionLabelClick(
  * With nothing selected the column stays quiet: a row's box appears on hover or
  * keyboard focus. Once any row is ticked, every row shows its box, so the
  * header's Delete/Unlink is only reachable while each ticked row is visible.
- * @param props - Selection state, eligibility, busy flag, and handlers prepared by SkillItem.
- * @returns Checkbox label with a stable 28px hit area.
+ * @param props - Selection state, eligibility flag, the reason sentence when
+ *   the row is ineligible, busy flag, and handlers prepared by SkillItem.
+ * @returns Checkbox label with a stable 28px hit area, wrapped in a reason
+ *   tooltip while the row is ineligible.
  * @example
- * <BulkSelectionCheckbox isTicked={false} isBulkSelectable isAnyRowSelected={false} isBulkOpBusy={false} skillName="task" />
+ * <BulkSelectionCheckbox isTicked={false} isBulkSelectable isAnyRowSelected={false} isBulkOpBusy={false} skillName="task" ineligibilityReason={null} />
  */
 const BulkSelectionCheckbox = function BulkSelectionCheckbox({
   isTicked,
@@ -1047,13 +1079,29 @@ const BulkSelectionCheckbox = function BulkSelectionCheckbox({
   isAnyRowSelected,
   isBulkOpBusy,
   skillName,
+  ineligibilityReason,
   onCheckedChange,
   onPointerDown,
   onClick,
 }: BulkSelectionCheckboxProps): React.ReactElement {
   const isDisabled = isBulkOpBusy || (!isBulkSelectable && !isTicked)
+  // Screen readers get the reason inline — the tooltip on the wrapper is
+  // unreachable without a focusable control. Falls back to the plain label
+  // when the row is ineligible for a reason outside the named set (e.g. the
+  // error screen emptied the eligible list while a row stayed mounted).
+  // A ticked-but-ineligible row keeps the Deselect verb first (voice control)
+  // and still names the reason — its tick is inert for the current bulk action.
+  const checkboxAriaLabel = isTicked
+    ? !isBulkSelectable && ineligibilityReason !== null
+      ? `Deselect ${skillName} — ${ineligibilityReason}`
+      : `Deselect ${skillName}`
+    : isBulkSelectable
+      ? `Select ${skillName}`
+      : ineligibilityReason !== null
+        ? `${skillName} is not eligible for bulk selection — ${ineligibilityReason}`
+        : `${skillName} is not eligible for bulk selection`
 
-  return (
+  const checkboxLabel = (
     // react-doctor-disable-next-line react-doctor/label-has-associated-control, react-doctor/no-noninteractive-element-interactions -- the label wraps a Radix <Checkbox> (renders a real <input>) that react-doctor can't see as the control; the onClick is a stopPropagation guard, not an interactive handler.
     <label
       className={cn(
@@ -1075,13 +1123,7 @@ const BulkSelectionCheckbox = function BulkSelectionCheckbox({
         onPointerDown={onPointerDown}
         onClick={onClick}
         disabled={isDisabled}
-        aria-label={
-          isTicked
-            ? `Deselect ${skillName}`
-            : isBulkSelectable
-              ? `Select ${skillName}`
-              : `${skillName} is not eligible for bulk selection`
-        }
+        aria-label={checkboxAriaLabel}
         className={cn(
           // The reveal sits on the focusable box itself, so Tab reveals it.
           !isAnyRowSelected &&
@@ -1090,5 +1132,19 @@ const BulkSelectionCheckbox = function BulkSelectionCheckbox({
         )}
       />
     </label>
+  )
+
+  // Eligible rows need no tooltip — the box already does what it looks like.
+  if (ineligibilityReason === null) {
+    return checkboxLabel
+  }
+
+  return (
+    <Tooltip>
+      {/* The label is the trigger (not a wrapper span): it already owns the
+          hit area and keeps pointer events alive past the disabled box. */}
+      <TooltipTrigger asChild>{checkboxLabel}</TooltipTrigger>
+      <TooltipContent side="top">{ineligibilityReason}</TooltipContent>
+    </Tooltip>
   )
 }

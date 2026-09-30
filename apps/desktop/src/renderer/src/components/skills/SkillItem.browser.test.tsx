@@ -1,6 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
@@ -346,13 +347,227 @@ describe('SkillItem symlink status badges', () => {
 
     // Assert — the slot stays rendered (so titles stay aligned) but the row is
     // marked out-of-scope via a disabled checkbox and an "is not eligible"
-    // label, instead of vanishing. Keeping the checkbox lets a row that was
-    // selected and then became ineligible still be deselected individually.
+    // label carrying the reason, instead of vanishing. Keeping the checkbox
+    // lets a row that was selected and then became ineligible still be
+    // deselected individually.
     const ineligibleCheckbox = screen.getByRole('checkbox', {
-      name: 'task is not eligible for bulk selection',
+      name: 'task is not eligible for bulk selection — Broken link — use Symlink cleanup to remove it',
     })
     await expect.element(ineligibleCheckbox).toBeInTheDocument()
     await expect.element(ineligibleCheckbox).toBeDisabled()
+  })
+
+  test('shows the ineligibility reason on hover so the disabled box does not read as a glitch', async () => {
+    // Arrange — a local folder in Cursor view: bulk Unlink only removes
+    // symlinks, so the row is out of scope.
+    const localSkill = makeSkill({
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          status: 'valid',
+          linkPath: toAbsolutePath('/home/user/.cursor/skills/task'),
+          targetPath: toAbsolutePath('/home/user/.cursor/skills/task'),
+          isLocal: true,
+        },
+      ],
+    })
+    const { screen, store } = await renderSkillItem(localSkill)
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+    store.dispatch(selectAgent('cursor'))
+    const ineligibleCheckbox = screen.getByRole('checkbox', {
+      name: 'task is not eligible for bulk selection — Local folder — bulk unlink only removes symlinks',
+    })
+    await expect.element(ineligibleCheckbox).toBeVisible()
+
+    // Act — a disabled control takes no pointer events, so the tooltip lives
+    // on the wrapping label; hover the label's hit area.
+    const label = ineligibleCheckbox.element().closest('label')
+    if (!label) throw new Error('expected the checkbox label hit area')
+    await userEvent.hover(label)
+
+    // Assert
+    await expect
+      .element(
+        screen.getByRole('tooltip', {
+          name: 'Local folder — bulk unlink only removes symlinks',
+        }),
+      )
+      .toBeVisible()
+  })
+
+  test('names protection as the reason on a protected valid-linked row so the lock is explained end to end', async () => {
+    // Arrange — valid Cursor link, then protected via protectSlice. The
+    // protected flag comes from a different slice than the symlink visibility
+    // flags, so this wires the full path (getBulkIneligibilityReason input
+    // could silently drop it and fall through to the 'valid' → null branch).
+    const validSkill = makeSkill({
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          status: 'valid',
+          linkPath: toAbsolutePath('/home/user/.cursor/skills/task'),
+          targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
+          isLocal: false,
+        },
+      ],
+    })
+    const { screen, store } = await renderSkillItem(validSkill)
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+    const { addProtection } =
+      await import('@/renderer/src/redux/slices/protectSlice')
+    store.dispatch(fetchSkills.fulfilled([validSkill], 'skills-req'))
+    store.dispatch(selectAgent('cursor'))
+
+    // Act
+    store.dispatch(addProtection({ name: toSkillName('task') }))
+
+    // Assert — the box is disabled and names the lock, both in its accessible
+    // name and in the hover tooltip on the label hit area.
+    const ineligibleCheckbox = screen.getByRole('checkbox', {
+      name: 'task is not eligible for bulk selection — Protected — unlock to include in bulk actions',
+    })
+    await expect.element(ineligibleCheckbox).toBeVisible()
+    await expect.element(ineligibleCheckbox).toBeDisabled()
+    const label = ineligibleCheckbox.element().closest('label')
+    if (!label) throw new Error('expected the checkbox label hit area')
+    await userEvent.hover(label)
+    await expect
+      .element(
+        screen.getByRole('tooltip', {
+          name: 'Protected — unlock to include in bulk actions',
+        }),
+      )
+      .toBeVisible()
+  })
+
+  test('keeps an eligible row checkbox free of any reason tooltip', async () => {
+    // Arrange — a valid symlinked row in Cursor view.
+    const validSkill = makeSkill({
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          status: 'valid',
+          linkPath: toAbsolutePath('/home/user/.cursor/skills/task'),
+          targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
+          isLocal: false,
+        },
+      ],
+    })
+    const { screen, store } = await renderSkillItem(validSkill)
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+    // Eligibility reads the loaded list, not the rendered prop — without the
+    // row in `skills.items` every agent-view checkbox reads as ineligible.
+    store.dispatch(fetchSkills.fulfilled([validSkill], 'skills-req'))
+    store.dispatch(selectAgent('cursor'))
+    const checkbox = screen.getByRole('checkbox', { name: 'Select task' })
+    await expect.element(checkbox).toBeVisible()
+
+    // Act
+    const label = checkbox.element().closest('label')
+    if (!label) throw new Error('expected the checkbox label hit area')
+    await userEvent.hover(label)
+
+    // Assert — no tooltip opens; the accessible name stays plain.
+    await expect.poll(() => screen.getByRole('tooltip').query()).toBeNull()
+  })
+
+  test('keeps the plain "not eligible" label and no tooltip on a still-mounted valid row behind the skills error screen', async () => {
+    // Arrange — a valid symlinked row in Cursor view that becomes ineligible
+    // when a rejected refresh sets skills.error: the error screen empties the
+    // eligible list while this row is still mounted. There is no named cause,
+    // so the box must fall back to the bare "not eligible" name instead of
+    // announcing `— undefined` or hanging a reasonless tooltip on the label.
+    const validSkill = makeSkill({
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          status: 'valid',
+          linkPath: toAbsolutePath('/home/user/.cursor/skills/task'),
+          targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
+          isLocal: false,
+        },
+      ],
+    })
+    const { screen, store } = await renderSkillItem(validSkill)
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+    store.dispatch(fetchSkills.fulfilled([validSkill], 'skills-req'))
+    store.dispatch(selectAgent('cursor'))
+    await expect
+      .element(screen.getByRole('checkbox', { name: 'Select task' }))
+      .toBeEnabled()
+
+    // Act
+    store.dispatch(
+      fetchSkills.rejected(new Error('disk read failed'), 'refresh'),
+    )
+
+    // Assert — disabled with the bare label, and hovering the hit-area label
+    // opens no tooltip because the reason is null.
+    const checkbox = screen.getByRole('checkbox', {
+      name: 'task is not eligible for bulk selection',
+    })
+    await expect.element(checkbox).toBeDisabled()
+    const label = checkbox.element().closest('label')
+    if (!label) throw new Error('expected the checkbox label hit area')
+    await userEvent.hover(label)
+    await expect.poll(() => screen.getByRole('tooltip').query()).toBeNull()
+  })
+
+  test('keeps a ticked ineligible row deselectable through the reason tooltip wrapper', async () => {
+    // Arrange — a row that stays ticked after its Cursor link turns out
+    // broken (the "+N not eligible" header population): the box must stay an
+    // enabled Deselect control so the user can back the tick out, and the new
+    // TooltipTrigger wrapper around the label must not swallow the click.
+    const brokenSkill = makeSkill({
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          status: 'broken',
+          linkPath: toAbsolutePath('/home/user/.cursor/skills/task'),
+          targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
+          isLocal: false,
+        },
+      ],
+      isOrphan: false,
+    })
+    const { screen, store } = await renderSkillItem(brokenSkill)
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+    store.dispatch(fetchSkills.fulfilled([brokenSkill], 'skills-req'))
+    store.dispatch(selectAgent('cursor'))
+    store.dispatch(toggleSelection(toSkillName('task')))
+    // Ticked + ineligible keeps the Deselect verb but still names the reason —
+    // the "+N not eligible" header count is exactly this population.
+    const checkbox = screen.getByRole('checkbox', {
+      name: 'Deselect task — Broken link — use Symlink cleanup to remove it',
+    })
+    await expect.element(checkbox).toBeEnabled()
+
+    // Act — untick through the tooltip-wrapped hit area.
+    await checkbox.click()
+
+    // Assert — the tick cleared and the box dropped back to the disabled,
+    // reason-carrying ineligible label.
+    await expect
+      .element(
+        screen.getByRole('checkbox', {
+          name: 'task is not eligible for bulk selection — Broken link — use Symlink cleanup to remove it',
+        }),
+      )
+      .toBeDisabled()
+    expect(store.getState().skills.selectedSkillNames).toEqual([])
   })
 })
 
@@ -1408,7 +1623,11 @@ describe('SkillItem card modifier clicks', () => {
     store.dispatch(selectAgent('cursor'))
     store.dispatch(toggleSelection(toSkillName('task')))
     await expect
-      .element(screen.getByRole('checkbox', { name: 'Deselect task' }))
+      .element(
+        screen.getByRole('checkbox', {
+          name: 'Deselect task — Broken link — use Symlink cleanup to remove it',
+        }),
+      )
       .toBeEnabled()
 
     // Act

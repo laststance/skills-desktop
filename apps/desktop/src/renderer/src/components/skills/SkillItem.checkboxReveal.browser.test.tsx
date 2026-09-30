@@ -260,7 +260,7 @@ describe('SkillItem row checkbox reveal', () => {
     const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
     store.dispatch(selectAgent('cursor'))
     const checkbox = screen.getByRole('checkbox', {
-      name: 'task is not eligible for bulk selection',
+      name: 'task is not eligible for bulk selection — Broken link — use Symlink cleanup to remove it',
     })
     await expect.element(checkbox).toBeDisabled()
     await expect

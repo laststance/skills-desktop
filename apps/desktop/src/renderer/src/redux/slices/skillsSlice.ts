@@ -404,13 +404,25 @@ export const bulkCopyToAgents = createAsyncThunk<
  */
 export const deleteSelectedSkills = createAsyncThunk<
   BulkDeleteResult,
-  DeleteSelectedSkillTarget[]
->('skills/deleteSelected', async (selectedTargets) => {
-  const result = await window.electron.skills.deleteSkills({
-    items: selectedTargets.map(toDeleteSkillItem),
-  })
-  return result
-})
+  DeleteSelectedSkillTarget[],
+  { state: Pick<RootState, 'skills'> }
+>(
+  'skills/deleteSelected',
+  async (selectedTargets) => {
+    const result = await window.electron.skills.deleteSkills({
+      items: selectedTargets.map(toDeleteSkillItem),
+    })
+    return result
+  },
+  {
+    // Single-flight per removal family, mirroring {@link bulkCopyToAgents}:
+    // overlapping delete-family dispatches would clobber inFlightDeleteNames
+    // and drop bulkDeleting on the first settle, unfading a still-running op.
+    condition: (_arg, { getState }) => {
+      if (getState().skills.bulkDeleting) return false
+    },
+  },
+)
 
 /**
  * Clear reviewed orphan symlink records without invoking source deletion.
@@ -428,12 +440,22 @@ export const clearSelectedOrphanSymlinks = createAsyncThunk<
       linkPath: AbsolutePath
       targetPath: AbsolutePath
     }>
-  }>
->('skills/clearSelectedOrphanSymlinks', async (orphanRecords) => {
-  return window.electron.skills.clearOrphanSymlinks({
-    items: orphanRecords,
-  })
-})
+  }>,
+  { state: Pick<RootState, 'skills'> }
+>(
+  'skills/clearSelectedOrphanSymlinks',
+  async (orphanRecords) => {
+    return window.electron.skills.clearOrphanSymlinks({
+      items: orphanRecords,
+    })
+  },
+  {
+    // Same delete-family single-flight guard as {@link deleteSelectedSkills}.
+    condition: (_arg, { getState }) => {
+      if (getState().skills.bulkDeleting) return false
+    },
+  },
+)
 
 /**
  * Clear reviewed broken symlink slots after main revalidates exact path and target identity.
@@ -444,19 +466,29 @@ export const clearSelectedOrphanSymlinks = createAsyncThunk<
  */
 export const clearSelectedBrokenSymlinkSlots = createAsyncThunk<
   ClearBrokenSymlinkSlotsResult,
-  { items: ClearBrokenSymlinkSlotTarget[] }
->('skills/clearSelectedBrokenSymlinkSlots', async ({ items }) => {
-  // Strip the renderer-only `displaySkillName` before crossing IPC — main
-  // validates path identity from linkName/linkPath/targetPath only.
-  return window.electron.skills.clearBrokenSymlinkSlots({
-    items: items.map(({ agentId, linkName, linkPath, targetPath }) => ({
-      agentId,
-      linkName,
-      linkPath,
-      targetPath,
-    })),
-  })
-})
+  { items: ClearBrokenSymlinkSlotTarget[] },
+  { state: Pick<RootState, 'skills'> }
+>(
+  'skills/clearSelectedBrokenSymlinkSlots',
+  async ({ items }) => {
+    // Strip the renderer-only `displaySkillName` before crossing IPC — main
+    // validates path identity from linkName/linkPath/targetPath only.
+    return window.electron.skills.clearBrokenSymlinkSlots({
+      items: items.map(({ agentId, linkName, linkPath, targetPath }) => ({
+        agentId,
+        linkName,
+        linkPath,
+        targetPath,
+      })),
+    })
+  },
+  {
+    // Same unlink-family single-flight guard as {@link unlinkSelectedFromAgent}.
+    condition: (_arg, { getState }) => {
+      if (getState().skills.bulkUnlinking) return false
+    },
+  },
+)
 
 /**
  * Unlink every selected skill from a single agent. No tombstone produced —
@@ -468,14 +500,26 @@ export const clearSelectedBrokenSymlinkSlots = createAsyncThunk<
  */
 export const unlinkSelectedFromAgent = createAsyncThunk<
   BulkUnlinkResult,
-  { agentId: AgentId; selectedNames: UnlinkSelectedSkillTarget[] }
->('skills/unlinkSelectedFromAgent', async ({ agentId, selectedNames }) => {
-  const result = await window.electron.skills.unlinkManyFromAgent({
-    agentId,
-    items: selectedNames.map(toUnlinkSkillItem),
-  })
-  return result
-})
+  { agentId: AgentId; selectedNames: UnlinkSelectedSkillTarget[] },
+  { state: Pick<RootState, 'skills'> }
+>(
+  'skills/unlinkSelectedFromAgent',
+  async ({ agentId, selectedNames }) => {
+    const result = await window.electron.skills.unlinkManyFromAgent({
+      agentId,
+      items: selectedNames.map(toUnlinkSkillItem),
+    })
+    return result
+  },
+  {
+    // Single-flight per removal family, mirroring {@link bulkCopyToAgents}:
+    // overlapping unlink-family dispatches would clobber inFlightUnlinkNames
+    // and drop bulkUnlinking on the first settle, unfading a still-running op.
+    condition: (_arg, { getState }) => {
+      if (getState().skills.bulkUnlinking) return false
+    },
+  },
+)
 
 /**
  * Restore the last batch of tombstoned deletes by calling the main-process
@@ -953,6 +997,8 @@ export const selectSelectionAnchor = (state: RootState): SkillName | null =>
   state.skills.selectionAnchor
 export const selectInFlightDeleteNames = (state: RootState): SkillName[] =>
   state.skills.inFlightDeleteNames
+export const selectInFlightUnlinkNames = (state: RootState): SkillName[] =>
+  state.skills.inFlightUnlinkNames
 export const selectBulkCopying = (state: RootState): boolean =>
   state.skills.bulkCopying
 /**

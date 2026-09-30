@@ -620,6 +620,198 @@ describe('MainContent list header integration', () => {
     expect(screen.getByText(/\d+ selected/).query()).toBeNull()
   })
 
+  test('returns focus to the master checkbox when the bulk-confirm dialog closes on Cancel', async () => {
+    // Arrange — the Redux-driven dialog has no trigger element, so Radix
+    // would otherwise dump focus on <body> when it closes.
+    const { screen, store } = await renderMainContentWithListHeader()
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { setBulkConfirm } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const skill = makeCursorSkill(toSkillName('task-one'), 'valid')
+    store.dispatch(fetchSkills.fulfilled([skill], 'skills-req'))
+    store.dispatch(toggleSelection(toSkillName('task-one')))
+    // The single ticked row makes the master box read "Deselect all".
+    const masterCheckbox = screen.getByRole('checkbox', {
+      name: 'Deselect all',
+    })
+    await expect.element(masterCheckbox).toBeVisible()
+    masterCheckbox.element().focus()
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'unlink',
+        origin: 'selection',
+        skillNames: [toSkillName('task-one')],
+        agentId: 'cursor',
+        agentName: 'Cursor',
+        unlinkTargets: [
+          {
+            skillName: toSkillName('task-one'),
+            linkPath: toAbsolutePath('/Users/test/.cursor/skills/task-one'),
+            targetPath: toAbsolutePath('/Users/test/.agents/skills/task-one'),
+          },
+        ],
+        sourceSummary: null,
+      }),
+    )
+    await expect.element(screen.getByRole('dialog')).toBeVisible()
+
+    // Act
+    await screen.getByRole('button', { name: 'Cancel' }).click()
+
+    // Assert — focus lands back on the checkbox that launched the op, not body.
+    await expect.element(screen.getByRole('dialog')).not.toBeInTheDocument()
+    expect(document.activeElement).toBe(masterCheckbox.element())
+  })
+
+  test('falls back to the main landmark for focus when the master checkbox is disabled while the bulk-confirm dialog closes', async () => {
+    // Arrange — mid-delete the master checkbox is disabled, so the close
+    // handler must hand focus to #main-content instead of a dead control.
+    const { screen, store } = await renderMainContentWithListHeader()
+    const { fetchSkills, toggleSelection, deleteSelectedSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { setBulkConfirm } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const skill = makeCursorSkill(toSkillName('task-one'), 'valid')
+    store.dispatch(fetchSkills.fulfilled([skill], 'skills-req'))
+    store.dispatch(toggleSelection(toSkillName('task-one')))
+    store.dispatch(
+      deleteSelectedSkills.pending('delete-req', [
+        {
+          skillName: toSkillName('task-one'),
+          skillPath: skill.path,
+          filesystemIdentity: {
+            kind: 'directory',
+            dev: 1,
+            ino: 1,
+            size: toFileSizeBytes(1),
+            ctimeMs: 1,
+            mtimeMs: 1,
+          },
+        },
+      ]),
+    )
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'unlink',
+        origin: 'selection',
+        skillNames: [toSkillName('task-one')],
+        agentId: 'cursor',
+        agentName: 'Cursor',
+        unlinkTargets: [
+          {
+            skillName: toSkillName('task-one'),
+            linkPath: toAbsolutePath('/Users/test/.cursor/skills/task-one'),
+            targetPath: toAbsolutePath('/Users/test/.agents/skills/task-one'),
+          },
+        ],
+        sourceSummary: null,
+      }),
+    )
+    // Grab the master box before the dialog opens — Radix aria-hides the
+    // background while a modal is up, so role queries stop seeing it.
+    const masterCheckbox = document.querySelector<HTMLButtonElement>(
+      '[data-master-selection-checkbox="true"]',
+    )
+    if (!masterCheckbox) throw new Error('expected the master checkbox')
+    await expect.element(screen.getByRole('dialog')).toBeVisible()
+    expect(masterCheckbox.disabled).toBe(true)
+
+    // Act
+    await screen.getByRole('button', { name: 'Cancel' }).click()
+
+    // Assert — disabled master can't receive focus, so it lands on the
+    // main landmark instead of body.
+    await expect.element(screen.getByRole('dialog')).not.toBeInTheDocument()
+    const mainLandmark = document.getElementById('main-content')
+    if (!mainLandmark) throw new Error('expected #main-content to exist')
+    expect(document.activeElement).toBe(mainLandmark)
+  })
+
+  test('falls back to the main landmark for focus when the header unmounts while the bulk-confirm dialog closes', async () => {
+    // Arrange — switching tabs clears bulkConfirm AND unmounts the Installed
+    // tree (TabsContent has no forceMount) in the same commit, so the close
+    // handler's querySelector finds no master checkbox at all.
+    const { screen, store } = await renderMainContentWithListHeader()
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { setBulkConfirm, setActiveTab } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const skill = makeCursorSkill(toSkillName('task-one'), 'valid')
+    store.dispatch(fetchSkills.fulfilled([skill], 'skills-req'))
+    store.dispatch(toggleSelection(toSkillName('task-one')))
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'unlink',
+        origin: 'selection',
+        skillNames: [toSkillName('task-one')],
+        agentId: 'cursor',
+        agentName: 'Cursor',
+        unlinkTargets: [
+          {
+            skillName: toSkillName('task-one'),
+            linkPath: toAbsolutePath('/Users/test/.cursor/skills/task-one'),
+            targetPath: toAbsolutePath('/Users/test/.agents/skills/task-one'),
+          },
+        ],
+        sourceSummary: null,
+      }),
+    )
+    await expect.element(screen.getByRole('dialog')).toBeVisible()
+
+    // Act — the tab switch closes the dialog and removes the checkbox at once.
+    store.dispatch(setActiveTab('marketplace'))
+
+    // Assert — no master exists to take focus, so it lands on the main
+    // landmark instead of falling through to <body>.
+    await expect.element(screen.getByRole('dialog')).not.toBeInTheDocument()
+    const mainLandmark = document.getElementById('main-content')
+    if (!mainLandmark) throw new Error('expected #main-content to exist')
+    // Radix runs close-auto-focus off a macrotask after unmount — poll for it.
+    await vi.waitFor(() => {
+      expect(document.activeElement).toBe(mainLandmark)
+    })
+  })
+
+  test('hands focus to the main landmark when an external clear removes the focused Clear button while the master box is disabled', async () => {
+    // Arrange — focus sits on Clear inside the selected header. A failed
+    // refresh clears the selection (the error screen keeps no rows), which
+    // swaps the header back to rest state and unmounts Clear — while the
+    // error also empties the eligible list, leaving the master box disabled.
+    const { screen, store } = await renderMainContentWithListHeader()
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [makeCursorSkill(toSkillName('task-one'), 'valid')],
+        'skills-req',
+      ),
+    )
+    store.dispatch(toggleSelection(toSkillName('task-one')))
+    const clearButton = screen.getByRole('button', { name: 'Clear selection' })
+    await expect.element(clearButton).toBeVisible()
+    clearButton.element().focus()
+
+    // Act — the rejected refresh clears the selection and draws the error
+    // screen; the swap removes the focused Clear while the master stays
+    // disabled (no eligible rows behind the error).
+    store.dispatch(fetchSkills.pending('refresh-failed'))
+    store.dispatch(
+      fetchSkills.rejected(new Error('disk read failed'), 'refresh-failed'),
+    )
+
+    // Assert — the disabled master cannot take focus, so the labelled main
+    // landmark gets it instead of <body>.
+    await expect
+      .element(screen.getByRole('checkbox', { name: 'No skills to select' }))
+      .toBeDisabled()
+    const mainLandmark = document.getElementById('main-content')
+    if (!mainLandmark) throw new Error('expected #main-content to exist')
+    await vi.waitFor(() => {
+      expect(document.activeElement).toBe(mainLandmark)
+    })
+  })
+
   test('clears the selection on the first Esc while the Clear button tooltip that advertises Esc is open', async () => {
     // Arrange — keyboard focus on the header's Clear button opens its
     // "Clear selection Esc" tooltip, and a Radix tooltip claims Escape too

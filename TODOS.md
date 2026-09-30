@@ -54,11 +54,15 @@ Deferred from the #347 pre-landing review (cycle 3) and its adversarial pass.
 
 **Fix direction:** Wrap the disabled box in a tooltip trigger (a span, since a disabled control gets no pointer events) that names the row's reason, the way the master checkbox tooltip names its key.
 
+**Status:** Fixed in this branch (#361) — `getBulkIneligibilityReason` names the cause (protected, local folder, inaccessible, broken link); the wrapping label is the tooltip trigger and the accessible name carries the reason.
+
 ### P3. The narrow-tier `+N` indicators read alike
 
 **Finding:** Below the header's 30rem tier, `+N hidden by filter` and `+N not eligible` keep only their numbers (the words go `sr-only`, the `title` keeps the sentence). Side by side, `+2` and `+1` do not say which is which without hovering.
 
 **Fix direction:** Give each indicator a small glyph at the narrow tier (a filter icon for hidden rows, a ban icon for ineligible ones) while the number stays whole.
+
+**Status:** Fixed in this branch (#361) — `SelectionIndicator` takes a `LucideIcon` (Funnel for hidden, Ban for not-eligible) rendered inline in place of the `+` mark below 30rem, so it stays distinct without overlapping the sibling indicator.
 
 ### P3. Focus falls to the page after a keyboard-confirmed bulk dialog
 
@@ -66,17 +70,23 @@ Deferred from the #347 pre-landing review (cycle 3) and its adversarial pass.
 
 **Fix direction:** On close, return focus to the master checkbox when the dialog's trigger no longer exists (Radix `onCloseAutoFocus` with a fallback target).
 
+**Status:** Fixed in this branch (#361) — `handleBulkConfirmCloseAutoFocus` preventDefaults and focuses `[data-master-selection-checkbox]` when enabled, else `#main-content`.
+
 ### P3. A failed op's error screen counts its ticks as not eligible
 
 **Finding:** When an op other than a refresh rejects (copy, link, unlink, delete, symlink cleanup, undo), `skills.error` is set and `SkillsList` draws only the error text. The listener clears the selection only on `fetchSkills.rejected`, so the ticks stay. `selectBulkSelectableVisibleSkillNames` returns `[]` while the error is set, so the header reads `+N not eligible` over a screen that shows no rows. Every action stays disabled, so nothing runs against those ticks.
 
 **Fix direction:** While `skills.error` is set, have the header drop both indicators (or say the list is unavailable) and keep the ticks, so a successful refresh brings them back with their rows. Clearing the selection on these rejections instead would also drop the ticks a failed bulk op keeps for a retry.
 
+**Status:** Fixed in this branch (#361) — `selectHiddenSelectedCount` and `selectVisibleIneligibleSelectedCount` both return 0 while `skills.error` is set; ticks are preserved for retry.
+
 ### P3. `inFlightUnlinkNames` is written but never read
 
 **Finding:** `skillsSlice` fills and clears `inFlightUnlinkNames` around a bulk unlink, and its JSDoc says the row fades while present, but nothing reads it. `selectAnyInFlightRemovalSet`, which `SkillItem` reads to fade rows, is built from the delete names alone despite its name. The same is true on `main`, so this is not a #347 regression.
 
 **Fix direction:** Either add the unlink names to `selectAnyInFlightRemovalSet` so unlinking rows fade the way deleting rows do, or delete the field and its reducer writes.
+
+**Status:** Fixed in this branch (#361) — `selectInFlightUnlinkNames` is exported and unioned into `selectAnyInFlightRemovalSet`, so unlinking rows fade like deleting rows.
 
 ## Symlink Health cleanup subagent review follow-ups (2026-05-28)
 
@@ -1776,3 +1786,14 @@ mode-specific symbols renamed to `MarkdownPreviewMode`/`MARKDOWN_PREVIEW_*`
 (TextPreview stays generic — it renders all text files); true relaunch e2e in
 `e2e/spec/markdown-preview-mode.e2e.ts` via the shared
 `launchIsolatedElectron` helper extracted to `e2e/fixtures/electron-app.ts`.
+
+## List-header review follow-ups (2026-10-01)
+
+### P3. `SourceLink` renders a raw `href` without a URL-scheme check
+
+`SourceLink.tsx` passes `sourceUrl` straight into `<a href>`; `handleExternalClick`
+routes external opens through `shell.openExternal`, but the constructed URL is
+never validated for scheme. If a marketplace row ever carried a non-https URL
+(e.g. `javascript:`), the anchor would expose it. Add an `http(s)` allowlist at
+the boundary where `sourceUrl` is built. Pre-existing; surfaced by the security
+specialist during the #361 review — outside that diff's scope.

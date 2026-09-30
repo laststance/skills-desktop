@@ -1,11 +1,14 @@
 import {
   ArrowDownAZ,
   ArrowUpAZ,
+  Ban,
   Copy,
+  Funnel,
   Loader2,
   Trash2,
   Unlink,
   X,
+  type LucideIcon,
 } from 'lucide-react'
 import React, { useRef } from 'react'
 
@@ -94,8 +97,9 @@ interface InstalledListHeaderProps {
  *     (or the bulk progress), then Copy to… (global view), the primary
  *     Delete/Unlink action and Clear.
  * The row is a container: below a 30rem content width Copy turns icon-only and
- * the indicators show only their numbers (their words stay for screen readers);
- * below 24rem the summary becomes screen-reader-only and every action shrinks,
+ * the indicators keep their numbers but swap the `+` mark for a leading
+ * Funnel/Ban glyph (their words stay for screen readers); below 24rem the
+ * summary becomes screen-reader-only and every action shrinks,
  * so the row never wraps. In every tier the count and the `+N` numbers stay
  * whole: a crowded row drops the indicator words first, then truncates the
  * primary label, whose tooltip keeps the whole action. Accessible names and
@@ -151,7 +155,16 @@ export const InstalledListHeader = function InstalledListHeader({
     // Focus the user already moved elsewhere is theirs to keep.
     const { activeElement } = document
     if (activeElement !== null && activeElement !== document.body) return
-    masterCheckboxRef.current?.focus()
+    // The master box may be disabled when the swap lands (a bulk op running,
+    // or the error screen emptied the eligible list); a disabled control
+    // swallows focus() as a no-op, so fall back to the labelled main landmark
+    // instead of stranding focus on <body>.
+    const master = masterCheckboxRef.current
+    const target =
+      master !== null && !master.disabled
+        ? master
+        : document.querySelector<HTMLElement>('#main-content')
+    target?.focus()
   }, [hasSelection])
 
   return (
@@ -324,6 +337,9 @@ const MasterSelectionCheckbox = function MasterSelectionCheckbox({
             checked={checkedState}
             disabled={isDisabled}
             aria-label={label}
+            // Stable hook for BulkConfirmDialog's onCloseAutoFocus: it must
+            // find the master box without coupling to its live aria-label.
+            data-master-selection-checkbox="true"
             onCheckedChange={handleCheckedChange}
             // Keeps the row boxes' `border-primary` (3:1 at rest). ui/checkbox.tsx
             // only fills the checked state; these fill mixed too.
@@ -479,6 +495,7 @@ const SelectedHeaderContent = function SelectedHeaderContent({
               <SelectionIndicator
                 count={hiddenSelectedCount}
                 words="hidden by filter"
+                icon={Funnel}
                 title={`${hiddenSelectedCount} selected ${pluralize(hiddenSelectedCount, 'row is', 'rows are')} hidden by the current filter and will not be affected`}
               />
             ) : null}
@@ -487,6 +504,7 @@ const SelectedHeaderContent = function SelectedHeaderContent({
               <SelectionIndicator
                 count={visibleIneligibleSelectedCount}
                 words="not eligible"
+                icon={Ban}
                 title={`${visibleIneligibleSelectedCount} selected ${pluralize(visibleIneligibleSelectedCount, 'row is', 'rows are')} visible but cannot use this bulk action`}
               />
             ) : null}
@@ -592,22 +610,32 @@ interface SelectionIndicatorProps {
   words: string
   /** The whole sentence, shown on hover whatever the words have lost. */
   title: string
+  /**
+   * Glyph shown ONLY below the 30rem tier, where the words collapse to
+   * sr-only and the `+` mark is hidden — it leads the number so `2` and `1`
+   * can't be confused for one another. Always `aria-hidden`: the words still
+   * carry the meaning for screen readers.
+   */
+  icon: LucideIcon
 }
 
 /**
  * One `+N words` note in the selected header's summary, e.g. `+2 hidden by
  * filter`. The number never shrinks. The words take only the room the row has
- * left and truncate inside it, and below 30rem they stay for screen readers
- * only; the `title` keeps the whole sentence either way.
- * @param props - The count, the words after it, and the full-sentence title.
- * @returns The note's number and words, laid out as items of the summary row.
+ * left and truncate inside it; below 30rem they stay for screen readers only
+ * while a small glyph keeps the two indicators visually distinct, and the
+ * `title` keeps the whole sentence either way.
+ * @param props - The count, the words after it, the full-sentence title, and
+ *   the narrow-tier glyph.
+ * @returns The note's number, glyph, and words as items of the summary row.
  * @example
- * <SelectionIndicator count={2} words="hidden by filter" title="2 selected rows are hidden by the current filter and will not be affected" />
+ * <SelectionIndicator count={2} words="hidden by filter" icon={Funnel} title="2 selected rows are hidden by the current filter and will not be affected" />
  */
 const SelectionIndicator = function SelectionIndicator({
   count,
   words,
   title,
+  icon: Icon,
 }: SelectionIndicatorProps): React.ReactElement {
   return (
     // `contents` makes the number and the words items of the summary row, so
@@ -616,7 +644,22 @@ const SelectionIndicator = function SelectionIndicator({
       className="contents text-xs tabular-nums text-muted-foreground"
       title={title}
     >
-      <span className="ml-2 shrink-0">+{count}</span>
+      <span className="ml-2 shrink-0">
+        {/* 24–30rem band only: below 24rem the whole summary <p> goes
+            sr-only; above 30rem the words already disambiguate so the `+`
+            convention reads `+2 hidden by filter`. In between, the glyph
+            replaces the `+` as the number's leading mark — it is inline (real
+            width, never overlapping a sibling `+N`) and smaller than `+N`
+            alone would grow the span. */}
+        <span aria-hidden="true" className="@max-[30rem]:hidden">
+          +
+        </span>
+        <Icon
+          aria-hidden="true"
+          className="hidden @max-[30rem]:inline-block size-2.5 mr-px -mb-px"
+        />
+        {count}
+      </span>
       {/* w-0 keeps the words out of the summary's minimum width, and
           max-w-fit stops them growing past their own text. The nbsp survives
           the line-start whitespace collapse a flex item applies. */}

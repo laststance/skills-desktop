@@ -1127,6 +1127,118 @@ describe('InstalledListHeader layout tiers', () => {
     await expect.element(screen.getByText('Copy to…')).not.toBeVisible()
   })
 
+  test('distinguishes the narrow-tier +N indicators with a funnel and a ban glyph', async () => {
+    // Arrange — beta is broken (visible but ineligible); alpha and gamma are
+    // valid but the 'ta' search shows only beta, so they count as hidden.
+    const { screen, store } = await renderHeader({
+      skills: [
+        makeCursorSkill(toSkillName('alpha'), 'valid'),
+        makeCursorSkill(toSkillName('beta'), 'broken'),
+        makeCursorSkill(toSkillName('gamma'), 'valid'),
+      ],
+      selectedNames: [
+        toSkillName('alpha'),
+        toSkillName('beta'),
+        toSkillName('gamma'),
+      ],
+      agentId: 'cursor',
+      headerWidthPx: NARROW_HEADER_WIDTH_PX,
+    })
+    const { setSearchQuery } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    store.dispatch(setSearchQuery(toSearchQuery('ta')))
+
+    // Assert — the hidden-by-filter note carries a funnel, the not-eligible
+    // note a ban; both are sized glyphs, not bare `+N` text.
+    const hiddenNoteLocator = screen.getByTitle(
+      '2 selected rows are hidden by the current filter and will not be affected',
+    )
+    await expect.element(hiddenNoteLocator).toBeVisible()
+    const ineligibleNoteLocator = screen.getByTitle(
+      '1 selected row is visible but cannot use this bulk action',
+    )
+    await expect.element(ineligibleNoteLocator).toBeVisible()
+    const hiddenNote = hiddenNoteLocator.element()
+    const ineligibleNote = ineligibleNoteLocator.element()
+    const funnelGlyph = hiddenNote.querySelector('svg')
+    const banGlyph = ineligibleNote.querySelector('svg')
+    if (!funnelGlyph || !banGlyph) {
+      throw new Error('expected a glyph inside each narrow-tier indicator')
+    }
+    expect(funnelGlyph.classList.contains('lucide-funnel')).toBe(true)
+    expect(banGlyph.classList.contains('lucide-ban')).toBe(true)
+    // The glyphs actually render at the narrow tier (not display:none).
+    const funnelRect = funnelGlyph.getBoundingClientRect()
+    const banRect = banGlyph.getBoundingClientRect()
+    expect(funnelRect.width).toBeGreaterThan(0)
+    expect(banRect.width).toBeGreaterThan(0)
+    // Side-by-side indicators must not bleed into each other — the funnel's
+    // right edge stays left of where the ban indicator's number starts.
+    const banNoteLeft = ineligibleNote
+      .querySelector('span.ml-2')
+      ?.getBoundingClientRect().left
+    if (banNoteLeft === undefined) {
+      throw new Error('expected the ban indicator number span')
+    }
+    expect(funnelRect.right).toBeLessThanOrEqual(banNoteLeft)
+    // They are decoration — the sr-only words still carry the meaning.
+    expect(funnelGlyph.getAttribute('aria-hidden')).toBe('true')
+    expect(banGlyph.getAttribute('aria-hidden')).toBe('true')
+  })
+
+  test('hides the indicator glyphs at the full width where the words already show', async () => {
+    // Arrange
+    const { screen, store } = await renderHeader({
+      skills: [makeCursorSkill(toSkillName('alpha'), 'valid')],
+      selectedNames: [toSkillName('alpha'), toSkillName('hidden-one')],
+      agentId: null,
+      headerWidthPx: WIDE_HEADER_WIDTH_PX,
+    })
+    const { setSearchQuery } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    store.dispatch(setSearchQuery(toSearchQuery('alpha')))
+
+    // Assert — words visible, glyph collapsed.
+    const hiddenNoteLocator = screen.getByTitle(
+      '1 selected row is hidden by the current filter and will not be affected',
+    )
+    await expect.element(hiddenNoteLocator).toBeVisible()
+    const hiddenNote = hiddenNoteLocator.element()
+    await expect.element(screen.getByText('hidden by filter')).toBeVisible()
+    const glyph = hiddenNote.querySelector('svg')
+    if (!glyph)
+      throw new Error('expected the glyph element to exist but stay hidden')
+    expect(glyph.getBoundingClientRect().width).toBe(0)
+  })
+
+  test('hides the + mark at the narrow tier so the glyph is the only lead-in', async () => {
+    // Arrange — one hidden tick behind the search, narrow header.
+    const { screen, store } = await renderHeader({
+      skills: [
+        makeCursorSkill(toSkillName('alpha'), 'valid'),
+        makeCursorSkill(toSkillName('zeta'), 'valid'),
+      ],
+      selectedNames: [toSkillName('alpha'), toSkillName('zeta')],
+      agentId: 'cursor',
+      headerWidthPx: NARROW_HEADER_WIDTH_PX,
+    })
+    const { setSearchQuery } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    store.dispatch(setSearchQuery(toSearchQuery('alpha')))
+
+    // Assert — a regression that kept the `+` visible would stack it on the
+    // glyph (`+⊘2`), doubling the lead-in mark the glyph is meant to replace.
+    const hiddenNoteLocator = screen.getByTitle(
+      '1 selected row is hidden by the current filter and will not be affected',
+    )
+    await expect.element(hiddenNoteLocator).toBeVisible()
+    const plusMark = hiddenNoteLocator
+      .element()
+      .querySelector('span.ml-2 > span')
+    if (!plusMark) throw new Error('expected the + mark span')
+    expect(plusMark.getBoundingClientRect().width).toBe(0)
+  })
+
   test('names the action in a tooltip once Copy shrinks to an icon in the narrow header', async () => {
     // Arrange
     const { screen } = await renderHeader({
@@ -1217,10 +1329,16 @@ describe('InstalledListHeader layout tiers', () => {
     expect(countText.getBoundingClientRect().right).toBeLessThanOrEqual(
       unlinkLeft,
     )
+    // The narrow tier leads the count with a glyph instead of `+`, so the
+    // number span is located through the note's title, not its text.
     const hiddenNumber = screen
-      .getByText('+1', { exact: true })
+      .getByTitle(
+        '1 selected row is hidden by the current filter and will not be affected',
+      )
       .element()
-      .getBoundingClientRect()
+      .querySelector('span.ml-2')
+      ?.getBoundingClientRect()
+    if (!hiddenNumber) throw new Error('expected the hidden-count span')
     expect(hiddenNumber.width).toBeGreaterThan(0)
     expect(hiddenNumber.right).toBeLessThanOrEqual(unlinkLeft)
     const label = screen
