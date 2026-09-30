@@ -1761,3 +1761,49 @@ scan false-negative, not an unprunable state — see there.
   `LockPruneDialog.tsx:68` toasts that (covered by
   `LockPruneDialog.browser.test.tsx:106`). Untested is only the main-process
   classification under a genuine spawn failure.
+
+## Markdown preview review follow-ups (2026-09-30)
+
+Deferred findings from the /ship pre-landing review of
+`feat/markdown-preview-mode-persist`. None block the feature; each needs a
+product/UX decision rather than a mechanical fix.
+
+- **Code-mode scroll does not reset on file switch.** Reading Mode remounts
+  per document (`FileContent.tsx` key), but `SyntaxHighlightedCode` has no
+  key, so switching files in Code mode keeps the previous file's scrollTop.
+  Pre-existing behavior, unchanged by this diff. Decide whether Code mode
+  should also start at top (same key approach works) or keep scroll memory.
+- **Markdown preview-mode write failures only console.error.** The codebase's
+  own convention (`createReportingLocalStorage` in `redux/reportingLocalStorage.ts`)
+  toasts the user when a persisted preference can't reach disk. Reusing
+  `warnPersistedStateNotSaved` would show the wrong copy ("Locked skills,
+  bookmarks, theme and dashboard layout…"), so a dedicated reporter with
+  preview-mode copy is needed if we want parity.
+- **No `storage`-event sync between preview surfaces.** Safe today —
+  FileContent mounts only inside SkillDetail's CodePreview — documented on
+  `readStoredTextPreviewMode`. If a second preview surface is ever added,
+  mounted toggles diverge and last-writer-wins on remount.
+- **Identical-shape document corner.** The reading-pane key uses
+  (lineCount, content.length) as document identity, so two DIFFERENT files with
+  identical shape skip the arrival-time remount — scroll accrued during the
+  stale-content IPC window then leaks into the new file. Realistic for
+  template-generated SKILL.md files. A per-load token or content fingerprint
+  in useCodePreview's PreviewContent would close it completely.
+- **Double mount per file switch in Reading Mode.** The key's path segment
+  remounts at selection-commit while the OLD document is still rendered, so
+  react-markdown parses it once more before the new file lands. Gating the
+  render on content-matches-path (a `loadedFor` tag in PreviewContent) would
+  trade the wasted parse for a blank flash — product call.
+- **Mid-session mode revert on storage failure.** When a localStorage write
+  fails, the in-memory selection still survives text→text file switches, but a
+  detour through image/binary/empty unmounts TextPreview and the remount
+  re-reads storage — reverting the user's choice mid-session. Same gesture,
+  inconsistent outcome, no UI signal (folds into the write-failure reporter
+  item above).
+- **No real-restart e2e for the persisted mode.** The 'app restart' browser
+  test simulates a remount on the same live origin; no e2e relaunches Electron
+  to verify `loadFile()` localStorage persistence end-to-end.
+- **`TextPreview*` vs `markdown preview` naming split.** The persisted/
+  user-facing vocabulary is 'markdown preview mode' (key, aria-label) but the
+  symbols say TextPreview*; a reader grepping one vocabulary misses the other.
+  Rename or note the alias when the file is next touched.

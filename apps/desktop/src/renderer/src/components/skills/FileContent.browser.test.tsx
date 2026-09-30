@@ -1,9 +1,11 @@
-import { describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { PreviewContent } from '@/renderer/src/hooks/useCodePreview'
 import '@/renderer/src/styles/globals.css'
+import { MARKDOWN_PREVIEW_MODE_KEY } from '@/shared/constants'
 import {
+  toAbsolutePath,
   toDataUrl,
   toFileExtension,
   toFileName,
@@ -13,6 +15,28 @@ import {
 } from '@/shared/types'
 
 import * as shikiPreview from './shikiPreview'
+
+// The Markdown preview mode toggle persists to real localStorage; reset it so
+// one test's selection can't leak into the next test's default-mode assertions.
+beforeEach(() => {
+  window.localStorage.removeItem(MARKDOWN_PREVIEW_MODE_KEY)
+})
+
+// A Storage spy left in place by a failed assertion (before its mockRestore()
+// call) would leak into the next test, so restore unconditionally here too.
+// restoreAllMocks() only reverts vi.spyOn spies; it doesn't clear the
+// passthrough codeToHtml mock's queued mockReturnValueOnce, so a test that
+// fails before consuming its queued hang would otherwise leak it forward.
+// mockReset (not mockClear) is required: mockClear only empties call history —
+// the once-queue survives it — while reset also drains it and restores the
+// passthrough implementation for a `vi.fn(impl)` mock.
+afterEach(() => {
+  vi.restoreAllMocks()
+  vi.mocked(shikiPreview.codeToHtml).mockReset()
+  // Exit storage-clean too: browser-mode files share one Chromium origin, so a
+  // persisted mode left by the last test would leak into the next file.
+  window.localStorage.removeItem(MARKDOWN_PREVIEW_MODE_KEY)
+})
 
 // Passthrough spy over the real Shiki highlighter: every test keeps genuine
 // highlighting by default, while the file-switch cancellation test uses
@@ -33,14 +57,14 @@ vi.mock('./shikiPreview', async (importOriginal) => {
 function makeTextContent(
   overrides: Partial<{ content: string; name: string; extension: string }> = {},
 ): PreviewContent {
-  const content = 'content' in overrides ? overrides.content : '# Skill\n'
+  const content = overrides.content ?? '# Skill\n'
   return {
     kind: 'text',
     data: {
       name: toFileName(overrides.name ?? 'SKILL.md'),
-      content: content ?? '# Skill\n',
+      content,
       extension: toFileExtension(overrides.extension ?? '.md'),
-      lineCount: toLineCount(content?.split('\n').length ?? 1),
+      lineCount: toLineCount(content.split('\n').length),
     },
   }
 }
@@ -136,7 +160,8 @@ describe('FileContent Markdown modes', () => {
     await expect.element(codeToggle).toHaveAttribute('aria-checked', 'true')
 
     // Act — clicking the active item makes Radix emit an empty string, which
-    // the mode guard must ignore so the view does not flip or blank out.
+    // SegmentedControl's value-change guard must ignore so the view does not
+    // flip or blank out (the guard lives in segmented-control.tsx, not here).
     await codeToggle.click()
 
     // Assert — still in Code mode: the toggle stays selected, the source-code
@@ -150,6 +175,572 @@ describe('FileContent Markdown modes', () => {
       screen.container.querySelector('[data-markdown-reading-scroll]'),
     ).toBeNull()
     expect(screen.getByRole('heading', { name: 'Install' }).query()).toBeNull()
+  })
+
+  test('keeps Reading Mode selected when switching to another Markdown file', async () => {
+    // Arrange
+    const { FileContent } = await import('./FileContent')
+    const screen = await render(
+      <FileContent content={makeTextContent({ content: '# First\n' })} />,
+    )
+    await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
+    await expect
+      .element(screen.getByRole('heading', { name: 'First' }))
+      .toBeVisible()
+
+    // Act
+    await screen.rerender(
+      <FileContent
+        content={makeTextContent({ content: '# Second\n', name: 'README.md' })}
+      />,
+    )
+
+    // Assert
+    await expect
+      .element(screen.getByRole('heading', { name: 'Second' }))
+      .toBeVisible()
+    await expect
+      .element(screen.getByRole('radio', { name: /Show rendered Markdown/i }))
+      .toHaveAttribute('aria-checked', 'true')
+  })
+
+  test('restores Reading Mode when switching away to a non-Markdown file and back', async () => {
+    // Arrange
+    const { FileContent } = await import('./FileContent')
+    const screen = await render(
+      <FileContent content={makeTextContent({ content: '# First\n' })} />,
+    )
+    await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
+    await expect
+      .element(screen.getByRole('heading', { name: 'First' }))
+      .toBeVisible()
+
+    // Act — switch to a non-Markdown file: the toggle must disappear entirely.
+    await screen.rerender(
+      <FileContent
+        content={makeTextContent({
+          content: 'const ok = true\n',
+          name: 'index.ts',
+          extension: '.ts',
+        })}
+      />,
+    )
+
+    // Assert
+    await expect
+      .element(
+        screen.getByRole('radiogroup', { name: /Markdown preview mode/i }),
+      )
+      .not.toBeInTheDocument()
+
+    // Act — switch back to a Markdown file.
+    await screen.rerender(
+      <FileContent content={makeTextContent({ content: '# First\n' })} />,
+    )
+
+    // Assert
+    await expect
+      .element(screen.getByRole('heading', { name: 'First' }))
+      .toBeVisible()
+    await expect
+      .element(screen.getByRole('radio', { name: /Show rendered Markdown/i }))
+      .toHaveAttribute('aria-checked', 'true')
+  })
+
+  // Value: protects=switching to a differently-named Markdown file in Reading Mode starts at the top; fails_when=key={file.name} is removed or the scroll container stops remounting on file change; why_new=mode persistence removed the mode-reset remount that used to mask this; seam=none
+  test('resets Reading Mode scroll position when switching to another Markdown file', async () => {
+    // Arrange — the fixed-height flex wrapper bounds the preview pane so the
+    // reading scroll container actually overflows; without it the page grows
+    // instead and scrollTop clamps to 0, making the reset assertion vacuous.
+    // The second file stays long too, so a stale offset would remain
+    // clamped-valid and only a real remount can satisfy the assertion.
+    const { FileContent } = await import('./FileContent')
+    const longContent = (heading: string): string =>
+      `# ${heading}\n\n${'line\n'.repeat(200)}`
+    const screen = await render(
+      <div style={{ display: 'flex', height: 220 }}>
+        <FileContent
+          content={makeTextContent({
+            content: longContent('First'),
+            name: 'FIRST.md',
+          })}
+        />
+      </div>,
+    )
+    await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
+    const firstScrollContainer = screen.container.querySelector<HTMLElement>(
+      '[data-markdown-reading-scroll]',
+    )
+    if (!firstScrollContainer) {
+      throw new Error('expected a markdown reading scroll container')
+    }
+    firstScrollContainer.scrollTop = 1200
+    // Guard the Arrange: if the pane ever stops overflowing, fail loudly here
+    // rather than letting the reset assertion below pass on a 0 default.
+    expect(firstScrollContainer.scrollTop).toBeGreaterThan(0)
+
+    // Act — switch to a different Markdown file while still in Reading Mode.
+    await screen.rerender(
+      <div style={{ display: 'flex', height: 220 }}>
+        <FileContent
+          content={makeTextContent({
+            content: longContent('Second'),
+            name: 'SECOND.md',
+          })}
+        />
+      </div>,
+    )
+
+    // Assert
+    await expect
+      .element(screen.getByRole('heading', { name: 'Second' }))
+      .toBeVisible()
+    const secondScrollContainer = screen.container.querySelector<HTMLElement>(
+      '[data-markdown-reading-scroll]',
+    )
+    expect(secondScrollContainer?.scrollTop).toBe(0)
+  })
+
+  // Value: protects=Reading Mode starts every switched-to Markdown file scrolled to top; fails_when=the key loses its filePath segment (prop dropped, or key regresses to basename+shape), so same-basename nested files with identically-shaped content never remount and keep stale scroll; why_new=the Alpha/Omega fixtures share lineCount AND content.length, making filePath the only differing key segment — weaker fixture shapes pass even without the prop; seam=none
+  test('resets Reading Mode scroll position when switching between Markdown files that share a name', async () => {
+    // Arrange — a skill's nested directories can hold different Markdown files
+    // with the same basename; both load with file.name === 'README.md'. The
+    // Alpha/Omega headings are the SAME length, so the two documents share
+    // lineCount and content.length and filePath is the only key segment telling
+    // them apart — this is what keeps the prop load-bearing in this suite.
+    // The fixed-height flex wrapper bounds the preview pane so the scroll
+    // container actually overflows, and the second file stays long so a stale
+    // offset remains clamped-valid — only a real remount satisfies the assert.
+    const { FileContent } = await import('./FileContent')
+    const longContent = (heading: string): string =>
+      `# ${heading}\n\n${'line\n'.repeat(200)}`
+    const screen = await render(
+      <div style={{ display: 'flex', height: 220 }}>
+        <FileContent
+          filePath={toAbsolutePath('/skills/tdd/docs/README.md')}
+          content={makeTextContent({
+            content: longContent('Alpha'),
+            name: 'README.md',
+          })}
+        />
+      </div>,
+    )
+    await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
+    const firstScrollContainer = screen.container.querySelector<HTMLElement>(
+      '[data-markdown-reading-scroll]',
+    )
+    if (!firstScrollContainer) {
+      throw new Error('expected a markdown reading scroll container')
+    }
+    firstScrollContainer.scrollTop = 1200
+    // Guard the Arrange: if the pane ever stops overflowing, fail loudly here
+    // rather than letting the reset assertion below pass on a 0 default.
+    expect(firstScrollContainer.scrollTop).toBeGreaterThan(0)
+
+    // Act — switch to a different Markdown file that shares the basename.
+    await screen.rerender(
+      <div style={{ display: 'flex', height: 220 }}>
+        <FileContent
+          filePath={toAbsolutePath('/skills/tdd/guide/README.md')}
+          content={makeTextContent({
+            content: longContent('Omega'),
+            name: 'README.md',
+          })}
+        />
+      </div>,
+    )
+
+    // Assert
+    await expect
+      .element(screen.getByRole('heading', { name: 'Omega' }))
+      .toBeVisible()
+    const secondScrollContainer = screen.container.querySelector<HTMLElement>(
+      '[data-markdown-reading-scroll]',
+    )
+    expect(secondScrollContainer?.scrollTop).toBe(0)
+  })
+
+  // Value: protects=a file switch during a slow content read still opens the new file at top; fails_when=the key loses its content-identity segment (lineCount/content.length), so scroll accrued on the stale document survives into the arriving file; why_new=useCodePreview commits the new path one IPC read before the new content lands — selection-time and commit-time are two separate moments and only a document-identity key resets at the second one; seam=none
+  test('resets Reading Mode scroll again when the new file content lands after a stale-content window', async () => {
+    // Arrange — mimic useCodePreview's two-step commit: activeFile flips first,
+    // then the IPC read resolves the new content. Between them the pane still
+    // shows the PREVIOUS document under the NEW path.
+    const { FileContent } = await import('./FileContent')
+    const first = `# First\n\n${'line\n'.repeat(200)}`
+    const second = `# Second\n\n${'row\n'.repeat(300)}`
+    const screen = await render(
+      <div style={{ display: 'flex', height: 220 }}>
+        <FileContent
+          filePath={toAbsolutePath('/skills/tdd/docs/README.md')}
+          content={makeTextContent({ content: first, name: 'README.md' })}
+        />
+      </div>,
+    )
+    await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
+    const initialPane = screen.container.querySelector<HTMLElement>(
+      '[data-markdown-reading-scroll]',
+    )
+    if (!initialPane)
+      throw new Error('expected a markdown reading scroll container')
+
+    // Act — selection committed: new path, stale content still on screen.
+    await screen.rerender(
+      <div style={{ display: 'flex', height: 220 }}>
+        <FileContent
+          filePath={toAbsolutePath('/skills/tdd/guide/README.md')}
+          content={makeTextContent({ content: first, name: 'README.md' })}
+        />
+      </div>,
+    )
+    const stalePane = screen.container.querySelector<HTMLElement>(
+      '[data-markdown-reading-scroll]',
+    )
+    if (!stalePane)
+      throw new Error('expected a markdown reading scroll container')
+    // The path segment must remount at selection-commit time — without it the
+    // pane below is the SAME node still showing the old document's scroll.
+    expect(stalePane).not.toBe(initialPane)
+    stalePane.scrollTop = 900
+    expect(stalePane.scrollTop).toBeGreaterThan(0)
+
+    // Act — the read resolves: same path, new document.
+    await screen.rerender(
+      <div style={{ display: 'flex', height: 220 }}>
+        <FileContent
+          filePath={toAbsolutePath('/skills/tdd/guide/README.md')}
+          content={makeTextContent({ content: second, name: 'README.md' })}
+        />
+      </div>,
+    )
+
+    // Assert — the arriving document opens at top; scroll accrued on the stale
+    // document must not carry over.
+    await expect
+      .element(screen.getByRole('heading', { name: 'Second' }))
+      .toBeVisible()
+    const freshPane = screen.container.querySelector<HTMLElement>(
+      '[data-markdown-reading-scroll]',
+    )
+    expect(freshPane?.scrollTop).toBe(0)
+  })
+
+  // Value: protects=Reading Mode reopens a reloaded file at top when its length changed; fails_when=the key loses the content.length segment — both docs share path, name AND lineCount, so content.length is the sole discriminator and stale scroll would survive; why_new=the stale-window test's fixtures differ in BOTH shape segments, so each segment alone is unpinned; seam=none
+  test('resets Reading Mode scroll when a reloaded file keeps its line count but changes length', async () => {
+    // Arrange — a same-path reload after an external edit: both documents have
+    // 83 lines, but the bodies differ in length, so only the content.length
+    // key segment can remount the pane. Long repeated units keep BOTH rendered
+    // documents taller than the 220px pane — a non-overflowing second document
+    // would satisfy scrollTop === 0 vacuously without a remount.
+    const { FileContent } = await import('./FileContent')
+    const pathA = toAbsolutePath('/skills/tdd/SKILL.md')
+    const screen = await render(
+      <div style={{ display: 'flex', height: 220 }}>
+        <FileContent
+          filePath={pathA}
+          content={makeTextContent({
+            content: `# Alpha\n\n${'aa bb cc dd\n'.repeat(80)}`,
+            name: 'SKILL.md',
+          })}
+        />
+      </div>,
+    )
+    await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
+    const firstPane = screen.container.querySelector<HTMLElement>(
+      '[data-markdown-reading-scroll]',
+    )
+    if (!firstPane)
+      throw new Error('expected a markdown reading scroll container')
+    firstPane.scrollTop = 1200
+    expect(firstPane.scrollTop).toBeGreaterThan(0)
+
+    // Act — the file reloads with an 83-line document of a different length.
+    await screen.rerender(
+      <div style={{ display: 'flex', height: 220 }}>
+        <FileContent
+          filePath={pathA}
+          content={makeTextContent({
+            content: `# Omega\n\n${'zz zz zz\n'.repeat(80)}`,
+            name: 'SKILL.md',
+          })}
+        />
+      </div>,
+    )
+
+    // Assert
+    await expect
+      .element(screen.getByRole('heading', { name: 'Omega' }))
+      .toBeVisible()
+    const secondPane = screen.container.querySelector<HTMLElement>(
+      '[data-markdown-reading-scroll]',
+    )
+    expect(secondPane?.scrollTop).toBe(0)
+  })
+
+  // Value: protects=Reading Mode reopens a reloaded file at top when its line count changed; fails_when=the key loses the lineCount segment — both docs share path, name AND content.length, so lineCount is the sole discriminator and stale scroll would survive; why_new=the stale-window test's fixtures differ in BOTH shape segments, so each segment alone is unpinned; seam=none
+  test('resets Reading Mode scroll when a reloaded file keeps its length but changes line count', async () => {
+    // Arrange — both documents are 849 characters but split into a different
+    // number of lines (283 vs 108), so only the lineCount key segment can
+    // remount the pane. Long repeated units keep BOTH rendered documents
+    // taller than the 220px pane — a non-overflowing second document would
+    // satisfy scrollTop === 0 vacuously without a remount.
+    const { FileContent } = await import('./FileContent')
+    const pathA = toAbsolutePath('/skills/tdd/SKILL.md')
+    const screen = await render(
+      <div style={{ display: 'flex', height: 220 }}>
+        <FileContent
+          filePath={pathA}
+          content={makeTextContent({
+            content: `# Alpha\n\n${'xy\n'.repeat(280)}`,
+            name: 'SKILL.md',
+          })}
+        />
+      </div>,
+    )
+    await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
+    const firstPane = screen.container.querySelector<HTMLElement>(
+      '[data-markdown-reading-scroll]',
+    )
+    if (!firstPane)
+      throw new Error('expected a markdown reading scroll container')
+    firstPane.scrollTop = 1200
+    expect(firstPane.scrollTop).toBeGreaterThan(0)
+
+    // Act — the file reloads with a same-length document of 108 lines.
+    await screen.rerender(
+      <div style={{ display: 'flex', height: 220 }}>
+        <FileContent
+          filePath={pathA}
+          content={makeTextContent({
+            content: `# Omega\n\n${'yy zz ww\n'.repeat(105)}`,
+            name: 'SKILL.md',
+          })}
+        />
+      </div>,
+    )
+
+    // Assert
+    await expect
+      .element(screen.getByRole('heading', { name: 'Omega' }))
+      .toBeVisible()
+    const secondPane = screen.container.querySelector<HTMLElement>(
+      '[data-markdown-reading-scroll]',
+    )
+    expect(secondPane?.scrollTop).toBe(0)
+  })
+
+  // Value: protects=a new preview surface that forgets filePath gets a loud signal; fails_when=the per-mount warn is deleted or stops firing, letting the basename fallback silently regress same-basename scroll; why_new=the warn exists so the optional prop can't be dropped silently — without coverage the signal itself can rot; seam=none
+  test('warns once per mount when a Markdown file renders without filePath', async () => {
+    // Arrange
+    const { FileContent } = await import('./FileContent')
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const screen = await render(
+        <FileContent content={makeTextContent({ content: '# Doc\n' })} />,
+      )
+
+      // Assert — one warning for this mount.
+      await vi.waitFor(() => {
+        expect(warnSpy).toHaveBeenCalledTimes(1)
+      })
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[FileContent] Markdown preview rendered without an absolute filePath; same-basename files share one scroll key',
+      )
+
+      // Act — flip the file to non-Markdown and back on the SAME mounted
+      // surface: the effect deps ([isMarkdown, filePath]) change, forcing a
+      // re-run that must find the latch already set and not warn again.
+      await screen.rerender(
+        <FileContent
+          content={makeTextContent({
+            content: 'const x = 1\n',
+            name: 'snippet.ts',
+            extension: '.ts',
+          })}
+        />,
+      )
+      await screen.rerender(
+        <FileContent
+          content={makeTextContent({ content: '# Doc\n\nmore\n' })}
+        />,
+      )
+
+      // Assert — the per-mount latch held through the dep-change re-run.
+      expect(warnSpy).toHaveBeenCalledTimes(1)
+
+      // Act — a SECOND mounted surface warns independently; this is the
+      // contract that pins per-mount granularity (a module-level once-flag
+      // would stay silent here).
+      await render(
+        <div>
+          <FileContent content={makeTextContent({ content: '# Other\n' })} />
+        </div>,
+      )
+
+      // Assert
+      await vi.waitFor(() => {
+        expect(warnSpy).toHaveBeenCalledTimes(2)
+      })
+    } finally {
+      warnSpy.mockRestore()
+    }
+  })
+
+  // Value: protects=scroll position survives same-file rerenders so Reading Mode never jumps mid-read; fails_when=the key gains an unstable segment (fontSizePx, a counter, Math.random) that remounts on every prop change; why_new=the scroll-reset tests only pin the remount half of the key contract — an always-remounting key would pass them while making reading unusable; seam=none
+  test('keeps Reading Mode scroll position when the same file re-renders with a new font size', async () => {
+    // Arrange
+    const { FileContent } = await import('./FileContent')
+    const screen = await render(
+      <div style={{ display: 'flex', height: 220 }}>
+        <FileContent
+          filePath={toAbsolutePath('/skills/tdd/README.md')}
+          content={makeTextContent({
+            content: `# Doc\n\n${'line\n'.repeat(200)}`,
+            name: 'README.md',
+          })}
+          markdownFontSizePx={13}
+        />
+      </div>,
+    )
+    await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
+    const pane = screen.container.querySelector<HTMLElement>(
+      '[data-markdown-reading-scroll]',
+    )
+    if (!pane) throw new Error('expected a markdown reading scroll container')
+    pane.scrollTop = 800
+    expect(pane.scrollTop).toBeGreaterThan(0)
+
+    // Act — same file, only the reading font size changed (a prop change that
+    // must re-render in place, not remount the scroll container).
+    await screen.rerender(
+      <div style={{ display: 'flex', height: 220 }}>
+        <FileContent
+          filePath={toAbsolutePath('/skills/tdd/README.md')}
+          content={makeTextContent({
+            content: `# Doc\n\n${'line\n'.repeat(200)}`,
+            name: 'README.md',
+          })}
+          markdownFontSizePx={18}
+        />
+      </div>,
+    )
+
+    // Assert
+    const samePane = screen.container.querySelector<HTMLElement>(
+      '[data-markdown-reading-scroll]',
+    )
+    expect(samePane?.scrollTop).toBeGreaterThan(0)
+  })
+
+  test('reopens Markdown in Reading Mode after an app restart when Reading was last selected', async () => {
+    // Arrange
+    const { FileContent } = await import('./FileContent')
+    const firstScreen = await render(
+      <FileContent content={makeTextContent({ content: '# Restored\n' })} />,
+    )
+    await firstScreen
+      .getByRole('radio', { name: /Show rendered Markdown/i })
+      .click()
+    await firstScreen.unmount()
+
+    // Act
+    const screen = await render(
+      <FileContent content={makeTextContent({ content: '# Restored\n' })} />,
+    )
+
+    // Assert
+    expect(window.localStorage.getItem(MARKDOWN_PREVIEW_MODE_KEY)).toBe(
+      'reading',
+    )
+    await expect
+      .element(screen.getByRole('heading', { name: 'Restored' }))
+      .toBeVisible()
+  })
+
+  test('reopens Markdown in Code mode after an app restart when Code was re-selected after Reading', async () => {
+    // Arrange
+    const { FileContent } = await import('./FileContent')
+    const firstScreen = await render(
+      <FileContent content={makeTextContent({ content: '# Install\n' })} />,
+    )
+    await firstScreen
+      .getByRole('radio', { name: /Show rendered Markdown/i })
+      .click()
+    await firstScreen
+      .getByRole('radio', { name: /Show Markdown source/i })
+      .click()
+    await firstScreen.unmount()
+
+    // Act
+    const screen = await render(
+      <FileContent content={makeTextContent({ content: '# Install\n' })} />,
+    )
+
+    // Assert
+    expect(window.localStorage.getItem(MARKDOWN_PREVIEW_MODE_KEY)).toBe('code')
+    await expect
+      .element(screen.getByRole('radio', { name: /Show Markdown source/i }))
+      .toHaveAttribute('aria-checked', 'true')
+  })
+
+  test('falls back to Code mode when the stored preview mode is unrecognized', async () => {
+    // Arrange
+    window.localStorage.setItem(MARKDOWN_PREVIEW_MODE_KEY, 'garbage')
+    const { FileContent } = await import('./FileContent')
+
+    // Act
+    const screen = await render(
+      <FileContent content={makeTextContent({ content: '# Install\n' })} />,
+    )
+
+    // Assert
+    await expect
+      .element(screen.getByRole('radio', { name: /Show Markdown source/i }))
+      .toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('heading', { name: 'Install' }).query()).toBeNull()
+  })
+
+  test('still opens Markdown in Code mode when localStorage reads throw', async () => {
+    // Arrange
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('SecurityError')
+    })
+    const { FileContent } = await import('./FileContent')
+
+    // Act
+    const screen = await render(
+      <FileContent content={makeTextContent({ content: '# Install\n' })} />,
+    )
+
+    // Assert
+    await expect
+      .element(screen.getByRole('radio', { name: /Show Markdown source/i }))
+      .toHaveAttribute('aria-checked', 'true')
+  })
+
+  test('still switches to Reading Mode when localStorage writes throw', async () => {
+    // Arrange
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('QuotaExceededError')
+    })
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {})
+    const { FileContent } = await import('./FileContent')
+    const screen = await render(
+      <FileContent content={makeTextContent({ content: '# Install\n' })} />,
+    )
+
+    // Act
+    await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
+
+    // Assert
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[FileContent] persisting markdown preview mode failed',
+      expect.any(Error),
+    )
+    await expect
+      .element(screen.getByRole('heading', { name: 'Install' }))
+      .toBeVisible()
   })
 
   test('keeps the new file preview when a previous file highlight rejects after switching files', async () => {

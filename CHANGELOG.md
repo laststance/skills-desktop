@@ -9,6 +9,7 @@
 
 ### Changed
 
+- The Markdown file preview now remembers your Code/Reading mode across file switches and app restarts instead of always reopening in Code mode.
 - Adjust the whole window or each section from 0–100% background opacity while keeping text and icons solid. Settings, menus, notifications, and code previews retain opaque backgrounds.
 - Existing opacity preferences migrate automatically and keep their previous transparency levels.
 - Select skills in the Installed list without entering a Select mode. Every row has a checkbox, and a list header above the list selects all visible rows, shows how many are selected, and holds Delete or Unlink, Copy to…, and Clear.
@@ -22,6 +23,7 @@
 
 ### Fixed
 
+- Switching files in Markdown Reading Mode now starts at the top of the document, including when two files share the same name in different folders.
 - The app now always uses the macOS system font (SF Pro). Before, it switched to Inter on Macs that had Inter installed, so text looked different from one machine to the next.
 - Completed slider adjustments now save before navigating away or closing Settings; Reset saves immediately.
 - Rapid slider adjustments keep the latest value even when an earlier save finishes late.

@@ -5,6 +5,7 @@ import {
   AGENT_IDS,
   GSTACK_BADGE_AGENT_IDS,
   GSTACK_REPOSITORY_URL,
+  MARKDOWN_PREVIEW_MODE_KEY,
   UNIVERSAL_AGENT_IDS,
 } from './constants'
 
@@ -272,5 +273,16 @@ describe('GSTACK constants', () => {
   test('links the gstack badge to the canonical GitHub repository', () => {
     // Arrange / Act / Assert
     expect(GSTACK_REPOSITORY_URL).toBe('https://github.com/garrytan/gstack')
+  })
+})
+
+describe('localStorage keys', () => {
+  test('keeps the Markdown preview mode key stable across releases', () => {
+    // Arrange / Act / Assert — the literal is a cross-release storage
+    // contract: renaming it orphans every user's persisted preview-mode
+    // preference with no migration, so pin the exact string.
+    expect(MARKDOWN_PREVIEW_MODE_KEY).toBe(
+      'skills-desktop:markdown-preview-mode',
+    )
   })
 })
