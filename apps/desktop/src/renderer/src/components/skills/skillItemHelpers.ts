@@ -2,6 +2,45 @@ import { isGStackManagedForAgent } from '@/renderer/src/utils/gstackSkill'
 import type { AgentId, Skill, SymlinkInfo } from '@/shared/types'
 
 /**
+ * Why a rendered agent-view row cannot join the bulk selection, phrased for a
+ * tooltip. Computed for rows that fail {@link isBulkSelectableSkill} so a
+ * disabled checkbox can explain itself instead of reading as a glitch —
+ * keep the guard order in sync with that predicate.
+ * @param input - The visibility flags {@link getSkillItemVisibility} already
+ *   derived, plus the row's protected flag (checked first to mirror the
+ *   selector's own guard order).
+ * @returns The reason sentence, or `null` when the row is actually eligible.
+ * @example
+ * getBulkIneligibilityReason({ isProtected: true, isLocalSkill: false, selectedAgentSymlinkStatus: null })
+ * // => 'Protected — unlock to include in bulk actions'
+ */
+export function getBulkIneligibilityReason(input: {
+  isProtected: boolean
+  isLocalSkill: boolean
+  selectedAgentSymlinkStatus: SymlinkInfo['status'] | null
+}): string | null {
+  if (input.isProtected) {
+    return 'Protected — unlock to include in bulk actions'
+  }
+  // A valid non-local link for the agent IS the eligibility condition, so the
+  // row is selectable and has no reason to report.
+  if (input.selectedAgentSymlinkStatus === 'valid') return null
+  if (input.isLocalSkill) {
+    return 'Local folder — bulk unlink only removes symlinks'
+  }
+  if (input.selectedAgentSymlinkStatus === 'inaccessible') {
+    return 'Inaccessible link — review it before removing'
+  }
+  if (input.selectedAgentSymlinkStatus === 'broken') {
+    return 'Broken link — use Symlink cleanup to remove it'
+  }
+  // No live slot for the selected agent (status null or 'missing') —
+  // defensive; the row filter normally keeps such skills out of agent view.
+  // Phrased as a real reason so it doesn't stutter inside the aria-label.
+  return 'No link for the selected agent'
+}
+
+/**
  * Visibility state for SkillItem action buttons.
  * Determines which buttons (delete, add, unlink) to render.
  */

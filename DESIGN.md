@@ -633,7 +633,9 @@ Finder list view.)
 - The header is an `@container` row that never wraps, in three tiers. From a
   30rem content width up (full) every label shows. Below 30rem (narrow), Copy
   turns into a 24px icon-only button and the indicators keep only their
-  numbers: the words become `sr-only` and the `title` keeps the whole sentence.
+  numbers, each led by a 10px glyph in place of the `+` — a funnel for
+  hidden-by-filter, a ban for not-eligible — the words become `sr-only` and
+  the `title` keeps the whole sentence.
   Below 24rem (compact) the summary becomes screen-reader-only, the primary
   label shortens to `Delete N` / `Unlink N`, and Clear becomes a 24px icon-only
   button. Accessible names stay the same in every tier, and a control that

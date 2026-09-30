@@ -21,6 +21,7 @@ import { selectBookmarkItems } from './slices/bookmarkSlice'
 import { selectProtectedNamesSet } from './slices/protectSlice'
 import {
   selectInFlightDeleteNames,
+  selectInFlightUnlinkNames,
   selectSelectedSkillNames,
   selectSkillsError,
   selectSkillsItems,
@@ -524,6 +525,8 @@ export const selectVisibleSkillNames = createSelector(
 
 /**
  * Detect whether a visible agent-view row can use the reviewed bulk Unlink path.
+ * Rows failing this predicate explain themselves via
+ * {@link getBulkIneligibilityReason} — keep the guard order in sync.
  * @param skill - Visible skill row.
  * @param selectedAgentId - Active agent filter; null means global delete flow.
  * @param protectedNames - Skill names locked by the user.
@@ -625,11 +628,15 @@ export const selectSelectedVisibleCount = createSelector(
  * The hidden-selected count shown in the list header as a badge ("+2 hidden by
  * filter") so the user realizes they have out-of-view selections. Visible
  * but ineligible rows are counted separately by `selectVisibleIneligibleSelectedCount`.
- * @returns number — selected names that are NOT in the visible list
+ * @returns number — selected names that are NOT in the visible list, or `0`
+ *   while `skills.error` is set
  */
 export const selectHiddenSelectedCount = createSelector(
-  [selectSelectedSkillNames, selectVisibleSkillNames],
-  (selectedNames, visibleNames): number => {
+  [selectSelectedSkillNames, selectVisibleSkillNames, selectSkillsError],
+  (selectedNames, visibleNames, skillsError): number => {
+    // While the error screen replaces the rows, the header must not count
+    // invisible ticks as "hidden by filter" — the list is not drawn at all.
+    if (skillsError !== null) return 0
     const visibleSet = new Set(visibleNames)
     let hidden = 0
     for (const name of selectedNames) {
@@ -641,7 +648,8 @@ export const selectHiddenSelectedCount = createSelector(
 
 /**
  * Count selected rows that are visible but excluded from the current bulk action.
- * @returns number — visible selected rows that cannot use Delete/Unlink safely.
+ * @returns number — visible selected rows that cannot use Delete/Unlink
+ *   safely, or `0` while `skills.error` is set
  * @example
  * // broken agent-view row selected on screen => 1 not eligible
  */
@@ -650,8 +658,13 @@ export const selectVisibleIneligibleSelectedCount = createSelector(
     selectSelectedSkillNames,
     selectVisibleSkillNames,
     selectBulkSelectableVisibleSkillNames,
+    selectSkillsError,
   ],
-  (selectedNames, visibleNames, eligibleVisibleNames): number => {
+  (selectedNames, visibleNames, eligibleVisibleNames, skillsError): number => {
+    // While the error screen replaces the rows, every ticked name would
+    // count as "not eligible" (selectBulkSelectableVisibleSkillNames is [])
+    // — suppress the indicator instead of mislabeling an undrawn list.
+    if (skillsError !== null) return 0
     const selectedSet = new Set(selectedNames)
     const eligibleSet = new Set(eligibleVisibleNames)
     let visibleIneligible = 0
@@ -669,22 +682,23 @@ export const selectVisibleIneligibleSelectedCount = createSelector(
 const EMPTY_SKILL_NAME_SET: ReadonlySet<SkillName> = new Set()
 
 /**
- * Set of skill names currently in flight for a bulk delete. SkillItem
- * subscribes to fade rows that the user just dispatched a delete on. Kept
- * as a memoized Set so per-row `.has(name)` lookups stay O(1) without each
- * row rebuilding the Set every render.
+ * Set of skill names currently in flight for a bulk delete or unlink.
+ * SkillItem subscribes to fade rows that the user just dispatched a removal
+ * on — unlinking rows fade the same way deleting rows do. Kept as a memoized
+ * Set so per-row `.has(name)` lookups stay O(1) without each row rebuilding
+ * the Set every render.
  * @returns ReadonlySet<SkillName>
  * @example
  * const inFlight = useAppSelector(selectAnyInFlightRemovalSet)
  * const isFading = inFlight.has(skill.name)
  */
 export const selectAnyInFlightRemovalSet = createSelector(
-  [selectInFlightDeleteNames],
-  (deleteNames): ReadonlySet<SkillName> => {
-    if (deleteNames.length === 0) {
+  [selectInFlightDeleteNames, selectInFlightUnlinkNames],
+  (deleteNames, unlinkNames): ReadonlySet<SkillName> => {
+    if (deleteNames.length === 0 && unlinkNames.length === 0) {
       return EMPTY_SKILL_NAME_SET
     }
-    return new Set<SkillName>(deleteNames)
+    return new Set<SkillName>([...deleteNames, ...unlinkNames])
   },
 )
 

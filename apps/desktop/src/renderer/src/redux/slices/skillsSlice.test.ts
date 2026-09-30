@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 import type { RootState } from '@/renderer/src/redux/store'
 import type {
   AbsolutePath,
-  AgentId,
   BulkDeleteResult,
   BulkUnlinkResult,
   ClearBrokenSymlinkSlotsResult,
@@ -779,6 +778,96 @@ describe('skillsSlice bulkCopyToAgents thunk', () => {
     expect(mockCopyToAgents).not.toHaveBeenCalled()
   })
 
+  test('cancels a delete-family dispatch while another delete op is in flight so it cannot clobber in-flight names', async () => {
+    // Arrange — an in-flight orphan clear holds bulkDeleting; a second
+    // delete-family dispatch (two independent dialogs racing) would otherwise
+    // overwrite inFlightDeleteNames and drop the busy flag on the first settle.
+    const store = await createTestStore()
+    const { deleteSelectedSkills, clearSelectedOrphanSymlinks } =
+      await import('./skillsSlice')
+    await seedItems(store, [
+      { ...sampleSkill, name: toSkillName('alpha') },
+      { ...sampleSkill, name: toSkillName('beta') },
+    ])
+    store.dispatch(
+      clearSelectedOrphanSymlinks.pending('inflight-orphan-req', [
+        {
+          skillName: toSkillName('alpha'),
+          agents: [
+            {
+              agentId: 'codex',
+              linkPath: toAbsolutePath('/home/u/.codex/skills/alpha'),
+              targetPath: toAbsolutePath('/home/u/.agents/skills/alpha'),
+            },
+          ],
+        },
+      ]),
+    )
+    expect(store.getState().skills.bulkDeleting).toBe(true)
+    expect(store.getState().skills.inFlightDeleteNames).toEqual(['alpha'])
+
+    // Act — the overlapping delete must be cancelled before its pending
+    // reducer can overwrite inFlightDeleteNames.
+    const result = await store.dispatch(
+      deleteSelectedSkills([deleteTarget(toSkillName('beta'))]),
+    )
+
+    // Assert — cancelled via `condition`: no pending dispatch ran, the IPC was
+    // never invoked, and the first op's in-flight state is untouched.
+    expect(deleteSelectedSkills.rejected.match(result)).toBe(true)
+    if (deleteSelectedSkills.rejected.match(result)) {
+      expect(result.meta.condition).toBe(true)
+    }
+    expect(mockDeleteSkills).not.toHaveBeenCalled()
+    expect(store.getState().skills.bulkDeleting).toBe(true)
+    expect(store.getState().skills.inFlightDeleteNames).toEqual(['alpha'])
+  })
+
+  test('cancels an unlink-family dispatch while another unlink op is in flight so it cannot clobber in-flight names', async () => {
+    // Arrange — an in-flight broken-slot clear holds bulkUnlinking; a racing
+    // unlinkSelectedFromAgent would overwrite inFlightUnlinkNames and its
+    // settle would drop the busy flag while the first op still runs.
+    const store = await createTestStore()
+    const { clearSelectedBrokenSymlinkSlots, unlinkSelectedFromAgent } =
+      await import('./skillsSlice')
+    await seedItems(store, [
+      { ...sampleSkill, name: toSkillName('alpha') },
+      { ...sampleSkill, name: toSkillName('beta') },
+    ])
+    store.dispatch(
+      clearSelectedBrokenSymlinkSlots.pending('inflight-broken-req', {
+        items: [
+          {
+            agentId: 'codex',
+            linkName: toSkillName('alpha'),
+            displaySkillName: toSkillName('alpha'),
+            linkPath: toAbsolutePath('/home/u/.codex/skills/alpha'),
+            targetPath: toAbsolutePath('/home/u/.agents/skills/alpha'),
+          },
+        ],
+      }),
+    )
+    expect(store.getState().skills.bulkUnlinking).toBe(true)
+    expect(store.getState().skills.inFlightUnlinkNames).toEqual(['alpha'])
+
+    // Act
+    const result = await store.dispatch(
+      unlinkSelectedFromAgent({
+        agentId: 'cursor',
+        selectedNames: [unlinkTarget(toSkillName('beta'))],
+      }),
+    )
+
+    // Assert
+    expect(unlinkSelectedFromAgent.rejected.match(result)).toBe(true)
+    if (unlinkSelectedFromAgent.rejected.match(result)) {
+      expect(result.meta.condition).toBe(true)
+    }
+    expect(mockUnlinkManyFromAgent).not.toHaveBeenCalled()
+    expect(store.getState().skills.bulkUnlinking).toBe(true)
+    expect(store.getState().skills.inFlightUnlinkNames).toEqual(['alpha'])
+  })
+
   test('re-enables the list header and surfaces the error message when the whole copy batch rejects', async () => {
     // Arrange — drive the slice into its in-flight pending state first, then
     // reject the same request (a thrown payload creator, not a per-skill catch).
@@ -1510,7 +1599,7 @@ describe('skillsSlice clearSelectedBrokenSymlinkSlots thunk', () => {
     resolve({
       items: [
         {
-          agentId: 'codex' as AgentId,
+          agentId: 'codex',
           skillName: toSkillName('task'),
           linkPath: toAbsolutePath('/home/user/.codex/skills/task'),
           outcome: 'unlinked',
@@ -1527,7 +1616,7 @@ describe('skillsSlice clearSelectedBrokenSymlinkSlots thunk', () => {
     mockClearBrokenSymlinkSlots.mockResolvedValue({
       items: [
         {
-          agentId: 'codex' as AgentId,
+          agentId: 'codex',
           skillName: toSkillName('task'),
           linkPath: toAbsolutePath('/home/user/.codex/skills/task'),
           outcome: 'unlinked',

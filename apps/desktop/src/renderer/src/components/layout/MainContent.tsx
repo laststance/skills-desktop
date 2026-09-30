@@ -1650,6 +1650,33 @@ interface BulkConfirmDialogProps {
   onConfirm: () => void
 }
 
+const MASTER_SELECTION_CHECKBOX_SELECTOR =
+  '[data-master-selection-checkbox="true"]'
+
+/**
+ * Returns focus to a sensible place when the Redux-driven bulk confirm dialog
+ * closes — it has no `DialogTrigger`, so Radix's default trigger-focus is a
+ * no-op and every close (Cancel AND Confirm) would strand focus on `<body>`.
+ * Prefers the list-header master checkbox; when the just-confirmed bulk op has
+ * already disabled it (a disabled control swallows `focus()` as a no-op) or it
+ * isn't rendered, falls back to the `#main-content` landmark. Same pattern as
+ * {@link SymlinkCleanupDialog}'s `handleCloseAutoFocus`.
+ * @param event - Radix close-auto-focus event; always preventDefault'd to stop
+ *   the (missing) trigger focus.
+ * @returns void
+ */
+function handleBulkConfirmCloseAutoFocus(event: Event): void {
+  event.preventDefault()
+  const master = document.querySelector<HTMLButtonElement>(
+    MASTER_SELECTION_CHECKBOX_SELECTOR,
+  )
+  const target =
+    master !== null && !master.disabled
+      ? master
+      : document.querySelector<HTMLElement>('#main-content')
+  target?.focus()
+}
+
 /**
  * Presents reviewed bulk delete/unlink confirmation after MainContent stages it.
  * @param props - Confirm snapshot, derived delete summary, and dialog callbacks.
@@ -1668,7 +1695,15 @@ const BulkConfirmDialog = function BulkConfirmDialog({
 
   return (
     <Dialog open={bulkConfirm !== null} onOpenChange={onCancel}>
-      <DialogContent className="max-w-md">
+      {/* No <DialogTrigger> exists — the dialog is Redux-driven — so Radix's
+          default close-auto-focus (triggerRef.current?.focus()) is always a
+          no-op and focus falls to <body>. Give it an explicit target: the
+          master checkbox when it can still take focus, else the labelled
+          main landmark. */}
+      <DialogContent
+        className="max-w-md"
+        onCloseAutoFocus={handleBulkConfirmCloseAutoFocus}
+      >
         <DialogHeader>
           <div className="flex items-center gap-2">
             <AlertTriangle

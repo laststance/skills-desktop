@@ -4,6 +4,7 @@ import type { AgentId, Skill, SymlinkInfo } from '@/shared/types'
 import { toAbsolutePath } from '@/shared/types'
 
 import {
+  getBulkIneligibilityReason,
   getCardClickIntent,
   getCardContentPaddingClass,
   getSkillItemVisibility,
@@ -694,6 +695,107 @@ describe('getSkillItemVisibility', () => {
         false,
       )
     })
+  })
+})
+
+describe('getBulkIneligibilityReason', () => {
+  test('names the protection lock before anything else so a protected valid-linked row still explains itself', () => {
+    // Arrange — protected skill WITH a valid agent link. Without the
+    // protected-first ordering the 'valid' early return would produce null
+    // and the disabled checkbox would go silent.
+    const input = {
+      isProtected: true,
+      isLocalSkill: false,
+      selectedAgentSymlinkStatus: 'valid' as const,
+    }
+
+    // Act & Assert
+    expect(getBulkIneligibilityReason(input)).toBe(
+      'Protected — unlock to include in bulk actions',
+    )
+  })
+
+  test('names the local folder because bulk unlink only removes symlinks', () => {
+    // Arrange — local (real folder) row for the selected agent. Its own slot
+    // is not a symlink so the selected-agent slot reports no 'valid' link;
+    // the row must still say why bulk actions skip it.
+    const input = {
+      isProtected: false,
+      isLocalSkill: true,
+      selectedAgentSymlinkStatus: null,
+    }
+
+    // Act & Assert
+    expect(getBulkIneligibilityReason(input)).toBe(
+      'Local folder — bulk unlink only removes symlinks',
+    )
+  })
+
+  test('names the inaccessible link so the disabled box points at manual review', () => {
+    // Arrange — inaccessible non-local slot for the selected agent. Guards
+    // the tooltip/aria text screen readers and hovers announce for
+    // unverifiable links (a regression would leave the box unexplained).
+    const input = {
+      isProtected: false,
+      isLocalSkill: false,
+      selectedAgentSymlinkStatus: 'inaccessible' as const,
+    }
+
+    // Act & Assert
+    expect(getBulkIneligibilityReason(input)).toBe(
+      'Inaccessible link — review it before removing',
+    )
+  })
+
+  test('names the broken link and points at Symlink cleanup as the removal path', () => {
+    // Arrange — broken non-local slot; bulk unlink skips broken links so the
+    // row must redirect the user to the reviewed cleanup flow.
+    const input = {
+      isProtected: false,
+      isLocalSkill: false,
+      selectedAgentSymlinkStatus: 'broken' as const,
+    }
+
+    // Act & Assert
+    expect(getBulkIneligibilityReason(input)).toBe(
+      'Broken link — use Symlink cleanup to remove it',
+    )
+  })
+
+  test('returns null for a valid agent link because a valid link IS the eligibility condition', () => {
+    // Arrange — a valid non-local slot can always be bulk-selected, so no
+    // reason may be reported. This guard also keeps a rendered row that is
+    // only transiently ineligible (error screen emptied the eligible list)
+    // from inventing a reason.
+    const input = {
+      isProtected: false,
+      isLocalSkill: false,
+      selectedAgentSymlinkStatus: 'valid' as const,
+    }
+
+    // Act & Assert
+    expect(getBulkIneligibilityReason(input)).toBeNull()
+  })
+
+  test('falls back to a real reason when no named cause applies', () => {
+    // Arrange — a 'missing' slot or no slot at all for the selected agent
+    // reaches the fallback; the row filter normally keeps such rows out of
+    // agent view. The sentence must be a real reason, not the label's own
+    // sentence, or the aria-label would stutter "not eligible — not eligible".
+    const missingInput = {
+      isProtected: false,
+      isLocalSkill: false,
+      selectedAgentSymlinkStatus: 'missing' as const,
+    }
+    const noSlotInput = { ...missingInput, selectedAgentSymlinkStatus: null }
+
+    // Act & Assert
+    expect(getBulkIneligibilityReason(missingInput)).toBe(
+      'No link for the selected agent',
+    )
+    expect(getBulkIneligibilityReason(noSlotInput)).toBe(
+      'No link for the selected agent',
+    )
   })
 })
 
