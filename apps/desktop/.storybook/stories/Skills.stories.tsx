@@ -24,7 +24,6 @@ import {
 } from '../fixtures'
 import { StoryCard, StoryGrid } from '../storybook-utils'
 import {
-  toAbsolutePath,
   toFileName,
   toFileSizeBytes,
   toIsoTimestamp,
@@ -296,12 +295,7 @@ export const FilePreviewStates: Story = {
   render: () => (
     <StoryGrid columns={2}>
       <StoryCard label="FileContent / text" className="h-80 overflow-hidden">
-        <FileContent
-          content={textPreview}
-          filePath={toAbsolutePath(
-            '/Users/raphtalia/.agents/skills/design-review/SKILL.md',
-          )}
-        />
+        <FileContent content={textPreview} />
       </StoryCard>
       <StoryCard label="FileContent / binary" className="h-80 overflow-hidden">
         <FileContent content={binaryPreview} />

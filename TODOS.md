@@ -1764,46 +1764,24 @@ scan false-negative, not an unprunable state — see there.
 
 ## Markdown preview review follow-ups (2026-09-30)
 
-Deferred findings from the /ship pre-landing review of
-`feat/markdown-preview-mode-persist`. None block the feature; each needs a
-product/UX decision rather than a mechanical fix.
+**Status:** All eight items fixed on `feat/markdown-preview-followups`
+(2026-10-01). The eng/devex plan reviews converged on content-identity keys —
+`key={file.content}` on both `MarkdownReadingPreview` and
+`SyntaxHighlightedCode` — which closed four items at once:
 
-- **Code-mode scroll does not reset on file switch.** Reading Mode remounts
-  per document (`FileContent.tsx` key), but `SyntaxHighlightedCode` has no
-  key, so switching files in Code mode keeps the previous file's scrollTop.
-  Pre-existing behavior, unchanged by this diff. Decide whether Code mode
-  should also start at top (same key approach works) or keep scroll memory.
-- **Markdown preview-mode write failures only console.error.** The codebase's
-  own convention (`createReportingLocalStorage` in `redux/reportingLocalStorage.ts`)
-  toasts the user when a persisted preference can't reach disk. Reusing
-  `warnPersistedStateNotSaved` would show the wrong copy ("Locked skills,
-  bookmarks, theme and dashboard layout…"), so a dedicated reporter with
-  preview-mode copy is needed if we want parity.
-- **No `storage`-event sync between preview surfaces.** Safe today —
-  FileContent mounts only inside SkillDetail's CodePreview — documented on
-  `readStoredTextPreviewMode`. If a second preview surface is ever added,
-  mounted toggles diverge and last-writer-wins on remount.
-- **Identical-shape document corner.** The reading-pane key uses
-  (lineCount, content.length) as document identity, so two DIFFERENT files with
-  identical shape skip the arrival-time remount — scroll accrued during the
-  stale-content IPC window then leaks into the new file. Realistic for
-  template-generated SKILL.md files. A per-load token or content fingerprint
-  in useCodePreview's PreviewContent would close it completely.
-- **Double mount per file switch in Reading Mode.** The key's path segment
-  remounts at selection-commit while the OLD document is still rendered, so
-  react-markdown parses it once more before the new file lands. Gating the
-  render on content-matches-path (a `loadedFor` tag in PreviewContent) would
-  trade the wasted parse for a blank flash — product call.
-- **Mid-session mode revert on storage failure.** When a localStorage write
-  fails, the in-memory selection still survives text→text file switches, but a
-  detour through image/binary/empty unmounts TextPreview and the remount
-  re-reads storage — reverting the user's choice mid-session. Same gesture,
-  inconsistent outcome, no UI signal (folds into the write-failure reporter
-  item above).
-- **No real-restart e2e for the persisted mode.** The 'app restart' browser
-  test simulates a remount on the same live origin; no e2e relaunches Electron
-  to verify `loadFile()` localStorage persistence end-to-end.
-- **`TextPreview*` vs `markdown preview` naming split.** The persisted/
-  user-facing vocabulary is 'markdown preview mode' (key, aria-label) but the
-  symbols say TextPreview*; a reader grepping one vocabulary misses the other.
-  Rename or note the alias when the file is next touched.
+- Code-mode scroll reset on file switch (same key on the code pane).
+- Identical-shape corner (different bytes always differ as keys).
+- Double-mount/stale-scroll window (the OLD document stays mounted until the
+  new bytes land; no selection-commit remount, no scroll jump, no wasted
+  react-markdown parse). The `filePath` prop + its missing-path warn were
+  deleted with the path-segmented key.
+- Mid-session mode revert on storage failure (module-level session cache read
+  ahead of storage; `resetMarkdownPreviewModeForTests()` is the test seam).
+
+Plus: write failures toast via sonner (transient, deduped by id); `storage`
+event listener covers other windows (newValue === null resets to default) and
+a same-window listener set covers sibling surfaces the event can't reach;
+mode-specific symbols renamed to `MarkdownPreviewMode`/`MARKDOWN_PREVIEW_*`
+(TextPreview stays generic — it renders all text files); true relaunch e2e in
+`e2e/spec/markdown-preview-mode.e2e.ts` via the shared
+`launchIsolatedElectron` helper extracted to `e2e/fixtures/electron-app.ts`.
