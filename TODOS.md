@@ -1487,26 +1487,17 @@ Two consequences worth knowing:
 
 **Depends on / blocked by:** Nothing.
 
-### P2. `moveLocalOnlyToTrash` has the same manifest-after-move ordering
+### ~~P2. `moveLocalOnlyToTrash` has the same manifest-after-move ordering~~
 
-`trashService.ts:1241-1470` moves each agent's real folder into
-`<entryDir>/local-copies/<agentId>` and only then writes the manifest, so a
-kill in that window leaves a tombstone-named entry with no manifest.
-
-NARROWED by PR #311: the data-loss half is already closed. `local-copies` is
-not a bookkeeping name, so `classifyEntryForSweep` sees a payload, returns
-`'unreadable-manifest'`, and `startupCleanup` keeps the entry. What remains is
-that the entry is unrestorable through the app — the user has to find
-`<entryDir>/local-copies/<agentId>` and move it back by hand, with no UI
-telling them it is there.
-
-**Fix direction:** same as above, build under `STAGED_ENTRY_PREFIX` and publish
-with one rename. Kept out of that PR because four of its failure arms embed
-`${entryDir}` in user-facing "stranded in ..." messages, so staging means
-rewriting every message against a maybe-published path — a second state machine
-a reviewer would have to hold at the same time.
-
-**Depends on / blocked by:** Nothing.
+**Status:** FIXED (verified 2026-10-01 on main). `moveLocalOnlyToTrash`
+(`trashService.ts:1394`) now builds under
+`<TRASH_DIR>/${STAGED_ENTRY_PREFIX}${entryName}` (`:1409`), moves each agent's
+real folder into `<stagingDir>/local-copies/<agentId>` (`:1411`), and
+publishes with `writeManifestThenPublish(manifest, stagingDir, entryDir)`
+(`:1621`) — a kill in the move window leaves a staging-prefixed entry that
+`startupCleanup` sweeps, never a tombstone-named entry with no manifest.
+The `"stranded in ${recoveryDir}/local-copies"` messages now point at the
+staging path, so they stay truthful both before and after publish.
 
 ### ~~P3. Trash writes are not fsynced, so a power cut can still tear a manifest~~
 
