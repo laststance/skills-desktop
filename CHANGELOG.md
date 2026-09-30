@@ -24,6 +24,10 @@
 ### Fixed
 
 - Switching files in Markdown Reading Mode now starts at the top of the document, including when two files share the same name in different folders.
+- Switching files in Markdown Code Mode now also starts at the top instead of clamping the previous file's scroll position into the shorter document.
+- If the Markdown preview-mode preference cannot be saved (for example, storage is full or unavailable), a notice now explains that the choice applies for the current session but resets when the app closes — instead of silently reverting later.
+- The Markdown Code/Reading mode now stays in sync across windows and between same-window preview surfaces, and removing the stored preference resets to Code mode on the next read.
+- Choosing a Markdown mode while viewing a non-Markdown file no longer reverts to the saved value when storage is unavailable — the session remembers the latest choice.
 - The app now always uses the macOS system font (SF Pro). Before, it switched to Inter on Macs that had Inter installed, so text looked different from one machine to the next.
 - Completed slider adjustments now save before navigating away or closing Settings; Reset saves immediately.
 - Rapid slider adjustments keep the latest value even when an earlier save finishes late.
