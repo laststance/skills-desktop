@@ -17,6 +17,8 @@ import {
 } from '@/shared/types'
 import '@/renderer/src/styles/globals.css'
 
+import { resetMarkdownPreviewModeForTests } from './FileContent'
+
 // Mock the data hook so each render deterministically drives loading / empty /
 // populated states. Hitting these through real IPC is racy because the hook's
 // load effect resolves synchronously in tests, so the loading branch never
@@ -101,14 +103,17 @@ describe('CodePreview', () => {
   beforeEach(() => {
     mockUseCodePreview.mockReset()
     // Browser-mode files share one Chromium origin: clear the persisted preview
-    // mode so a Reading Mode selection can't leak into tests expecting Code.
+    // mode AND the module-level session cache so a Reading Mode selection
+    // can't leak into tests expecting Code.
     window.localStorage.removeItem(MARKDOWN_PREVIEW_MODE_KEY)
+    resetMarkdownPreviewModeForTests()
   })
 
   afterEach(() => {
     // A Reading-mode write in this file's last test would otherwise leak into
     // whichever browser file runs next on the shared origin.
     window.localStorage.removeItem(MARKDOWN_PREVIEW_MODE_KEY)
+    resetMarkdownPreviewModeForTests()
   })
 
   test('shows a loading placeholder while the file list is still being fetched', async () => {
@@ -213,12 +218,13 @@ describe('CodePreview', () => {
   })
 
   test('resets Reading Mode scroll when the active file switches between same-named Markdown files', async () => {
-    // Arrange — two nested files share the basename README.md; only the
-    // absolute path CodePreview passes to FileContent (filePath) tells them
-    // apart, so this seam test fails iff that prop is dropped at the call site.
-    // The Alpha/Omega headings are the SAME length, so both documents share
-    // lineCount and content.length — dropping the prop would collapse both
-    // keys to the basename+shape and the stale scroll would survive.
+    // Arrange — two nested files share the basename README.md. The Alpha/Omega
+    // headings are the SAME length, so both documents share lineCount AND
+    // content.length: identical under any shape-derived identity — only the
+    // loaded content itself discriminates them, which is what the reading
+    // pane's content-identity key remounts on. This seam test proves the real
+    // document (not the path) drives the scroll reset through the full
+    // CodePreview → FileContent seam.
     const docsReadme = makeFile({
       name: toFileName('README.md'),
       path: toAbsolutePath(`${SKILL_PATH}/docs/README.md`),
@@ -291,9 +297,9 @@ describe('CodePreview', () => {
     )
     await screen.rerender(tree2)
 
-    // Assert — the second file's pane remounted at the top. If CodePreview
-    // stops passing filePath, both files key as 'README.md' and the stale
-    // offset survives.
+    // Assert — the second file's pane remounted at the top: different bytes
+    // arrived, so the content-identity key remounted even though basename,
+    // line count, and content length all coincide.
     await expect
       .element(screen.getByRole('heading', { name: 'Omega' }))
       .toBeVisible()

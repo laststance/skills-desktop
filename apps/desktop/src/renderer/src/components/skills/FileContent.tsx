@@ -2,6 +2,7 @@ import { BookOpenText, Code2, FileQuestion } from 'lucide-react'
 import React, { useRef, useState } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { toast } from 'sonner'
 import { match } from 'ts-pattern'
 
 import {
@@ -21,12 +22,7 @@ import {
   CODE_FONT_SIZE_DEFAULT_PX,
   MARKDOWN_FONT_SIZE_DEFAULT_PX,
 } from '@/shared/settings'
-import type {
-  AbsolutePath,
-  FileName,
-  FileSizeBytes,
-  SkillFileContent,
-} from '@/shared/types'
+import type { FileName, FileSizeBytes, SkillFileContent } from '@/shared/types'
 
 import { resolveCodeTheme } from './codeThemeHelpers'
 import { isMarkdownPreview, languageForPreview } from './filePreviewLanguage'
@@ -34,19 +30,6 @@ import { codeToHtml } from './shikiPreview'
 
 interface FileContentProps {
   content: PreviewContent
-  /**
-   * Stable identity of the currently previewed file — its absolute path.
-   * Keys the Markdown reading pane so switching between files that share a
-   * basename (`docs/README.md` -> `guide/README.md`) still remounts and resets
-   * scroll. Typed as {@link AbsolutePath} (not a bare string) so a caller can't
-   * quietly pass a basename or relative path and reintroduce that stale-scroll
-   * bug. Optional because isolated renders (tests, Storybook) may not have a
-   * path; falls back to `file.name`, which is enough when basenames differ.
-   * {@link TextPreview} warns once per mount when a Markdown file renders
-   * without it, so a new production surface that forgets the prop is loud
-   * instead of silently reintroducing the fallback's weaker identity.
-   */
-  filePath?: AbsolutePath
   /** Markdown reading-mode body font size (CSS px). */
   markdownFontSizePx?: number
   /** Shiki code preview font size (CSS px). */
@@ -55,11 +38,11 @@ interface FileContentProps {
   codeThemeId?: CodeThemeId
 }
 
-type TextPreviewMode = 'code' | 'reading'
+type MarkdownPreviewMode = 'code' | 'reading'
 
 /** Code/Reading segments for the Markdown preview-mode toggle. */
-const TEXT_PREVIEW_MODE_OPTIONS: ReadonlyArray<
-  SegmentedControlOption<TextPreviewMode>
+const MARKDOWN_PREVIEW_MODE_OPTIONS: ReadonlyArray<
+  SegmentedControlOption<MarkdownPreviewMode>
 > = [
   {
     value: 'code',
@@ -76,51 +59,104 @@ const TEXT_PREVIEW_MODE_OPTIONS: ReadonlyArray<
 ]
 
 /** Preview mode used when nothing valid is stored yet, or storage is unavailable. */
-const DEFAULT_TEXT_PREVIEW_MODE: TextPreviewMode = 'code'
+const DEFAULT_MARKDOWN_PREVIEW_MODE: MarkdownPreviewMode = 'code'
 
 /**
- * Read the last-selected Markdown preview mode from localStorage.
- * Read once per {@link TextPreview} mount — there is no `storage`-event
- * listener, on the deliberate single-consumer assumption that only one
- * FileContent surface exists (SkillDetail's CodePreview). A second mounted
- * surface would diverge silently; add event sync or shared state if that ever
- * changes.
- * @returns The persisted mode, or {@link DEFAULT_TEXT_PREVIEW_MODE} when unset,
- * when the stored value is not a known mode, or when storage is unavailable.
- * @example
- * readStoredTextPreviewMode() // => 'reading'
+ * The mode the user chose most recently in THIS renderer session — including
+ * when the localStorage write failed. Read ahead of storage on mount so a
+ * detour through an image/binary preview (which unmounts {@link TextPreview})
+ * cannot silently revert the choice under a broken storage write. Kept in sync
+ * by {@link markdownPreviewModeListeners} (same-window surfaces) and the
+ * `storage` event listener (other windows) — while any preview surface is
+ * mounted, a newer cross-window value cannot be masked by a stale session
+ * entry. (A write landing while NO surface is mounted would be missed, but
+ * the only writer is `handleModeChange` inside a mounted TextPreview.)
  */
-function readStoredTextPreviewMode(): TextPreviewMode {
+let sessionMarkdownPreviewMode: MarkdownPreviewMode | null = null
+
+/**
+ * Reset the session-level mode cache for tests — deliberately WITHOUT
+ * touching localStorage: a cleared cache plus a persisted value is exactly
+ * what a real app restart looks like, so restart-simulation tests pair this
+ * with {@link readMarkdownPreviewMode}'s storage arm. Browser test files
+ * share the module graph across tests, so a mode written by one test would
+ * leak into later mounts — pair this with
+ * `localStorage.removeItem(MARKDOWN_PREVIEW_MODE_KEY)` in the suites that
+ * render {@link FileContent}.
+ */
+export function resetMarkdownPreviewModeForTests(): void {
+  sessionMarkdownPreviewMode = null
+}
+
+/**
+ * Same-window surfaces holding the preview mode. `storage` events never reach
+ * the document that wrote, so a second FileContent mounted in this window
+ * would diverge without this emitter — an explicit listener set covers it.
+ */
+const markdownPreviewModeListeners = new Set<
+  (mode: MarkdownPreviewMode) => void
+>()
+
+/**
+ * Coerce raw storage/event values into a known mode.
+ * @param stored - `localStorage` value or `StorageEvent.newValue` (null on removal).
+ * @returns The stored mode, or {@link DEFAULT_MARKDOWN_PREVIEW_MODE} when null,
+ * unknown, or otherwise unusable.
+ * @example modeFromStoredValue('reading') // => 'reading'
+ */
+function modeFromStoredValue(stored: string | null): MarkdownPreviewMode {
+  // Options are the single source of truth: a future third mode becomes a
+  // valid stored value automatically, and find() narrows without a cast.
+  return (
+    MARKDOWN_PREVIEW_MODE_OPTIONS.find((option) => option.value === stored)
+      ?.value ?? DEFAULT_MARKDOWN_PREVIEW_MODE
+  )
+}
+
+/**
+ * Read the last-selected Markdown preview mode for this session.
+ * Session cache first (see {@link sessionMarkdownPreviewMode}), then
+ * localStorage, then the default — mounted {@link TextPreview} surfaces also
+ * subscribe to `storage` events and same-window emissions to stay in sync.
+ * @returns The most recently chosen mode, or {@link DEFAULT_MARKDOWN_PREVIEW_MODE}.
+ * @example readMarkdownPreviewMode() // => 'reading'
+ */
+function readMarkdownPreviewMode(): MarkdownPreviewMode {
   try {
-    const stored = window.localStorage.getItem(MARKDOWN_PREVIEW_MODE_KEY)
-    // Options are the single source of truth: a future third mode becomes a
-    // valid stored value automatically, and find() narrows without a cast.
     return (
-      TEXT_PREVIEW_MODE_OPTIONS.find((option) => option.value === stored)
-        ?.value ?? DEFAULT_TEXT_PREVIEW_MODE
+      sessionMarkdownPreviewMode ??
+      modeFromStoredValue(
+        window.localStorage.getItem(MARKDOWN_PREVIEW_MODE_KEY),
+      )
     )
   } catch {
     // localStorage can throw in restricted-storage environments.
-    return DEFAULT_TEXT_PREVIEW_MODE
+    return sessionMarkdownPreviewMode ?? DEFAULT_MARKDOWN_PREVIEW_MODE
   }
 }
 
 /**
  * Persist the selected Markdown preview mode so it reopens the same way next time.
  * @param mode - The mode the user just selected.
- * @example
- * writeStoredTextPreviewMode('reading')
+ * @example writeStoredMarkdownPreviewMode('reading')
  */
-function writeStoredTextPreviewMode(mode: TextPreviewMode): void {
+function writeStoredMarkdownPreviewMode(mode: MarkdownPreviewMode): void {
   try {
     window.localStorage.setItem(MARKDOWN_PREVIEW_MODE_KEY, mode)
   } catch (error) {
-    // Best-effort persistence only; a failing write must not break the toggle,
-    // but log it so a silently-reverting preference leaves a diagnostic trail.
+    // A failing write must not break the toggle, but the consequence is real
+    // (choice resets on next launch), so report it — `id:` dedupes repeats,
+    // and this stays transient because the stakes are a cosmetic preference
+    // (unlike the redux-state reporter's non-expiring toast).
     console.error(
       '[FileContent] persisting markdown preview mode failed',
       error,
     )
+    toast.error('Preview mode could not be saved', {
+      id: 'markdown-preview-mode-save-error',
+      description:
+        'Your choice still applies now but resets when the app closes.',
+    })
   }
 }
 
@@ -136,7 +172,6 @@ function writeStoredTextPreviewMode(mode: TextPreviewMode): void {
  */
 export const FileContent = function FileContent({
   content,
-  filePath,
   markdownFontSizePx = MARKDOWN_FONT_SIZE_DEFAULT_PX,
   codeFontSizePx = CODE_FONT_SIZE_DEFAULT_PX,
   codeThemeId = DEFAULT_CODE_THEME_ID,
@@ -161,7 +196,6 @@ export const FileContent = function FileContent({
     .with({ kind: 'text' }, ({ data }) => (
       <TextPreview
         file={data}
-        filePath={filePath}
         markdownFontSizePx={markdownFontSizePx}
         codeFontSizePx={codeFontSizePx}
         codeThemeId={codeThemeId}
@@ -172,8 +206,6 @@ export const FileContent = function FileContent({
 
 interface TextPreviewProps {
   file: SkillFileContent
-  /** Absolute path of the previewed file; see {@link FileContentProps.filePath}. */
-  filePath?: AbsolutePath
   markdownFontSizePx: number
   codeFontSizePx: number
   codeThemeId: CodeThemeId
@@ -182,52 +214,62 @@ interface TextPreviewProps {
 /**
  * Text preview shell for source-like files.
  * @param file - Loaded text file metadata and content.
- * @param filePath - Absolute path used in the Reading Mode remount key; pass it
- * always in production — omitting it for Markdown warns once per mount (see
- * {@link FileContentProps.filePath}).
  * @param markdownFontSizePx - Reading Mode body font size (CSS px).
  * @param codeFontSizePx - Code Mode font size (CSS px).
  * @param codeThemeId - Curated Shiki theme for the code preview.
  * @returns Mode toolbar plus either highlighted source or rendered Markdown.
  * @example
- * <TextPreview file={{ name: 'SKILL.md', extension: '.md', content: '# Hi', lineCount: 1 }} filePath={toAbsolutePath('/skills/tdd/SKILL.md')} ... />
+ * <TextPreview file={{ name: 'SKILL.md', extension: '.md', content: '# Hi', lineCount: 1 }} ... />
  */
 const TextPreview = function TextPreview({
   file,
-  filePath,
   markdownFontSizePx,
   codeFontSizePx,
   codeThemeId,
 }: TextPreviewProps): React.ReactElement {
   const isMarkdown = isMarkdownPreview(file)
-  // A Markdown file without filePath keys the reading pane on the basename
-  // alone — same-named files in nested dirs then share one scroll position.
-  // Per-mount warn (post-commit): a module-level once-flag would be burned by
-  // the first sanctioned pathless render and silence the real offender, and a
-  // render-phase write could fire for a StrictMode-discarded tree. Fires in
-  // prod builds deliberately — CodePreview always passes the prop, so a prod
-  // warn can only mean a new surface dropped it.
-  const missingFilePathWarned = useRef(false)
+  const [mode, setMode] = useState<MarkdownPreviewMode>(readMarkdownPreviewMode)
+
   useCycleEffect(() => {
-    // Also warn on non-absolute paths: toAbsolutePath brands unchecked, so a
-    // relative path is a defined-but-wrong identity that can collide across
-    // skills — same silent-regression class the basename fallback permits.
-    if (
-      isMarkdown &&
-      (!filePath || !filePath.startsWith('/')) &&
-      !missingFilePathWarned.current
-    ) {
-      missingFilePathWarned.current = true
-      console.warn(
-        '[FileContent] Markdown preview rendered without an absolute filePath; same-basename files share one scroll key',
+    // Two sync channels for the same preference:
+    // (a) same-window surfaces — `storage` events never reach the document
+    //     that wrote, so an explicit listener set covers a second FileContent
+    //     mounted alongside this one;
+    // (b) other windows sharing the origin — the `storage` event carries the
+    //     write (or removal: newValue === null falls back to the default).
+    // Both update the session cache too, so a remount can't prefer a stale
+    // session value over a newer cross-window write.
+    const adoptMode = (nextMode: MarkdownPreviewMode | null): void => {
+      sessionMarkdownPreviewMode = nextMode
+      setMode(nextMode ?? DEFAULT_MARKDOWN_PREVIEW_MODE)
+    }
+    const onStorage = (event: StorageEvent): void => {
+      // `localStorage.clear()` fires a storage event with key === null —
+      // let it through so the adopted mode resets to the default.
+      if (event.key !== null && event.key !== MARKDOWN_PREVIEW_MODE_KEY) {
+        return
+      }
+      adoptMode(
+        event.newValue === null ? null : modeFromStoredValue(event.newValue),
       )
     }
-  }, [isMarkdown, filePath])
-  const [mode, setMode] = useState<TextPreviewMode>(readStoredTextPreviewMode)
+    markdownPreviewModeListeners.add(adoptMode)
+    window.addEventListener('storage', onStorage)
+    return (): void => {
+      markdownPreviewModeListeners.delete(adoptMode)
+      window.removeEventListener('storage', onStorage)
+    }
+  }, [])
 
-  const handleModeChange = (nextMode: TextPreviewMode): void => {
-    setMode(nextMode)
-    writeStoredTextPreviewMode(nextMode)
+  const handleModeChange = (nextMode: MarkdownPreviewMode): void => {
+    writeStoredMarkdownPreviewMode(nextMode)
+    // Wake every surface in this window INCLUDING this one — this surface's
+    // own adoptMode is a registered listener, so its state and session
+    // update ride the same path instead of being applied twice. The
+    // `storage` event carries the write to other windows.
+    for (const listener of markdownPreviewModeListeners) {
+      listener(nextMode)
+    }
   }
 
   return (
@@ -239,32 +281,37 @@ const TextPreview = function TextPreview({
             size="sm"
             value={mode}
             onValueChange={handleModeChange}
-            options={TEXT_PREVIEW_MODE_OPTIONS}
+            options={MARKDOWN_PREVIEW_MODE_OPTIONS}
           />
         </div>
       )}
 
       {isMarkdown && mode === 'reading' ? (
         <MarkdownReadingPreview
-          // Remounts the scroll container per file so switching Markdown
-          // files always starts at the top, even though the preview mode
-          // itself is preserved across the switch. Two identities are keyed:
-          // (1) the path, not the basename — nested dirs can hold distinct
-          // files that share a name (docs/README.md vs guide/README.md), and
-          // name alone would keep the previous file's scroll offset; and
-          // (2) the loaded document's shape — useCodePreview commits the new
-          // activeFile synchronously while its content lags one IPC read, so
-          // without the length/lineCount segment the remount fires on the OLD
-          // document and scroll accrued during that window survives into the
-          // newly-arrived file. Same-file rerenders (font-size tweaks, a
-          // reload with identical content) keep one key, so mid-read scroll
-          // is never wiped.
-          key={`${filePath || file.name}:${file.lineCount}:${file.content.length}`}
+          // Content-identity key: remount exactly when the loaded document
+          // changes — so switching Markdown files always starts at the top,
+          // even though the preview mode persists across the switch. This is
+          // deliberately keyed on the loaded content, not the requested file
+          // path: useCodePreview commits the new activeFile synchronously
+          // while its content lags one IPC read, and a path-segmented key
+          // would remount on the OLD document — visibly scrolling it to top
+          // and re-parsing it once before the new file lands. Content as the
+          // key leaves the old document painted (and its scroll position
+          // stable) during that window, then remounts atomically when the new
+          // bytes arrive. Same-file rerenders (font-size tweaks, a reload
+          // with identical content) keep one key, so mid-read scroll is never
+          // wiped; two byte-identical files sharing a key is semantically
+          // indistinguishable from the same document.
+          key={file.content}
           content={file.content}
           fontSizePx={markdownFontSizePx}
         />
       ) : (
         <SyntaxHighlightedCode
+          // Same content-identity contract as the reading pane: a file switch
+          // remounts once the new content lands — scroll (x and y) resets to
+          // top instead of clamping the old offset into the new document.
+          key={file.content}
           content={file.content}
           language={languageForPreview(file)}
           fontSizePx={codeFontSizePx}

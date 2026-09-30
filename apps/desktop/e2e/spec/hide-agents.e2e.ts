@@ -1,9 +1,7 @@
 import { mkdirSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { join } from 'node:path'
 
-import { _electron } from '@playwright/test'
-
-import { test, expect } from '../fixtures/electron-app'
+import { test, expect, launchIsolatedElectron } from '../fixtures/electron-app'
 import { isSnapshotOffline } from '../fixtures/isolated-home'
 import { getStoreState, waitForInitialScan } from '../helpers/redux'
 import { readSettingsFile, writeSettingsFile } from '../helpers/settings-file'
@@ -241,25 +239,12 @@ test('stale agent id is filtered from settings.json without dropping siblings', 
     preferredTerminal: 'iterm',
   })
 
-  // Manual launch with the same env contract as the default fixture so
-  // the IPC surface, the E2E build flag, the userData override, and the
-  // auto-update suppression all match what the rest of the suite uses.
-  // `E2E_USERDATA_DIR` is critical here: without it, `app.getPath('userData')`
+  // Manual launch through the shared env contract so `E2E_USERDATA_DIR`
+  // lands inside the isolated HOME — without it, `app.getPath('userData')`
   // would resolve to the developer's REAL Application Support dir on
   // macOS (NSSearchPath ignores `$HOME`), and the pre-staged
   // settings.json above would never be parsed by `loadSettings()`.
-  const repoRoot = resolve(__dirname, '..', '..')
-  const mainEntry = resolve(repoRoot, 'out', 'main', 'index.mjs')
-  const electronApp = await _electron.launch({
-    args: [mainEntry],
-    env: {
-      ...process.env,
-      HOME: isolatedHome,
-      E2E_USERDATA_DIR: resolve(isolatedHome, 'userData'),
-      E2E_DISABLE_UPDATE: '1',
-      E2E_BACKGROUND_LAUNCH: process.env['E2E_BACKGROUND_LAUNCH'] ?? '1',
-    },
-  })
+  const electronApp = await launchIsolatedElectron(isolatedHome)
   try {
     // Act — boot the app so `loadSettings` parses the pre-staged file.
     const appWindow = await electronApp.firstWindow()

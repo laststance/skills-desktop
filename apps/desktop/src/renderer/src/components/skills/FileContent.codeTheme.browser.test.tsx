@@ -6,6 +6,8 @@ import { MARKDOWN_PREVIEW_MODE_KEY } from '@/shared/constants'
 import { toFileExtension, toFileName, toLineCount } from '@/shared/types'
 import '@/renderer/src/styles/globals.css'
 
+import { resetMarkdownPreviewModeForTests } from './FileContent'
+
 // Mock the Shiki shorthand so this file can assert which theme pair FileContent
 // actually hands the highlighter — the one seam (props -> resolveCodeTheme ->
 // codeToHtml) that real-Shiki render tests can't observe, since Shiki colours
@@ -44,13 +46,16 @@ describe('FileContent code theme', () => {
     )
     // Shared Chromium origin: a leaked 'reading' mode would mount the Markdown
     // pane instead of the code view under test if a fixture ever goes .md.
+    // The module-level session cache must reset alongside storage.
     window.localStorage.removeItem(MARKDOWN_PREVIEW_MODE_KEY)
+    resetMarkdownPreviewModeForTests()
   })
 
   afterEach(() => {
     // Symmetric cleanup: a future .md fixture that writes 'reading' must not
     // leak the mode to the next file sharing this Chromium origin.
     window.localStorage.removeItem(MARKDOWN_PREVIEW_MODE_KEY)
+    resetMarkdownPreviewModeForTests()
   })
 
   test('highlights the code preview using the user-selected theme pair', async () => {

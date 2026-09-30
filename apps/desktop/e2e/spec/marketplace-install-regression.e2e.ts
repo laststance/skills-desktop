@@ -5,11 +5,11 @@ import {
   readFileSync,
   writeFileSync,
 } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, join } from 'node:path'
 
-import { _electron, type Page } from '@playwright/test'
+import type { Page } from '@playwright/test'
 
-import { test, expect } from '../fixtures/electron-app'
+import { test, expect, launchIsolatedElectron } from '../fixtures/electron-app'
 import { dispatchAction } from '../helpers/redux'
 
 const SPARSE_GUI_PATH = '/usr/bin:/bin:/usr/sbin:/sbin'
@@ -113,18 +113,8 @@ test('Marketplace Install works when Electron starts with sparse macOS GUI PATH'
   mkdirSync(join(isolatedHome, '.claude', 'skills'), { recursive: true })
   const markerPath = stageFallbackNpx(isolatedHome)
 
-  const repoRoot = resolve(__dirname, '..', '..')
-  const mainEntry = resolve(repoRoot, 'out', 'main', 'index.mjs')
-  const electronApp = await _electron.launch({
-    args: [mainEntry],
-    env: {
-      ...process.env,
-      HOME: isolatedHome,
-      PATH: SPARSE_GUI_PATH,
-      E2E_USERDATA_DIR: resolve(isolatedHome, 'userData'),
-      E2E_DISABLE_UPDATE: '1',
-      E2E_BACKGROUND_LAUNCH: process.env['E2E_BACKGROUND_LAUNCH'] ?? '1',
-    },
+  const electronApp = await launchIsolatedElectron(isolatedHome, {
+    PATH: SPARSE_GUI_PATH,
   })
 
   try {

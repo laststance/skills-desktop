@@ -7,6 +7,8 @@ import { MARKDOWN_PREVIEW_MODE_KEY } from '@/shared/constants'
 import { toFileExtension, toFileName, toLineCount } from '@/shared/types'
 import '@/renderer/src/styles/globals.css'
 
+import { resetMarkdownPreviewModeForTests } from './FileContent'
+
 // Force Shiki to fail so the preview must fall back to the plain-text renderer
 // instead of blanking out. Mocked file-wide because vi.mock is hoisted; every
 // test here intentionally exercises the highlighter-failure path.
@@ -37,13 +39,16 @@ describe('FileContent Shiki failure fallback', () => {
   beforeEach(() => {
     // Shared Chromium origin: a leaked 'reading' mode would mount the Markdown
     // pane instead of the code view under test if a fixture ever goes .md.
+    // The module-level session cache must reset alongside storage.
     window.localStorage.removeItem(MARKDOWN_PREVIEW_MODE_KEY)
+    resetMarkdownPreviewModeForTests()
   })
 
   afterEach(() => {
     // Symmetric cleanup: a future .md fixture that writes 'reading' must not
     // leak the mode to the next file sharing this Chromium origin.
     window.localStorage.removeItem(MARKDOWN_PREVIEW_MODE_KEY)
+    resetMarkdownPreviewModeForTests()
   })
 
   test('keeps plain-text source opaque under translucent panes when syntax highlighting throws', async () => {
