@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { PreviewContent } from '@/renderer/src/hooks/useCodePreview'
@@ -37,6 +37,12 @@ describe('FileContent Shiki failure fallback', () => {
   beforeEach(() => {
     // Shared Chromium origin: a leaked 'reading' mode would mount the Markdown
     // pane instead of the code view under test if a fixture ever goes .md.
+    window.localStorage.removeItem(MARKDOWN_PREVIEW_MODE_KEY)
+  })
+
+  afterEach(() => {
+    // Symmetric cleanup: a future .md fixture that writes 'reading' must not
+    // leak the mode to the next file sharing this Chromium origin.
     window.localStorage.removeItem(MARKDOWN_PREVIEW_MODE_KEY)
   })
 

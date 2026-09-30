@@ -268,7 +268,7 @@ describe('FileContent Markdown modes', () => {
       </div>,
     )
     await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
-    const firstScrollContainer = document.querySelector<HTMLElement>(
+    const firstScrollContainer = screen.container.querySelector<HTMLElement>(
       '[data-markdown-reading-scroll]',
     )
     if (!firstScrollContainer) {
@@ -295,7 +295,7 @@ describe('FileContent Markdown modes', () => {
     await expect
       .element(screen.getByRole('heading', { name: 'Second' }))
       .toBeVisible()
-    const secondScrollContainer = document.querySelector<HTMLElement>(
+    const secondScrollContainer = screen.container.querySelector<HTMLElement>(
       '[data-markdown-reading-scroll]',
     )
     expect(secondScrollContainer?.scrollTop).toBe(0)
@@ -326,7 +326,7 @@ describe('FileContent Markdown modes', () => {
       </div>,
     )
     await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
-    const firstScrollContainer = document.querySelector<HTMLElement>(
+    const firstScrollContainer = screen.container.querySelector<HTMLElement>(
       '[data-markdown-reading-scroll]',
     )
     if (!firstScrollContainer) {
@@ -354,7 +354,7 @@ describe('FileContent Markdown modes', () => {
     await expect
       .element(screen.getByRole('heading', { name: 'Omega' }))
       .toBeVisible()
-    const secondScrollContainer = document.querySelector<HTMLElement>(
+    const secondScrollContainer = screen.container.querySelector<HTMLElement>(
       '[data-markdown-reading-scroll]',
     )
     expect(secondScrollContainer?.scrollTop).toBe(0)
@@ -377,7 +377,7 @@ describe('FileContent Markdown modes', () => {
       </div>,
     )
     await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
-    const initialPane = document.querySelector<HTMLElement>(
+    const initialPane = screen.container.querySelector<HTMLElement>(
       '[data-markdown-reading-scroll]',
     )
     if (!initialPane)
@@ -392,7 +392,7 @@ describe('FileContent Markdown modes', () => {
         />
       </div>,
     )
-    const stalePane = document.querySelector<HTMLElement>(
+    const stalePane = screen.container.querySelector<HTMLElement>(
       '[data-markdown-reading-scroll]',
     )
     if (!stalePane)
@@ -418,7 +418,7 @@ describe('FileContent Markdown modes', () => {
     await expect
       .element(screen.getByRole('heading', { name: 'Second' }))
       .toBeVisible()
-    const freshPane = document.querySelector<HTMLElement>(
+    const freshPane = screen.container.querySelector<HTMLElement>(
       '[data-markdown-reading-scroll]',
     )
     expect(freshPane?.scrollTop).toBe(0)
@@ -428,7 +428,9 @@ describe('FileContent Markdown modes', () => {
   test('resets Reading Mode scroll when a reloaded file keeps its line count but changes length', async () => {
     // Arrange — a same-path reload after an external edit: both documents have
     // 83 lines, but the bodies differ in length, so only the content.length
-    // key segment can remount the pane.
+    // key segment can remount the pane. Long repeated units keep BOTH rendered
+    // documents taller than the 220px pane — a non-overflowing second document
+    // would satisfy scrollTop === 0 vacuously without a remount.
     const { FileContent } = await import('./FileContent')
     const pathA = toAbsolutePath('/skills/tdd/SKILL.md')
     const screen = await render(
@@ -436,14 +438,14 @@ describe('FileContent Markdown modes', () => {
         <FileContent
           filePath={pathA}
           content={makeTextContent({
-            content: `# Alpha\n\n${'aa\n'.repeat(80)}`,
+            content: `# Alpha\n\n${'aa bb cc dd\n'.repeat(80)}`,
             name: 'SKILL.md',
           })}
         />
       </div>,
     )
     await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
-    const firstPane = document.querySelector<HTMLElement>(
+    const firstPane = screen.container.querySelector<HTMLElement>(
       '[data-markdown-reading-scroll]',
     )
     if (!firstPane)
@@ -457,7 +459,7 @@ describe('FileContent Markdown modes', () => {
         <FileContent
           filePath={pathA}
           content={makeTextContent({
-            content: `# Omega\n\n${'aaaa\n'.repeat(80)}`,
+            content: `# Omega\n\n${'zz zz zz\n'.repeat(80)}`,
             name: 'SKILL.md',
           })}
         />
@@ -468,7 +470,7 @@ describe('FileContent Markdown modes', () => {
     await expect
       .element(screen.getByRole('heading', { name: 'Omega' }))
       .toBeVisible()
-    const secondPane = document.querySelector<HTMLElement>(
+    const secondPane = screen.container.querySelector<HTMLElement>(
       '[data-markdown-reading-scroll]',
     )
     expect(secondPane?.scrollTop).toBe(0)
@@ -476,9 +478,11 @@ describe('FileContent Markdown modes', () => {
 
   // Value: protects=Reading Mode reopens a reloaded file at top when its line count changed; fails_when=the key loses the lineCount segment — both docs share path, name AND content.length, so lineCount is the sole discriminator and stale scroll would survive; why_new=the stale-window test's fixtures differ in BOTH shape segments, so each segment alone is unpinned; seam=none
   test('resets Reading Mode scroll when a reloaded file keeps its length but changes line count', async () => {
-    // Arrange — both documents are 409 characters but split into a different
-    // number of lines (203 vs 103), so only the lineCount key segment can
-    // remount the pane.
+    // Arrange — both documents are 849 characters but split into a different
+    // number of lines (283 vs 108), so only the lineCount key segment can
+    // remount the pane. Long repeated units keep BOTH rendered documents
+    // taller than the 220px pane — a non-overflowing second document would
+    // satisfy scrollTop === 0 vacuously without a remount.
     const { FileContent } = await import('./FileContent')
     const pathA = toAbsolutePath('/skills/tdd/SKILL.md')
     const screen = await render(
@@ -486,14 +490,14 @@ describe('FileContent Markdown modes', () => {
         <FileContent
           filePath={pathA}
           content={makeTextContent({
-            content: `# Alpha\n\n${'x\n'.repeat(200)}`,
+            content: `# Alpha\n\n${'xy\n'.repeat(280)}`,
             name: 'SKILL.md',
           })}
         />
       </div>,
     )
     await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
-    const firstPane = document.querySelector<HTMLElement>(
+    const firstPane = screen.container.querySelector<HTMLElement>(
       '[data-markdown-reading-scroll]',
     )
     if (!firstPane)
@@ -501,13 +505,13 @@ describe('FileContent Markdown modes', () => {
     firstPane.scrollTop = 1200
     expect(firstPane.scrollTop).toBeGreaterThan(0)
 
-    // Act — the file reloads with a same-length document of 103 lines.
+    // Act — the file reloads with a same-length document of 108 lines.
     await screen.rerender(
       <div style={{ display: 'flex', height: 220 }}>
         <FileContent
           filePath={pathA}
           content={makeTextContent({
-            content: `# Omega\n\n${'xxx\n'.repeat(100)}`,
+            content: `# Omega\n\n${'yy zz ww\n'.repeat(105)}`,
             name: 'SKILL.md',
           })}
         />
@@ -518,7 +522,7 @@ describe('FileContent Markdown modes', () => {
     await expect
       .element(screen.getByRole('heading', { name: 'Omega' }))
       .toBeVisible()
-    const secondPane = document.querySelector<HTMLElement>(
+    const secondPane = screen.container.querySelector<HTMLElement>(
       '[data-markdown-reading-scroll]',
     )
     expect(secondPane?.scrollTop).toBe(0)
@@ -539,18 +543,43 @@ describe('FileContent Markdown modes', () => {
         expect(warnSpy).toHaveBeenCalledTimes(1)
       })
       expect(warnSpy).toHaveBeenCalledWith(
-        '[FileContent] Markdown preview rendered without filePath; same-basename files share one scroll key',
+        '[FileContent] Markdown preview rendered without an absolute filePath; same-basename files share one scroll key',
       )
 
-      // Act — rerender the same mounted surface; the latch must not refire.
+      // Act — flip the file to non-Markdown and back on the SAME mounted
+      // surface: the effect deps ([isMarkdown, filePath]) change, forcing a
+      // re-run that must find the latch already set and not warn again.
+      await screen.rerender(
+        <FileContent
+          content={makeTextContent({
+            content: 'const x = 1\n',
+            name: 'snippet.ts',
+            extension: '.ts',
+          })}
+        />,
+      )
       await screen.rerender(
         <FileContent
           content={makeTextContent({ content: '# Doc\n\nmore\n' })}
         />,
       )
 
-      // Assert
+      // Assert — the per-mount latch held through the dep-change re-run.
       expect(warnSpy).toHaveBeenCalledTimes(1)
+
+      // Act — a SECOND mounted surface warns independently; this is the
+      // contract that pins per-mount granularity (a module-level once-flag
+      // would stay silent here).
+      await render(
+        <div>
+          <FileContent content={makeTextContent({ content: '# Other\n' })} />
+        </div>,
+      )
+
+      // Assert
+      await vi.waitFor(() => {
+        expect(warnSpy).toHaveBeenCalledTimes(2)
+      })
     } finally {
       warnSpy.mockRestore()
     }
@@ -573,7 +602,7 @@ describe('FileContent Markdown modes', () => {
       </div>,
     )
     await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
-    const pane = document.querySelector<HTMLElement>(
+    const pane = screen.container.querySelector<HTMLElement>(
       '[data-markdown-reading-scroll]',
     )
     if (!pane) throw new Error('expected a markdown reading scroll container')
@@ -596,7 +625,7 @@ describe('FileContent Markdown modes', () => {
     )
 
     // Assert
-    const samePane = document.querySelector<HTMLElement>(
+    const samePane = screen.container.querySelector<HTMLElement>(
       '[data-markdown-reading-scroll]',
     )
     expect(samePane?.scrollTop).toBeGreaterThan(0)

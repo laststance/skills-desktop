@@ -209,10 +209,17 @@ const TextPreview = function TextPreview({
   // warn can only mean a new surface dropped it.
   const missingFilePathWarned = useRef(false)
   useCycleEffect(() => {
-    if (isMarkdown && !filePath && !missingFilePathWarned.current) {
+    // Also warn on non-absolute paths: toAbsolutePath brands unchecked, so a
+    // relative path is a defined-but-wrong identity that can collide across
+    // skills — same silent-regression class the basename fallback permits.
+    if (
+      isMarkdown &&
+      (!filePath || !filePath.startsWith('/')) &&
+      !missingFilePathWarned.current
+    ) {
       missingFilePathWarned.current = true
       console.warn(
-        '[FileContent] Markdown preview rendered without filePath; same-basename files share one scroll key',
+        '[FileContent] Markdown preview rendered without an absolute filePath; same-basename files share one scroll key',
       )
     }
   }, [isMarkdown, filePath])
