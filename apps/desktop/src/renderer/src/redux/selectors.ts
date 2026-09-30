@@ -27,6 +27,7 @@ import {
   selectSkillsItems,
 } from './slices/skillsSlice'
 import {
+  isSourceOrphanMode,
   selectExcludedSkillTypeFilters,
   selectSearchQuery,
   selectSearchScope,
@@ -84,7 +85,7 @@ function matchesSkillTypeFilter(
   selectedAgentId: AgentId | null,
   skillTypeFilter: SkillTypeFilter,
 ): boolean {
-  /* v8 ignore next -- defensive: applyAgentAndTypeFilters returns early on null selectedAgentId before reaching either matchesSkillTypeFilter call, so this guard is never hit via any selector */
+  /* v8 ignore next -- defensive: applyAgentAndTypeFilters returns early on null selectedAgentId — source view intercepts 'orphan' in its own branch and never reaches either matchesSkillTypeFilter call, so this guard is never hit via any selector */
   if (selectedAgentId === null) return false
 
   const hasSelectedAgentSlot = (slot: SymlinkInfo): boolean =>
@@ -147,7 +148,14 @@ function applyAgentAndTypeFilters(
   excludedSkillTypeFilters: ExcludableSkillTypeFilter[],
 ): Skill[] {
   if (selectedAgentId === null) {
-    return skills.filter((skill) => skill.isSource)
+    // Source view normally lists source-directory skills. The toolbar's Orphan
+    // toggle flips the population to orphan rows instead — 'orphan' is
+    // intercepted here because {@link matchesSkillTypeFilter} is agent-scoped
+    // (it early-returns false for a null agent). Other persisted type filters
+    // stay inert in source view.
+    return isSourceOrphanMode(selectedAgentId, skillTypeFilter)
+      ? skills.filter((skill) => skill.isOrphan)
+      : skills.filter((skill) => skill.isSource)
   }
 
   let result = skills.filter((skill) =>
@@ -203,7 +211,10 @@ const selectVisibleByAgentAndType = createSelector(
  * `source` is in the ticked set; an empty set is a no-op (all repos shown).
  * Source-less Local skills drop out whenever the set is non-empty. Applied
  * independently of the search scope so users can stack "in repos X/Y" with
- * "name containing Z".
+ * "name containing Z". It is suppressed while the source-view Orphan toggle
+ * is active (`selectedAgentId === null && skillTypeFilter === 'orphan'`) —
+ * orphans have no repo facet, so the ticked set would zero the list; the
+ * ticks stay in state and resume when the toggle turns off.
  *
  * @returns Filtered + sorted skills array
  * @example
@@ -216,14 +227,29 @@ export const selectFilteredSkills = createSelector(
     selectSearchScope,
     selectSelectedSources,
     selectSortOrder,
+    selectSelectedAgentId,
+    selectSkillTypeFilter,
   ],
-  (visibleSkills, searchQuery, searchScope, selectedSources, sortOrder) => {
+  (
+    visibleSkills,
+    searchQuery,
+    searchScope,
+    selectedSources,
+    sortOrder,
+    selectedAgentId,
+    skillTypeFilter,
+  ) => {
     let result = visibleSkills
 
     // Source-repo include filter — keep only ticked repos. An empty set is a
     // no-op. Local skills (source undefined) can never be in the set, so they
     // drop out implicitly whenever the filter is active.
-    if (selectedSources.length > 0) {
+    // Orphan mode (source view + 'orphan' toggle): the narrowing is suppressed
+    // — orphans carry no repo provenance users ticked, so the facet would
+    // zero the list while its pills still claimed an active filter. The ticked
+    // ids stay in state and resume on toggle-off.
+    const orphanMode = isSourceOrphanMode(selectedAgentId, skillTypeFilter)
+    if (selectedSources.length > 0 && !orphanMode) {
       const includedSources = new Set(selectedSources)
       result = result.filter(
         (skill) =>
@@ -276,6 +302,21 @@ export const selectFilteredSkillCount = createSelector(
 )
 
 /**
+ * Count orphan skill rows for the source-view Orphan toggle's label.
+ * An orphan is a skill whose source directory is gone while agent symlinks
+ * still point at it ({@link Skill.isOrphan}); the count is row-level. It can
+ * exceed {@link SymlinkCleanupPlan}'s `totals.orphanRecords`, which skips
+ * orphans with zero cleanup-eligible broken slots.
+ * @returns Number of orphan skills in the latest scan.
+ * @example
+ * const orphanCount = useAppSelector(selectOrphanCount) // => 3 → "Orphan (3)"
+ */
+export const selectOrphanCount = createSelector(
+  [selectSkillsItems],
+  (skills): number => skills.filter((skill) => skill.isOrphan).length,
+)
+
+/**
  * Exact repo choices for the Installed toolbar. It shares the agent/type gates
  * with `selectFilteredSkills`, but intentionally ignores the active source
  * include filter and text query so users can recover from an over-narrowed
@@ -315,12 +356,16 @@ export const selectRepoSearchSuggestions = createSelector(
     selectVisibleByAgentAndType,
     selectSelectedSources,
     selectSearchQuery,
+    selectSelectedAgentId,
+    selectSkillTypeFilter,
   ],
   (
     facetOptions,
     visibleSkills,
     selectedSources,
     searchQuery,
+    selectedAgentId,
+    skillTypeFilter,
   ): RepoSearchSuggestion[] => {
     // Same normalization as the row filter so a suggestion and its rows agree.
     const query = searchQuery.toLowerCase()
@@ -330,7 +375,12 @@ export const selectRepoSearchSuggestions = createSelector(
 
     // An active repo include filter hides every other repo AND all Local rows
     // (see selectFilteredSkills), so only the ticked repos can still match.
-    if (selectedSources.length > 0) {
+    // Orphan mode suppresses that narrowing — mask the ticks here too, or the
+    // suggestion list would silently narrow on a filter that isn't running.
+    if (
+      selectedSources.length > 0 &&
+      !isSourceOrphanMode(selectedAgentId, skillTypeFilter)
+    ) {
       const includedSources = new Set(selectedSources)
       return repos.filter(
         (repo) => includedSources.has(repo) && matchesQuery(repo),
@@ -719,13 +769,17 @@ export const selectSelectedSkillNamesSet = createSelector(
  * filter — will not be affected" promise instead of silently copying hidden
  * selections. Any ticked name with no live skill (removed by a concurrent
  * refresh) is dropped too. Feeds the bulk copy modal, which needs each skill's
- * `path` as the copy source.
+ * `path` as the copy source — orphan rows are excluded because their `path`
+ * is a dead agent-side symlink (`scanOrphanSymlinks` sets `path: linkPath`),
+ * so copying one would replicate a dangling link into every target agent.
  * @returns Skill[] in `items` order, restricted to the visible-and-selected set
  */
 export const selectSelectedVisibleSkillObjects = createSelector(
   [selectSkillsItems, selectSelectedVisibleNames],
   (items, visibleSelectedNames): Skill[] => {
     const visibleSelectedSet = new Set(visibleSelectedNames)
-    return items.filter((skill) => visibleSelectedSet.has(skill.name))
+    return items.filter(
+      (skill) => visibleSelectedSet.has(skill.name) && !skill.isOrphan,
+    )
   },
 )

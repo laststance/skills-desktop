@@ -352,8 +352,9 @@ describe('uiSlice skill type excludes', () => {
     expect(store.getState().ui.excludedSkillTypeFilters).toEqual(['gstack'])
   })
 
-  test('resets both the include and exclude skill-type filters when the user swaps agents', async () => {
-    // Arrange
+  test('keeps both the include and exclude skill-type filters when the user swaps agents', async () => {
+    // Arrange — persistence is deliberate: cross-agent audits (orphans,
+    // "which agents have local skills") would re-select the filter each switch.
     const store = await createTestStore()
     const { selectAgent, setSkillTypeFilter, toggleExcludedSkillTypeFilter } =
       await import('./uiSlice')
@@ -364,7 +365,24 @@ describe('uiSlice skill type excludes', () => {
     store.dispatch(selectAgent('cursor'))
 
     // Assert
-    expect(store.getState().ui.skillTypeFilter).toBe('all')
+    expect(store.getState().ui.skillTypeFilter).toBe('gstack')
+    expect(store.getState().ui.excludedSkillTypeFilters).toEqual(['local'])
+  })
+
+  test('prunes excludes that the orphan filter does not offer when entering orphan mode', async () => {
+    // Arrange — documented tradeoff of routing the source-view Orphan toggle
+    // through setSkillTypeFilter: excludes are an agent-view-only axis, so a
+    // persisted 'local' exclude does not survive the mode switch.
+    const store = await createTestStore()
+    const { setSkillTypeFilter, toggleExcludedSkillTypeFilter } =
+      await import('./uiSlice')
+    store.dispatch(toggleExcludedSkillTypeFilter('local'))
+    expect(store.getState().ui.excludedSkillTypeFilters).toEqual(['local'])
+
+    // Act
+    store.dispatch(setSkillTypeFilter('orphan'))
+
+    // Assert — 'local' is pruned; only 'gstack' remains excludable under 'orphan'
     expect(store.getState().ui.excludedSkillTypeFilters).toEqual([])
   })
 })
@@ -1640,7 +1658,7 @@ describe('uiSlice selectors read the live ui state', () => {
       selectSkillTypeFilter,
       selectExcludedSkillTypeFilters,
     } = await import('./uiSlice')
-    // selectAgent resets skill-type filters, so set the type filters afterwards.
+    // Type filters persist across selectAgent, so dispatch order is free.
     store.dispatch(selectAgent('claude-code'))
     store.dispatch(setSearchQuery(toSearchQuery('browser')))
     store.dispatch(setSearchScope('repo'))

@@ -169,4 +169,37 @@ describe('SourceLink role split', () => {
     // Assert
     expect(document.activeElement).toBe(anchorElement)
   })
+
+  test('renders the repo as plain text — no filter button — while source-view orphan mode suspends repo narrowing', async () => {
+    // Arrange — orphan mode is active (no agent + 'orphan' filter), so a
+    // repo-filter click would write invisible state that only materializes
+    // after exit. The link must go inert rather than pretend to filter.
+    const { screen, store } = await renderSourceLink({
+      source: REPO,
+      sourceUrl: REPO_URL,
+    })
+    const { setSkillTypeFilter } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+
+    // Act
+    store.dispatch(setSkillTypeFilter('orphan'))
+
+    // Assert — the filter button unmounts; the GitHub anchor stays live
+    await expect
+      .poll(() =>
+        screen
+          .getByRole('button', { name: /Filter skills by repository/i })
+          .query(),
+      )
+      .toBeNull()
+    await expect.element(screen.getByText(REPO)).toBeVisible()
+    await expect
+      .element(
+        screen.getByRole('link', {
+          name: /Open pbakaus\/impeccable on GitHub/i,
+        }),
+      )
+      .toBeVisible()
+    expect(store.getState().ui.selectedSources).toEqual([])
+  })
 })

@@ -1248,6 +1248,8 @@ Deferred from the #347 pre-landing review (cycle 3) and its adversarial pass.
 
 ### 1. Source-view orphan visibility
 
+**Status:** Fixed in this branch (Issue #362). Source view now renders an Orphan toggle in the toolbar when orphan rows exist; activating it swaps the list to orphan rows, suppresses the repo facet (orphans carry no repo provenance), and shows a `marked as orphaned` pill with a Clear action. Implemented via `selectOrphanCount`, an `'orphan'` arm in `applyAgentAndTypeFilters`, `OrphanModeToggle`, and `orphanMode` gating in `InstalledFilterPills`.
+
 **Context:** The Orphan filter in `SkillTypeFilter` only renders in agent view (`selectedAgentId !== null`). In source view (no agent selected), `selectFilteredSkills` filters to `isSource: true` only — orphans are invisible there because their source dir was deleted.
 
 **Possible directions:**
@@ -1259,6 +1261,8 @@ Deferred from the #347 pre-landing review (cycle 3) and its adversarial pass.
 **Why deferred:** Decision needs design input on where orphans live in source view conceptually — they're not sources, but they're also not agent-scoped state.
 
 ### 2. Filter persistence across agent switches
+
+**Status:** Fixed in this branch (Issue #362). `selectAgent` no longer resets `skillTypeFilter` / `excludedSkillTypeFilters`, so include and exclude filters persist across agent switches — the cross-agent orphan/local/unique audit workflow that motivated this item. Switching back to source view clears filters explicitly via `SourceCard.handlePathClick` (repo facets stay coherent).
 
 **Context:** `selectAgent` reducer in `src/renderer/src/redux/slices/uiSlice.ts:246` resets `skillTypeFilter = 'all'` whenever the user picks a different agent. With the new Orphan option, a user investigating orphans across agents has to re-select Orphan each time.
 

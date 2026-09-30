@@ -28,6 +28,7 @@ import {
   selectFilteredSkills,
   selectFilteredSkillCount,
   selectHiddenSelectedCount,
+  selectOrphanCount,
   selectRepoFacetOptions,
   selectRepoSearchSuggestions,
   selectSelectedCount,
@@ -776,19 +777,14 @@ describe('selectFilteredSkills', () => {
     expect(result).toHaveLength(0)
   })
 
-  test.each([
-    'all',
-    'symlinked',
-    'local',
-    'gstack',
-    'orphan',
-    'unique',
-  ] as const)(
+  test.each(['all', 'symlinked', 'local', 'gstack', 'unique'] as const)(
     'ignores the skillTypeFilter (%s) in the SourceCard view where source-only filtering rules',
     (skillTypeFilter) => {
       // Arrange — SourceCard view applies its own source-only filter, so
       // skillTypeFilter is moot here. `local-task` is hidden because it lives
       // outside SOURCE_DIR, not because of the symlinked/local filter.
+      // ('orphan' is intentionally absent: the source-view Orphan toggle gives
+      // it real meaning — see the dedicated test below.)
       const skills = [
         makeSkill('task', 'claude-code'),
         makeSkill('local-task', 'cursor', true),
@@ -802,6 +798,85 @@ describe('selectFilteredSkills', () => {
       expect(result.map((s) => s.name)).toEqual(['task'])
     },
   )
+
+  test('lists orphan rows instead of source rows in SourceCard view while the Orphan toggle is on', () => {
+    // Arrange — one source skill, one orphan (source dir gone, agent link remains).
+    const skills = [
+      makeSkill('task', 'claude-code'),
+      makeMultiSlotSkill('gone-source', [{ agentId: 'cursor' }], {
+        isOrphan: true,
+      }),
+    ]
+    const state = buildState({ skills, skillTypeFilter: 'orphan' })
+
+    // Act
+    const result = selectFilteredSkills(state as never)
+
+    // Assert — the population swaps to orphans only
+    expect(result.map((s) => s.name)).toEqual(['gone-source'])
+  })
+
+  test('ignores the source-repo include filter while the source-view Orphan toggle is on', () => {
+    // Arrange — a repo tick that would zero the orphan population (orphans
+    // carry no repo provenance for the facet to match).
+    const skills = [
+      makeSkill('task', 'claude-code'),
+      makeMultiSlotSkill('gone-source', [{ agentId: 'cursor' }], {
+        isOrphan: true,
+      }),
+    ]
+    const state = buildState({
+      skills,
+      skillTypeFilter: 'orphan',
+      selectedSources: [repositoryId('vercel-labs/skills')],
+    })
+
+    // Act
+    const result = selectFilteredSkills(state as never)
+
+    // Assert — orphan rows survive; the ticked repo narrowing is suppressed
+    expect(result.map((s) => s.name)).toEqual(['gone-source'])
+  })
+
+  test('resumes the source-repo include filter when the Orphan toggle turns back off', () => {
+    // Arrange — same fixture as above but the toggle is off: the repo tick
+    // narrows the source population again.
+    const skills = [
+      makeSkill('task', 'claude-code'),
+      makeMultiSlotSkill('gone-source', [{ agentId: 'cursor' }], {
+        isOrphan: true,
+      }),
+    ]
+    const state = buildState({
+      skills,
+      skillTypeFilter: 'all',
+      selectedSources: [repositoryId('vercel-labs/skills')],
+    })
+
+    // Act — 'task' has no `source` in the fixture, so the ticked repo drops it
+    const result = selectFilteredSkills(state as never)
+
+    // Assert
+    expect(result.map((s) => s.name)).toEqual([])
+  })
+
+  test('counts orphan rows for the source-view Orphan toggle label', () => {
+    // Arrange — one orphan among two source skills; N is row-level, matching
+    // the "Orphan records" total in the cleanup plan.
+    const skills = [
+      makeSkill('task', 'claude-code'),
+      makeMultiSlotSkill('gone-source', [{ agentId: 'cursor' }], {
+        isOrphan: true,
+      }),
+      makeMultiSlotSkill('gone-source-2', [{ agentId: 'codex' }], {
+        isOrphan: true,
+      }),
+    ]
+    const state = buildState({ skills })
+
+    // Act + Assert
+    expect(selectOrphanCount(state as never)).toBe(2)
+  })
 
   test('shows a skill that is a real folder in only the selected agent under the Unique filter', () => {
     // Arrange — one real-folder slot, one agent → available to exactly one agent.
@@ -1821,6 +1896,29 @@ describe('selectSelectedVisibleSkillObjects', () => {
 
     // Assert — only the visible-and-ticked skill survives; hidden beta is dropped,
     // matching the bulk delete/unlink behavior the list header's hidden note advertises
+    expect(result.map((skill) => skill.name)).toEqual(['alpha'])
+  })
+
+  test('drops ticked orphan rows so bulk copy cannot replicate a dead symlink as the copy source', () => {
+    // Arrange — an orphan's `path` is the broken agent-side link, not a real
+    // directory, so copying it would seed dangling links into target agents.
+    const skills = [
+      makeSkill('alpha', 'claude-code'),
+      makeMultiSlotSkill(
+        'abandoned',
+        [{ agentId: 'claude-code', status: 'broken' }],
+        { isOrphan: true },
+      ),
+    ]
+    const state = buildState({
+      skills,
+      selectedSkillNames: [toSkillName('alpha'), toSkillName('abandoned')],
+    })
+
+    // Act
+    const result = selectSelectedVisibleSkillObjects(state as never)
+
+    // Assert — the orphan row is filtered out even though it is selected
     expect(result.map((skill) => skill.name)).toEqual(['alpha'])
   })
 })

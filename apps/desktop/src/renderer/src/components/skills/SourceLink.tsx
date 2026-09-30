@@ -2,8 +2,13 @@ import { ExternalLink } from 'lucide-react'
 import React from 'react'
 import { match } from 'ts-pattern'
 
-import { useAppDispatch } from '@/renderer/src/redux/hooks'
-import { setSelectedSources } from '@/renderer/src/redux/slices/uiSlice'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import {
+  isSourceOrphanMode,
+  selectSelectedAgentId,
+  selectSkillTypeFilter,
+  setSelectedSources,
+} from '@/renderer/src/redux/slices/uiSlice'
 import { LOCAL_SOURCE_LABEL } from '@/shared/constants'
 import type { HttpUrl, RepositoryId } from '@/shared/types'
 
@@ -48,6 +53,15 @@ export const SourceLink = function SourceLink({
 }: SourceLinkProps): React.ReactElement {
   const dispatch = useAppDispatch()
   const model = getSourceLinkModel(source, sourceUrl)
+  // Source-view orphan mode suppresses repo narrowing — a filter button that
+  // still dispatches would write invisible state that only materializes on
+  // exit. Render the source as plain text + the GitHub anchor instead.
+  const repoFilterSuspended = useAppSelector((state) =>
+    isSourceOrphanMode(
+      selectSelectedAgentId(state),
+      selectSkillTypeFilter(state),
+    ),
+  )
 
   // SourceLinkModel has three render modes; new modes must add explicit JSX here.
   return match(model)
@@ -88,15 +102,24 @@ export const SourceLink = function SourceLink({
         // "Installed list"), so a long name truncates before the GitHub icon
         // and `title` keeps it whole.
         <span className="inline-flex max-w-full items-center gap-1 mb-2">
-          <button
-            type="button"
-            onClick={handleFilterClick}
-            aria-label={`Filter skills by repository ${source}`}
-            title={source}
-            className="min-w-0 truncate text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer rounded-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          >
-            {source}
-          </button>
+          {repoFilterSuspended ? (
+            <span
+              className="min-w-0 truncate text-sm text-muted-foreground"
+              title={source}
+            >
+              {source}
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={handleFilterClick}
+              aria-label={`Filter skills by repository ${source}`}
+              title={source}
+              className="min-w-0 truncate text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer rounded-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              {source}
+            </button>
+          )}
           <a
             href={href}
             target="_blank"

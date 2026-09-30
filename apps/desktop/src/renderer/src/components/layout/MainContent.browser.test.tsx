@@ -4380,3 +4380,318 @@ describe('MainContent bulk confirm cancellation', () => {
     expect(mockSkillsDeleteSkills).not.toHaveBeenCalled()
   })
 })
+
+describe('MainContent source-view Orphan toggle', () => {
+  // Mirrors the row shape scanOrphanSymlinks emits: `path` is the dead
+  // agent-side link (no source dir exists), every agent slot is 'missing'
+  // except the broken ones.
+  const orphanSkillFixture: Skill = {
+    name: toSkillName('abandoned'),
+    description: 'Orphan symlink — source skill no longer exists',
+    path: toAbsolutePath('/Users/me/.config/devin/skills/abandoned'),
+    symlinkCount: toSymlinkCount(0),
+    symlinks: [
+      {
+        agentId: 'devin',
+        agentName: 'Devin' as never,
+        linkPath: toAbsolutePath('/Users/me/.config/devin/skills/abandoned'),
+        targetPath: toAbsolutePath('/Users/me/.agents/skills/abandoned'),
+        status: 'broken',
+        isLocal: false,
+      },
+    ],
+    isSource: false,
+    isOrphan: true,
+  }
+
+  const sourceSkillFixture: Skill = {
+    name: toSkillName('brainstorming'),
+    description: 'source row',
+    path: toAbsolutePath('/Users/me/.agents/skills/brainstorming'),
+    filesystemIdentity: directoryIdentity,
+    symlinkCount: toSymlinkCount(0),
+    symlinks: [],
+    isSource: true,
+    isOrphan: false,
+  }
+
+  test('toggles the source-view list between source rows and orphan rows', async () => {
+    // Arrange — one source skill + one orphan; source view (no agent).
+    // SkillsList is mocked in this file, so the population swap is asserted
+    // through selectFilteredSkills while the DOM checks cover the toggle,
+    // pill, and suppressed repo facet.
+    const { screen, store } = await renderMainContent()
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { selectFilteredSkills } =
+      await import('@/renderer/src/redux/selectors')
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [sourceSkillFixture, orphanSkillFixture],
+        'skills-req',
+      ),
+    )
+
+    // Assert baseline — source row in the filtered set, toggle advertises N=1
+    expect(
+      selectFilteredSkills(store.getState() as never).map(
+        (skill) => skill.name,
+      ),
+    ).toEqual(['brainstorming'])
+    const toggle = screen.getByRole('button', {
+      name: 'Orphan view, show 1 orphaned skill',
+    })
+    await expect.element(toggle).toBeVisible()
+
+    // Act — enter orphan mode
+    await toggle.click()
+
+    // Assert — population swaps; pill + disabled repo trigger appear
+    await expect
+      .poll(() =>
+        selectFilteredSkills(store.getState() as never).map(
+          (skill) => skill.name,
+        ),
+      )
+      .toEqual(['abandoned'])
+    await expect
+      .element(screen.getByText('Showing skills marked as orphaned'))
+      .toBeVisible()
+    await expect
+      .element(screen.getByRole('button', { name: /source repository/i }))
+      .toBeDisabled()
+
+    // Act — leave via the pill's Clear
+    await screen.getByRole('button', { name: 'Clear' }).click()
+
+    // Assert — back to source rows; repo narrowing re-enabled
+    await expect
+      .poll(() =>
+        selectFilteredSkills(store.getState() as never).map(
+          (skill) => skill.name,
+        ),
+      )
+      .toEqual(['brainstorming'])
+    await expect
+      .element(screen.getByRole('button', { name: /source repository/i }))
+      .toBeEnabled()
+  })
+
+  test('exits orphan mode when the active Orphan toggle is clicked a second time', async () => {
+    // Arrange — orphan mode entered via the toggle; the pill is not the only
+    // exit, the toggle's own on-click ('all' arm) must also flip back.
+    const { screen, store } = await renderMainContent()
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { selectFilteredSkills } =
+      await import('@/renderer/src/redux/selectors')
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [sourceSkillFixture, orphanSkillFixture],
+        'skills-req',
+      ),
+    )
+    await screen
+      .getByRole('button', { name: 'Orphan view, show 1 orphaned skill' })
+      .click()
+    await expect.element(screen.getByTestId('orphan-filter-pill')).toBeVisible()
+
+    // Act — click the pressed toggle to leave orphan mode
+    const activeToggle = screen.getByRole('button', {
+      name: 'Orphan view on, showing 1 orphan — show source skills',
+    })
+    await expect.element(activeToggle).toHaveAttribute('aria-pressed', 'true')
+    await activeToggle.click()
+
+    // Assert — source rows restored, orphan chrome gone, toggle reverts to its
+    // inactive label/state
+    await expect
+      .poll(() =>
+        selectFilteredSkills(store.getState() as never).map(
+          (skill) => skill.name,
+        ),
+      )
+      .toEqual(['brainstorming'])
+    expect(screen.getByTestId('orphan-filter-pill').query()).toBeNull()
+    await expect
+      .element(
+        screen.getByRole('button', {
+          name: 'Orphan view, show 1 orphaned skill',
+        }),
+      )
+      .toHaveAttribute('aria-pressed', 'false')
+  })
+
+  test('keeps the orphan pill as the exit when a rescan drops the orphan count to zero mid-toggle', async () => {
+    // Arrange — orphan mode active with a single orphan row.
+    const { screen, store } = await renderMainContent()
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [sourceSkillFixture, orphanSkillFixture],
+        'skills-req',
+      ),
+    )
+    await screen
+      .getByRole('button', { name: 'Orphan view, show 1 orphaned skill' })
+      .click()
+    await expect.element(screen.getByTestId('orphan-filter-pill')).toBeVisible()
+
+    // Act — a rescan reports zero orphans (cleanup ran / source restored), so
+    // the count-gated toggle unmounts while the mode is still on.
+    store.dispatch(fetchSkills.fulfilled([sourceSkillFixture], 'skills-req-2'))
+
+    // Assert — the toggle is gone but the labeled pill still offers the exit,
+    // rather than stranding the user in an invisible filter.
+    await expect
+      .poll(() => screen.getByRole('button', { name: /^Orphan view/ }).query())
+      .toBeNull()
+    await expect.element(screen.getByTestId('orphan-filter-pill')).toBeVisible()
+
+    // Act — the pill's Clear is still the way out
+    await screen
+      .getByTestId('orphan-filter-pill')
+      .getByRole('button', { name: 'Clear' })
+      .click()
+
+    // Assert
+    await expect.poll(() => store.getState().ui.skillTypeFilter).toBe('all')
+  })
+
+  test('suppresses repo pills and the hidden-local hint while orphan mode owns the list, then restores them on exit', async () => {
+    // Arrange — a repo tick plus a source-less local row so both pieces of
+    // repo chrome render before the toggle flips.
+    const { screen, store } = await renderMainContent()
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { setSelectedSources } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [sourceSkillFixture, orphanSkillFixture],
+        'skills-req',
+      ),
+    )
+    store.dispatch(setSelectedSources([repositoryId('vercel-labs/skills')]))
+    await expect.element(screen.getByTestId('source-filter-pill')).toBeVisible()
+    await expect.element(screen.getByText(/local skill hidden/)).toBeVisible()
+
+    // Act — enter orphan mode; the repo narrowing is paused, so its chrome
+    // must not keep claiming an active filter.
+    await screen
+      .getByRole('button', { name: 'Orphan view, show 1 orphaned skill' })
+      .click()
+
+    // Assert — orphan pill replaces repo pill + hint
+    await expect.element(screen.getByTestId('orphan-filter-pill')).toBeVisible()
+    expect(screen.getByTestId('source-filter-pill').query()).toBeNull()
+    expect(screen.getByText(/local skill hidden/).query()).toBeNull()
+
+    // Act — leave orphan mode via the pill
+    await screen
+      .getByTestId('orphan-filter-pill')
+      .getByRole('button', { name: 'Clear' })
+      .click()
+
+    // Assert — the still-ticked repo and its hidden-local hint resume
+    await expect.element(screen.getByTestId('source-filter-pill')).toBeVisible()
+    await expect.element(screen.getByText(/local skill hidden/)).toBeVisible()
+  })
+
+  test('drops the repo-scope sentences from the bulk-delete confirm while orphan mode pauses the filter', async () => {
+    // Arrange — a ticked repo + a ticked orphan row with orphan mode active.
+    // The repo narrowing is paused, so the destructive confirm must not claim
+    // "Only skills from X are in scope" / "N local skills … not affected".
+    mockListHeaderState.enabled = true
+    const { screen, store } = await renderMainContent()
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { setSelectedSources } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [sourceSkillFixture, orphanSkillFixture],
+        'skills-req',
+      ),
+    )
+    store.dispatch(toggleSelection(toSkillName('abandoned')))
+    store.dispatch(setSelectedSources([repositoryId('vercel-labs/skills')]))
+    await screen
+      .getByRole('button', { name: 'Orphan view, show 1 orphaned skill' })
+      .click()
+    await expect.element(screen.getByTestId('orphan-filter-pill')).toBeVisible()
+
+    // Act
+    await screen.getByRole('button', { name: 'Open bulk confirm' }).click()
+
+    // Assert — the dialog opens without the paused-filter scope sentences
+    const dialog = screen.getByRole('dialog')
+    await expect.element(dialog).toBeVisible()
+    expect(dialog.query()?.textContent ?? '').not.toMatch(/in scope/)
+    expect(dialog.query()?.textContent ?? '').not.toMatch(/not affected/)
+  })
+
+  test('enters orphan mode when an agent-view orphan filter survives an agent deselect', async () => {
+    // Arrange — agent view with the Orphan type filter on; deselecting the
+    // agent persists the filter, which flips source view into orphan mode.
+    const { screen, store } = await renderMainContent()
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { selectAgent, setSkillTypeFilter } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { selectFilteredSkills } =
+      await import('@/renderer/src/redux/selectors')
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [sourceSkillFixture, orphanSkillFixture],
+        'skills-req',
+      ),
+    )
+    store.dispatch(selectAgent('claude-code'))
+    store.dispatch(setSkillTypeFilter('orphan'))
+
+    // Act
+    store.dispatch(selectAgent(null))
+
+    // Assert — source view shows the orphan population and its chrome
+    await expect
+      .poll(() =>
+        selectFilteredSkills(store.getState() as never).map(
+          (skill) => skill.name,
+        ),
+      )
+      .toEqual(['abandoned'])
+    await expect.element(screen.getByTestId('orphan-filter-pill')).toBeVisible()
+    await expect
+      .element(
+        screen.getByRole('button', {
+          name: 'Orphan view on, showing 1 orphan — show source skills',
+        }),
+      )
+      .toBeVisible()
+  })
+
+  test('hides the Orphan toggle in agent view even when orphan rows exist', async () => {
+    // Arrange — orphan row present, but an agent is selected: the toggle is a
+    // source-view-only control.
+    const { screen, store } = await renderMainContent()
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [sourceSkillFixture, orphanSkillFixture],
+        'skills-req',
+      ),
+    )
+
+    // Act
+    store.dispatch(selectAgent('claude-code'))
+
+    // Assert — no orphan-mode toggle in agent view
+    await expect
+      .poll(() => screen.getByRole('button', { name: /orphan view/i }).query())
+      .toBeNull()
+  })
+})

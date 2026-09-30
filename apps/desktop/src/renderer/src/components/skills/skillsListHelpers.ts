@@ -4,6 +4,7 @@ import type {
   ExcludableSkillTypeFilter,
   SkillTypeFilter,
 } from '@/renderer/src/redux/slices/uiSlice'
+import { isSourceOrphanMode } from '@/renderer/src/redux/slices/uiSlice'
 import type { AgentId, RepositoryId } from '@/shared/types'
 
 interface EmptyMessageContext {
@@ -36,6 +37,28 @@ const EXCLUDED_LABEL_JOINER = new Intl.ListFormat('en', {
   style: 'long',
   type: 'conjunction',
 })
+
+/**
+ * Gate for the source-view Orphan toggle in the Installed toolbar.
+ * The toggle exists only in source view (no agent selected) and only while
+ * at least one orphan row exists — a normally-empty population gets no
+ * permanent toolbar chrome. Callers: {@link MainContent}'s
+ * {@link InstalledToolbar}. While the toggle is active, the
+ * `marked as orphaned` FilterPill keeps a labeled exit even if cleanup drops
+ * the count to zero and this predicate turns false.
+ * @param selectedAgentId - The selected agent, or `null` for source view.
+ * @param orphanCount - Orphan rows in the latest scan ({@link selectOrphanCount}).
+ * @returns True when the toolbar should render the Orphan toggle.
+ * @example
+ * shouldShowOrphanToggle(null, 3) // => true  (source view, orphans exist)
+ * shouldShowOrphanToggle('cursor', 3) // => false (agent view)
+ */
+export function shouldShowOrphanToggle(
+  selectedAgentId: AgentId | null,
+  orphanCount: number,
+): boolean {
+  return selectedAgentId === null && orphanCount > 0
+}
 
 /**
  * Join active exclude labels in compact English for empty-state copy.
@@ -99,11 +122,12 @@ function formatSelectedSourcesPhrase(selectedSources: RepositoryId[]): string {
  * user needs a message that names the *last action* they took, not a
  * catch-all "no skills match your filter."
  *
- * Priority order — search > source > (agent + type) > agent > fallback —
- * mirrors the user's mental model: "I just typed in the search box → the
- * search is what hid my rows." The source filter takes precedence over the
- * agent card because narrowing to specific repositories is a more recent,
- * more specific action than the persistent agent-tab selection.
+ * Priority order — search > source-orphan-mode > source > (agent + type) >
+ * agent > fallback — mirrors the user's mental model: "I just typed in the
+ * search box → the search is what hid my rows." The source filter takes
+ * precedence over the agent card because narrowing to specific repositories
+ * is a more recent, more specific action than the persistent agent-tab
+ * selection.
  *
  * Why ts-pattern: the `match().with().otherwise()` chain forces the priority
  * order to be data-shaped (top-down), not nesting-shaped (deeply ternaried).
@@ -113,13 +137,15 @@ function formatSelectedSourcesPhrase(selectedSources: RepositoryId[]): string {
  * @param ctx - Snapshot of the active filter values from Redux.
  * @returns
  * - When `searchQuery` is non-empty: `"No skills match your search"`
+ * - When the source-view Orphan toggle is active: `"No orphaned skills"`
  * - When `selectedSources` is non-empty: `"No skills from <repo>"` (or
  *   `"the selected repositories"` when more than one repo is selected)
  * - When `selectedAgentId` is set AND `skillTypeFilter !== 'all'`:
  *   `"No <symlinked|local|G-Stack|orphan|unique> skills for this agent"`
  * - When only `selectedAgentId` is set: `"No skills installed for this agent"`
  * - Otherwise: `"No skills match your filter"`
- * Active excludes append `" while excluding <types>"` to whichever branch wins.
+ * Active excludes append `" while excluding <types>"` to whichever arm wins —
+ * agent view only; excludes never apply in source view so the suffix would lie.
  *
  * @example
  * getEmptyListMessage({
@@ -142,11 +168,23 @@ function formatSelectedSourcesPhrase(selectedSources: RepositoryId[]): string {
  * // => "No local skills for this agent while excluding G-Stack"
  */
 export function getEmptyListMessage(ctx: EmptyMessageContext): string {
+  // Source-view Orphan toggle mode — distinct from hasTypeNarrow because a
+  // persisted agent filter ('local', 'unique', ...) is inert in source view
+  // and must not claim an orphan empty state. Shared predicate:
+  // {@link isSourceOrphanMode} keeps the four mode consumers in agreement.
+  const sourceOrphanMode = isSourceOrphanMode(
+    ctx.selectedAgentId,
+    ctx.skillTypeFilter,
+  )
   const baseMessage = match({
     hasSearchQuery: ctx.searchQuery.length > 0,
-    hasSelectedSource: ctx.selectedSources.length > 0,
+    // Repo narrowing is suppressed in orphan mode ({@link selectFilteredSkills})
+    // — masking the tick keeps the search+repo arm from claiming a filter that
+    // isn't running, while the search itself still applies.
+    hasSelectedSource: ctx.selectedSources.length > 0 && !sourceOrphanMode,
     hasSelectedAgent: ctx.selectedAgentId !== null,
     hasTypeNarrow: ctx.skillTypeFilter !== 'all',
+    sourceOrphanMode,
   })
     .with(
       { hasSearchQuery: true, hasSelectedSource: true },
@@ -156,6 +194,10 @@ export function getEmptyListMessage(ctx: EmptyMessageContext): string {
         )}`,
     )
     .with({ hasSearchQuery: true }, () => 'No skills match your search')
+    // Ordered before the repo arm: selectedSources ticks stay in state while
+    // their narrowing is suppressed in orphan mode — landing after it would
+    // blame "No skills from <repo>" on a filter that isn't running.
+    .with({ sourceOrphanMode: true }, () => 'No orphaned skills')
     .with(
       { hasSelectedSource: true },
       () =>
@@ -172,5 +214,9 @@ export function getEmptyListMessage(ctx: EmptyMessageContext): string {
     )
     .otherwise(() => 'No skills match your filter')
 
-  return withExcludeContext(baseMessage, ctx.excludedSkillTypeFilters ?? [])
+  // Excludes only apply in agent view — never append the suffix in source
+  // view, where a persisted exclude is inert and the claim would be false.
+  return ctx.selectedAgentId !== null
+    ? withExcludeContext(baseMessage, ctx.excludedSkillTypeFilters ?? [])
+    : baseMessage
 }

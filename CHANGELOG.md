@@ -16,6 +16,8 @@
 - ⌘A selects every visible row the current action can use and Esc clears the selection whenever the Installed list is open. ⌘-click toggles a row, ⇧-click selects a range, and a plain click still opens the Inspector.
 - Clicking a card hands the keyboard back to the list, so ⌘A and Esc work right after searching. ⌘A inside the search box now selects the search text.
 - The list header says when selected rows are hidden by the search or cannot take the current action, and actions leave those rows alone.
+- Source view now has an "Orphan (N)" toggle next to the repository filter whenever orphaned skills exist. Turning it on lists the orphan rows and shows a "marked as orphaned" pill that clears back to source rows.
+- Skill-type filters (Orphan, Local, Symlinked, G-Stack, Unique, and the excluded types) now stay selected when switching agents, so auditing the same category across agents no longer reselects it each time. Clicking the source card's "show all" path still clears everything.
 - After a Delete or Unlink from the list header, rows that failed stay selected and flash, ready to retry.
 - List header tooltips show the keyboard shortcut for their action.
 - The Name sort toggle shows A→Z and Z→A icons, and the "Toolbar text" option for the Installed search count is now called "List header".

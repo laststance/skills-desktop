@@ -84,6 +84,12 @@ interface InstalledListHeaderProps {
    * (selectedAgentId === null); omit it to hide the button.
    */
   onCopyAction?: () => void
+  /**
+   * When set, Copy to… renders disabled and the tooltip explains why. Used by
+   * source-view orphan mode, where every visible row is a dead symlink with no
+   * real directory to copy from.
+   */
+  copyDisabledReason?: string
 }
 
 /**
@@ -123,6 +129,7 @@ export const InstalledListHeader = function InstalledListHeader({
   onPrimaryAction,
   agentDisplayName,
   onCopyAction,
+  copyDisabledReason,
 }: InstalledListHeaderProps): React.ReactElement {
   const selectedCount = useAppSelector(selectSelectedCount)
   const isBulkOpBusy = useAppSelector(selectIsBulkOpBusy)
@@ -200,6 +207,7 @@ export const InstalledListHeader = function InstalledListHeader({
             isBulkOpBusy={isBulkOpBusy}
             onPrimaryAction={onPrimaryAction}
             onCopyAction={onCopyAction}
+            copyDisabledReason={copyDisabledReason}
             agentDisplayName={agentDisplayName}
           />
         ) : (
@@ -423,6 +431,7 @@ interface SelectedHeaderContentProps {
   isBulkOpBusy: boolean
   onPrimaryAction: () => void
   onCopyAction?: () => void
+  copyDisabledReason?: string
   agentDisplayName?: string
 }
 
@@ -439,6 +448,7 @@ const SelectedHeaderContent = function SelectedHeaderContent({
   isBulkOpBusy,
   onPrimaryAction,
   onCopyAction,
+  copyDisabledReason,
   agentDisplayName,
 }: SelectedHeaderContentProps): React.ReactElement {
   const dispatch = useAppDispatch()
@@ -520,20 +530,32 @@ const SelectedHeaderContent = function SelectedHeaderContent({
         {selectedAgentId === null && onCopyAction ? (
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="xs"
-                onClick={onCopyAction}
-                disabled={isBulkOpBusy || visibleSelectedCount === 0}
-                aria-label="Copy selected skills to agents"
-                className="shrink-0 @max-[30rem]:size-6 @max-[30rem]:px-0"
-              >
-                <Copy />
-                <span className="@max-[30rem]:hidden">Copy to…</span>
-              </Button>
+              {/* span wrapper: a disabled Button swallows pointer events, so
+                  without it the reason tooltip would never open. tabIndex
+                  gives keyboard users the same affordance — disabled buttons
+                  are not focusable, the wrapper span is. */}
+              <span tabIndex={copyDisabledReason !== undefined ? 0 : undefined}>
+                <Button
+                  variant="outline"
+                  size="xs"
+                  onClick={onCopyAction}
+                  disabled={
+                    isBulkOpBusy ||
+                    visibleSelectedCount === 0 ||
+                    copyDisabledReason !== undefined
+                  }
+                  aria-label={
+                    copyDisabledReason ?? 'Copy selected skills to agents'
+                  }
+                  className="shrink-0 @max-[30rem]:size-6 @max-[30rem]:px-0"
+                >
+                  <Copy />
+                  <span className="@max-[30rem]:hidden">Copy to…</span>
+                </Button>
+              </span>
             </TooltipTrigger>
             <TooltipContent side="bottom">
-              Copy selected skills to agents
+              {copyDisabledReason ?? 'Copy selected skills to agents'}
             </TooltipContent>
           </Tooltip>
         ) : null}

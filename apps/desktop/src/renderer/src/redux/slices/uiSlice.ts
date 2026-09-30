@@ -50,10 +50,13 @@ export type AgentFolderGroup = 'hidden' | 'unused'
 /** Sort direction for the skill-name sort (A→Z vs Z→A). */
 export type SortOrder = 'asc' | 'desc'
 /**
- * Positive skill-type include mode for the agent-view list filter.
- * `'unique'` = available to exactly one agent (exactly one `status: 'valid'`
- * slot across all agents); orthogonal to `'local'`, which only asks whether the
- * slot is a real folder vs a symlink. See `matchesSkillTypeFilter`.
+ * Positive skill-type include mode for the list filter.
+ * Applies in agent view for every value; in source view only `'orphan'` is
+ * meaningful — it activates the Orphan toggle's population swap (see
+ * {@link isSourceOrphanMode}). `'unique'` = available to exactly one agent
+ * (exactly one `status: 'valid'` slot across all agents); orthogonal to
+ * `'local'`, which only asks whether the slot is a real folder vs a symlink.
+ * See `matchesSkillTypeFilter`.
  */
 export type SkillTypeFilter =
   'all' | 'symlinked' | 'local' | 'gstack' | 'orphan' | 'unique'
@@ -182,7 +185,8 @@ interface UiState {
   selectedAgentId: AgentId | null
   /** Sort direction for skill name (A→Z / Z→A) */
   sortOrder: SortOrder
-  /** Filter by skill type in agent view (all / symlinked / local / G-Stack / orphan) */
+  /** Filter by skill type (all / symlinked / local / G-Stack / orphan / unique);
+   *  'orphan' also drives the source-view Orphan mode via {@link isSourceOrphanMode} */
   skillTypeFilter: SkillTypeFilter
   /**
    * Skill types subtracted from the selected agent list. Kept transient like
@@ -340,6 +344,28 @@ export function getAvailableExcludeTypes(
     .exhaustive()
 }
 
+/**
+ * Whether the source-view Orphan mode is active: no agent selected and the
+ * persisted skill-type filter set to `'orphan'`.
+ * The population swap ({@link selectFilteredSkills}), the repo-narrowing
+ * suppression, the empty-state arm ({@link getEmptyListMessage}), and every
+ * piece of source-view orphan chrome ({@link MainContent}) must agree on one
+ * definition — call this predicate instead of re-spelling the condition so
+ * the four behaviors cannot drift apart.
+ * @param selectedAgentId - The selected agent, or `null` for source view.
+ * @param skillTypeFilter - The persisted skill-type include filter.
+ * @returns True while source view shows orphan rows instead of source rows.
+ * @example
+ * isSourceOrphanMode(null, 'orphan') // => true
+ * isSourceOrphanMode('cursor', 'orphan') // => false (agent view)
+ */
+export function isSourceOrphanMode(
+  selectedAgentId: AgentId | null,
+  skillTypeFilter: SkillTypeFilter,
+): boolean {
+  return selectedAgentId === null && skillTypeFilter === 'orphan'
+}
+
 const uiSlice = createSlice({
   name: 'ui',
   initialState,
@@ -402,8 +428,10 @@ const uiSlice = createSlice({
     },
     selectAgent: (state, action: PayloadAction<AgentId | null>) => {
       state.selectedAgentId = action.payload
-      state.skillTypeFilter = 'all'
-      state.excludedSkillTypeFilters = []
+      // skillTypeFilter and excludedSkillTypeFilters deliberately persist:
+      // cross-agent audits (orphans, "which agents have local skills") would
+      // re-select the filter every switch otherwise — the same persistence
+      // selectedSources and searchQuery already have.
       // Agent change swaps the entire list out; an undo referencing names the
       // user can no longer see would be misleading. Dismiss the toast.
       state.undoToast = null
