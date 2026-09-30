@@ -424,6 +424,138 @@ describe('FileContent Markdown modes', () => {
     expect(freshPane?.scrollTop).toBe(0)
   })
 
+  // Value: protects=Reading Mode reopens a reloaded file at top when its length changed; fails_when=the key loses the content.length segment — both docs share path, name AND lineCount, so content.length is the sole discriminator and stale scroll would survive; why_new=the stale-window test's fixtures differ in BOTH shape segments, so each segment alone is unpinned; seam=none
+  test('resets Reading Mode scroll when a reloaded file keeps its line count but changes length', async () => {
+    // Arrange — a same-path reload after an external edit: both documents have
+    // 83 lines, but the bodies differ in length, so only the content.length
+    // key segment can remount the pane.
+    const { FileContent } = await import('./FileContent')
+    const pathA = toAbsolutePath('/skills/tdd/SKILL.md')
+    const screen = await render(
+      <div style={{ display: 'flex', height: 220 }}>
+        <FileContent
+          filePath={pathA}
+          content={makeTextContent({
+            content: `# Alpha\n\n${'aa\n'.repeat(80)}`,
+            name: 'SKILL.md',
+          })}
+        />
+      </div>,
+    )
+    await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
+    const firstPane = document.querySelector<HTMLElement>(
+      '[data-markdown-reading-scroll]',
+    )
+    if (!firstPane)
+      throw new Error('expected a markdown reading scroll container')
+    firstPane.scrollTop = 1200
+    expect(firstPane.scrollTop).toBeGreaterThan(0)
+
+    // Act — the file reloads with an 83-line document of a different length.
+    await screen.rerender(
+      <div style={{ display: 'flex', height: 220 }}>
+        <FileContent
+          filePath={pathA}
+          content={makeTextContent({
+            content: `# Omega\n\n${'aaaa\n'.repeat(80)}`,
+            name: 'SKILL.md',
+          })}
+        />
+      </div>,
+    )
+
+    // Assert
+    await expect
+      .element(screen.getByRole('heading', { name: 'Omega' }))
+      .toBeVisible()
+    const secondPane = document.querySelector<HTMLElement>(
+      '[data-markdown-reading-scroll]',
+    )
+    expect(secondPane?.scrollTop).toBe(0)
+  })
+
+  // Value: protects=Reading Mode reopens a reloaded file at top when its line count changed; fails_when=the key loses the lineCount segment — both docs share path, name AND content.length, so lineCount is the sole discriminator and stale scroll would survive; why_new=the stale-window test's fixtures differ in BOTH shape segments, so each segment alone is unpinned; seam=none
+  test('resets Reading Mode scroll when a reloaded file keeps its length but changes line count', async () => {
+    // Arrange — both documents are 409 characters but split into a different
+    // number of lines (203 vs 103), so only the lineCount key segment can
+    // remount the pane.
+    const { FileContent } = await import('./FileContent')
+    const pathA = toAbsolutePath('/skills/tdd/SKILL.md')
+    const screen = await render(
+      <div style={{ display: 'flex', height: 220 }}>
+        <FileContent
+          filePath={pathA}
+          content={makeTextContent({
+            content: `# Alpha\n\n${'x\n'.repeat(200)}`,
+            name: 'SKILL.md',
+          })}
+        />
+      </div>,
+    )
+    await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
+    const firstPane = document.querySelector<HTMLElement>(
+      '[data-markdown-reading-scroll]',
+    )
+    if (!firstPane)
+      throw new Error('expected a markdown reading scroll container')
+    firstPane.scrollTop = 1200
+    expect(firstPane.scrollTop).toBeGreaterThan(0)
+
+    // Act — the file reloads with a same-length document of 103 lines.
+    await screen.rerender(
+      <div style={{ display: 'flex', height: 220 }}>
+        <FileContent
+          filePath={pathA}
+          content={makeTextContent({
+            content: `# Omega\n\n${'xxx\n'.repeat(100)}`,
+            name: 'SKILL.md',
+          })}
+        />
+      </div>,
+    )
+
+    // Assert
+    await expect
+      .element(screen.getByRole('heading', { name: 'Omega' }))
+      .toBeVisible()
+    const secondPane = document.querySelector<HTMLElement>(
+      '[data-markdown-reading-scroll]',
+    )
+    expect(secondPane?.scrollTop).toBe(0)
+  })
+
+  // Value: protects=a new preview surface that forgets filePath gets a loud signal; fails_when=the per-mount warn is deleted or stops firing, letting the basename fallback silently regress same-basename scroll; why_new=the warn exists so the optional prop can't be dropped silently — without coverage the signal itself can rot; seam=none
+  test('warns once per mount when a Markdown file renders without filePath', async () => {
+    // Arrange
+    const { FileContent } = await import('./FileContent')
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const screen = await render(
+        <FileContent content={makeTextContent({ content: '# Doc\n' })} />,
+      )
+
+      // Assert — one warning for this mount.
+      await vi.waitFor(() => {
+        expect(warnSpy).toHaveBeenCalledTimes(1)
+      })
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[FileContent] Markdown preview rendered without filePath; same-basename files share one scroll key',
+      )
+
+      // Act — rerender the same mounted surface; the latch must not refire.
+      await screen.rerender(
+        <FileContent
+          content={makeTextContent({ content: '# Doc\n\nmore\n' })}
+        />,
+      )
+
+      // Assert
+      expect(warnSpy).toHaveBeenCalledTimes(1)
+    } finally {
+      warnSpy.mockRestore()
+    }
+  })
+
   // Value: protects=scroll position survives same-file rerenders so Reading Mode never jumps mid-read; fails_when=the key gains an unstable segment (fontSizePx, a counter, Math.random) that remounts on every prop change; why_new=the scroll-reset tests only pin the remount half of the key contract — an always-remounting key would pass them while making reading unusable; seam=none
   test('keeps Reading Mode scroll position when the same file re-renders with a new font size', async () => {
     // Arrange

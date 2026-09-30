@@ -523,7 +523,8 @@ Rules:
 ### Tabs and Segmented Controls
 
 - Tabs and segmented-control items are 32px (`min-h-8`, or ToggleGroup
-  `default`); use the `sm` size (28px) only inside an already-dense popover.
+  `default`); use the `sm` size (28px) only inside an already-dense popover or
+  a pane-chrome view switcher (see the exception below).
 - Tabs should be compact and stable.
 - Use underline, border, or subtle background to communicate selection.
 - Do not increase container height on hover or active state.

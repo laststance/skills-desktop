@@ -1,8 +1,9 @@
-import { describe, expect, test, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { PreviewContent } from '@/renderer/src/hooks/useCodePreview'
 import { getWindowSurfaceStyle } from '@/renderer/src/utils/getWindowSurfaceStyle'
+import { MARKDOWN_PREVIEW_MODE_KEY } from '@/shared/constants'
 import { toFileExtension, toFileName, toLineCount } from '@/shared/types'
 import '@/renderer/src/styles/globals.css'
 
@@ -33,6 +34,12 @@ function makeTextContent(content: string): PreviewContent {
 }
 
 describe('FileContent Shiki failure fallback', () => {
+  beforeEach(() => {
+    // Shared Chromium origin: a leaked 'reading' mode would mount the Markdown
+    // pane instead of the code view under test if a fixture ever goes .md.
+    window.localStorage.removeItem(MARKDOWN_PREVIEW_MODE_KEY)
+  })
+
   test('keeps plain-text source opaque under translucent panes when syntax highlighting throws', async () => {
     // Arrange
     const { FileContent } = await import('./FileContent')

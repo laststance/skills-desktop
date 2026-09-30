@@ -42,9 +42,9 @@ interface FileContentProps {
    * quietly pass a basename or relative path and reintroduce that stale-scroll
    * bug. Optional because isolated renders (tests, Storybook) may not have a
    * path; falls back to `file.name`, which is enough when basenames differ.
-   * {@link TextPreview} warns once when a Markdown file renders without it, so
-   * a new production surface that forgets the prop is loud instead of silently
-   * reintroducing the fallback's weaker identity.
+   * {@link TextPreview} warns once per mount when a Markdown file renders
+   * without it, so a new production surface that forgets the prop is loud
+   * instead of silently reintroducing the fallback's weaker identity.
    */
   filePath?: AbsolutePath
   /** Markdown reading-mode body font size (CSS px). */
@@ -179,22 +179,18 @@ interface TextPreviewProps {
   codeThemeId: CodeThemeId
 }
 
-// One warning per session is enough — every mount firing it would spam dev
-// consoles on rerenders, but silence would hide a caller that dropped filePath.
-let warnedMissingMarkdownFilePath = false
-
 /**
  * Text preview shell for source-like files.
  * @param file - Loaded text file metadata and content.
  * @param filePath - Absolute path used in the Reading Mode remount key; pass it
- * always in production — omitting it for Markdown warns once (see
+ * always in production — omitting it for Markdown warns once per mount (see
  * {@link FileContentProps.filePath}).
  * @param markdownFontSizePx - Reading Mode body font size (CSS px).
  * @param codeFontSizePx - Code Mode font size (CSS px).
  * @param codeThemeId - Curated Shiki theme for the code preview.
  * @returns Mode toolbar plus either highlighted source or rendered Markdown.
  * @example
- * <TextPreview file={{ name: 'SKILL.md', extension: '.md', content: '# Hi', lineCount: 1 }} />
+ * <TextPreview file={{ name: 'SKILL.md', extension: '.md', content: '# Hi', lineCount: 1 }} filePath={toAbsolutePath('/skills/tdd/SKILL.md')} ... />
  */
 const TextPreview = function TextPreview({
   file,
@@ -206,12 +202,20 @@ const TextPreview = function TextPreview({
   const isMarkdown = isMarkdownPreview(file)
   // A Markdown file without filePath keys the reading pane on the basename
   // alone — same-named files in nested dirs then share one scroll position.
-  if (isMarkdown && filePath === undefined && !warnedMissingMarkdownFilePath) {
-    warnedMissingMarkdownFilePath = true
-    console.warn(
-      '[FileContent] Markdown preview rendered without filePath; same-basename files share one scroll key',
-    )
-  }
+  // Per-mount warn (post-commit): a module-level once-flag would be burned by
+  // the first sanctioned pathless render and silence the real offender, and a
+  // render-phase write could fire for a StrictMode-discarded tree. Fires in
+  // prod builds deliberately — CodePreview always passes the prop, so a prod
+  // warn can only mean a new surface dropped it.
+  const missingFilePathWarned = useRef(false)
+  useCycleEffect(() => {
+    if (isMarkdown && !filePath && !missingFilePathWarned.current) {
+      missingFilePathWarned.current = true
+      console.warn(
+        '[FileContent] Markdown preview rendered without filePath; same-basename files share one scroll key',
+      )
+    }
+  }, [isMarkdown, filePath])
   const [mode, setMode] = useState<TextPreviewMode>(readStoredTextPreviewMode)
 
   const handleModeChange = (nextMode: TextPreviewMode): void => {
@@ -248,7 +252,7 @@ const TextPreview = function TextPreview({
           // newly-arrived file. Same-file rerenders (font-size tweaks, a
           // reload with identical content) keep one key, so mid-read scroll
           // is never wiped.
-          key={`${filePath ?? file.name}:${file.lineCount}:${file.content.length}`}
+          key={`${filePath || file.name}:${file.lineCount}:${file.content.length}`}
           content={file.content}
           fontSizePx={markdownFontSizePx}
         />
@@ -419,14 +423,22 @@ interface MarkdownReadingPreviewProps {
 }
 
 // Module-level so the array identity survives rerenders — react-markdown
-// rebuilds its processor when the plugins array changes identity.
-const MARKDOWN_REMARK_PLUGINS = [remarkGfm]
+// rebuilds its processor when the plugins array changes identity. Frozen so a
+// stray .push() can't silently invalidate every mounted processor; the cast
+// bridges readonly to react-markdown's mutable Pluggable[] signature.
+const MARKDOWN_REMARK_PLUGINS = Object.freeze([remarkGfm]) as unknown as [
+  typeof remarkGfm,
+]
 
 /**
  * Render Markdown documents in a readable inspector view.
  * Memoized because react-markdown runs the whole unified pipeline inside render:
  * an unchanged (content, fontSizePx) pair must not re-parse the document when an
- * unrelated parent rerender flows through {@link TextPreview}.
+ * unrelated parent rerender flows through {@link TextPreview}. The explicit
+ * memo is belt-and-suspenders — the repo otherwise relies on React Compiler for
+ * memoization (the compiler pass would also cache this render), but a silent
+ * compiler bailout would re-run the pipeline, so the guarantee stays explicit
+ * at the source level for this one expensive subtree.
  * @param content - Markdown source.
  * @param fontSizePx - Body font size; headings/code/tables scale via em.
  * @returns Scrollable article with GitHub Flavored Markdown features enabled.
