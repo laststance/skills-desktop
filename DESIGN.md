@@ -259,6 +259,17 @@ Layout structure:
 - Dashboard widgets use stable grid dimensions; widget content must not shift
   layout when loading, hovering, or changing state.
 
+Panel resizing:
+
+- The two resizable panes (list column, Detail Inspector) share a **pixel
+  floor of 264px** each — the width the default 50/50 split gives them at the
+  800px minimum window. A percentage floor would shrink with the window and
+  let the list header's compact tier and detail metrics get crushed; at
+  exactly-minimum windows the floors consume the whole group, so the split is
+  immovable there by design (there is no room to give). Never lower the floor;
+  if either pane's floor is raised, keep `2 × floor ≤ window minWidth − 272px
+sidebar` or the library silently proportion-shrinks both below floor.
+
 Rules:
 
 - Do not put cards inside cards.
@@ -586,6 +597,18 @@ Rules:
   row checkbox gutter leaves the text column narrowest. Space stacked blocks
   with padding where a margin could collapse into a neighbor's, since a
   collapsed margin quietly shortens the card against its row slot.
+- A skill card is a `@container`, and its title row has an icon tier below
+  20rem (320px) of card content width — `@max-` queries the content box, so
+  the border-box trigger is ~322px; that's a ~354px panel, reached under
+  ~980px windows at the default split, and at the 264px panel floor the card
+  is ~232px so the tier is always engaged there. ("Icon tier", not "narrow
+  tier" — the header already calls its 24–30rem band "narrow".) In it the
+  word badges
+  (`Protected`, `inaccessible`, `orphan`, `unreadable`) and the `Add` /
+  `G-Stack` labels collapse to icons — the words go `sr-only`, so accessible
+  names and `title` tooltips carry the meaning, mirroring the list header's
+  tier contract. Collapse horizontally only: the card's height must never
+  depend on its width.
 
 ### Bulk Selection
 

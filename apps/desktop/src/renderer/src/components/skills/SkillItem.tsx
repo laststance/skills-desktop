@@ -3,12 +3,16 @@ import {
   BookmarkPlus,
   Copy,
   ExternalLink,
+  FileWarning,
   FolderDot,
+  FolderX,
   Link2,
+  Link2Off,
   Lock,
   LockOpen,
   Plus,
   X,
+  type LucideIcon,
 } from 'lucide-react'
 import React, { useMemo, useState } from 'react'
 
@@ -312,8 +316,60 @@ const GlobalStatusBadges = function GlobalStatusBadges({
  * (inaccessible link, orphan, unreadable). One string so the badges cannot
  * drift apart visually when one of them is restyled.
  */
+// gap-0.5 spaces the glyph from the word at the wide tier; the sr-only word
+// leaves the flow in the icon tier so the gap collapses with it.
 const AMBER_STATUS_BADGE_CLASS =
-  'inline-flex items-center rounded-md border border-amber-400/50 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300 shrink-0'
+  'inline-flex items-center gap-0.5 rounded-md border border-amber-400/50 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300 shrink-0'
+
+/**
+ * Hides a title-row word below the 20rem "icon tier" card width while
+ * keeping it in the a11y tree (`@max-` compiles to `width < 20rem`, measured
+ * on the card's content box). Single-sourced so the six collapsing labels
+ * can't drift onto different breakpoints ({@link SkillTitleRow}).
+ */
+const ICON_TIER_WORD_CLASS = '@max-[20rem]:sr-only'
+
+/**
+ * One amber "this row needs a look" pill on the title row — a glyph plus a
+ * word that collapses to icon-only in the card's icon tier while `role="img"`
+ * keeps the accessible name. Exists so the three sibling badges
+ * (inaccessible / orphan / unreadable) share one implementation.
+ * @param props.icon - Lucide glyph shown at every tier.
+ * @param props.word - Status word; sr-only at or below 20rem card width.
+ * @param props.ariaLabel - Accessible name for the icon-only form.
+ * @param props.title - Hover explanation of the status.
+ * @param props.testId - Optional per-skill test hook.
+ * @returns Amber status pill sized by the card's container tier.
+ * @example
+ * <AmberStatusBadge icon={FolderX} word="orphan" ariaLabel="Orphan skill — source directory is missing" title="Source directory is missing" testId="skill-orphan-badge-task" />
+ */
+function AmberStatusBadge({
+  icon: Icon,
+  word,
+  ariaLabel,
+  title,
+  testId,
+}: {
+  icon: LucideIcon
+  word: string
+  ariaLabel: string
+  title: string
+  testId?: string
+}) {
+  return (
+    <span
+      // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- composed text status badge collapsed to one labelled graphic via role="img"+aria-label. <img> needs a src and cannot contain the badge text.
+      role="img"
+      data-testid={testId}
+      className={AMBER_STATUS_BADGE_CLASS}
+      aria-label={ariaLabel}
+      title={title}
+    >
+      <Icon className="h-2.5 w-2.5" aria-hidden="true" />
+      <span className={ICON_TIER_WORD_CLASS}>{word}</span>
+    </span>
+  )
+}
 
 interface SkillTitleRowProps {
   skill: Skill
@@ -328,6 +384,20 @@ interface SkillTitleRowProps {
 
 /**
  * Renders skill identity and compact row actions without merging controls into the heading.
+ *
+ * Icon tier: below a 20rem card width (`@max-[20rem]` compiles to `width <
+ * 20rem` on the card's content box, so with the 1px border it engages once
+ * the outer width drops under ~322px) the word badges (`Protected`,
+ * `inaccessible`, `orphan`, `unreadable`) and the `Add` / `G-Stack` labels
+ * collapse to icon-only — the words go `sr-only` and each element keeps its
+ * accessible name / `title`, the same words→glyph pattern as
+ * {@link SelectionIndicator}. ("Icon tier" not "narrow tier" — the list
+ * header already calls its 24–30rem band "narrow".) Derivation: ~322px outer
+ * card width (320px content + 2px border), reached when a panel drops under
+ * ~354px (window ≈ 980px at the default 50/50 split); at the
+ * {@link PANEL_MIN_WIDTH_PX} floor the card is ~232px, where a single ~70px
+ * word badge plus icon actions still leaves ~30px of name. Above the
+ * breakpoint the full words render because the budget fits them.
  * @param props - Skill state flags and Add click handler for one list row.
  * @returns Header row with a clean skill heading plus adjacent actions.
  * @example
@@ -361,50 +431,46 @@ const SkillTitleRow = function SkillTitleRow({
         <span className="truncate">{skill.name}</span>
         {isProtected && (
           <span
+            // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- composed "Protected" status pill collapsed to one labelled graphic via role="img"+aria-label. <img> needs a src and cannot contain the badge text.
+            role="img"
             data-testid={`skill-protected-badge-${skill.name}`}
             className={cn(
               badgeVariants({ variant: 'outline' }),
               'h-5 shrink-0 gap-1 border-border bg-muted px-1.5 py-0 text-[10px] font-semibold leading-none text-foreground',
             )}
+            aria-label="Protected — bulk delete and unlink skip this skill"
+            title="Protected — bulk delete and unlink skip this skill"
           >
             <Lock className="h-3 w-3" aria-hidden="true" />
-            <span>Protected</span>
+            <span className={ICON_TIER_WORD_CLASS}>Protected</span>
           </span>
         )}
         {isInaccessibleSkill && (
-          <span
-            // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- composed "inaccessible" text status badge collapsed to one labelled graphic via role="img"+aria-label. <img> needs a src and cannot contain the badge text.
-            role="img"
-            className={AMBER_STATUS_BADGE_CLASS}
-            aria-label="Inaccessible link - manual review required"
-            title="Target cannot be verified - review this link before removing it"
-          >
-            inaccessible
-          </span>
+          <AmberStatusBadge
+            icon={Link2Off}
+            word="inaccessible"
+            ariaLabel="Inaccessible link — manual review required"
+            title="Target cannot be verified — review this link before removing it"
+            testId={`skill-inaccessible-badge-${skill.name}`}
+          />
         )}
         {skill.isOrphan && (
-          <span
-            // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- composed "orphan" text status badge collapsed to one labelled graphic via role="img"+aria-label. <img> needs a src and cannot contain the badge text.
-            role="img"
-            data-testid={`skill-orphan-badge-${skill.name}`}
-            className={AMBER_STATUS_BADGE_CLASS}
-            aria-label="Orphan skill — source directory is missing"
+          <AmberStatusBadge
+            icon={FolderX}
+            word="orphan"
+            ariaLabel="Orphan skill — source directory is missing"
             title="Source directory is missing — use Cleanup to remove the dangling symlinks"
-          >
-            orphan
-          </span>
+            testId={`skill-orphan-badge-${skill.name}`}
+          />
         )}
         {skill.isUnreadable && (
-          <span
-            // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- composed "unreadable" text status badge collapsed to one labelled graphic via role="img"+aria-label. <img> needs a src and cannot contain the badge text.
-            role="img"
-            data-testid={`skill-unreadable-badge-${skill.name}`}
-            className={AMBER_STATUS_BADGE_CLASS}
-            aria-label="Unreadable skill — SKILL.md could not be read"
+          <AmberStatusBadge
+            icon={FileWarning}
+            word="unreadable"
+            ariaLabel="Unreadable skill — SKILL.md could not be read"
             title="SKILL.md could not be read, so this folder cannot be confirmed as a skill — check its permissions"
-          >
-            unreadable
-          </span>
+            testId={`skill-unreadable-badge-${skill.name}`}
+          />
         )}
       </h3>
       {(showAddButton || showGStackBadge) && (
@@ -415,9 +481,20 @@ const SkillTitleRow = function SkillTitleRow({
               size="sm"
               onClick={onAddClick}
               className="h-6 px-2 text-xs"
+              // aria-label names the row unambiguously once the "Add" word
+              // goes sr-only in the icon tier (starts with the visible
+              // label, WCAG 2.5.3); `title` keeps the action name available
+              // on hover when the word is hidden.
+              aria-label={`Add ${skill.name} to an agent`}
+              title={`Add ${skill.name} to an agent`}
             >
-              <Plus className="mr-0.5 h-3 w-3" />
-              Add
+              {/* mr-0.5 separates icon from word; drop it in the icon tier so
+                  the lone glyph stays centered in the ghost button. */}
+              <Plus
+                className="mr-0.5 h-3 w-3 @max-[20rem]:mr-0"
+                aria-hidden="true"
+              />
+              <span className={ICON_TIER_WORD_CLASS}>Add</span>
             </Button>
           )}
           {showGStackBadge && (
@@ -427,10 +504,13 @@ const SkillTitleRow = function SkillTitleRow({
               rel="noreferrer"
               onClick={(e) => e.stopPropagation()}
               className="inline-flex h-6 items-center gap-1 rounded-md border border-sky-400/40 bg-sky-500/15 px-1.5 text-[10px] font-semibold text-sky-300 transition-colors hover:bg-sky-500/25"
-              aria-label="Open G-Stack GitHub repository"
+              // aria-label starts with the visible "G-Stack" word (WCAG 2.5.3),
+              // matching the Add button's convention in this same row.
+              aria-label="G-Stack — open GitHub repository"
+              title="G-Stack — open GitHub repository"
             >
-              G-Stack
-              <ExternalLink className="h-2.5 w-2.5" />
+              <span className={ICON_TIER_WORD_CLASS}>G-Stack</span>
+              <ExternalLink className="h-2.5 w-2.5" aria-hidden="true" />
             </a>
           )}
         </div>
@@ -762,7 +842,10 @@ export const SkillItem = function SkillItem({
         <Card
           data-skill-name={skill.name}
           className={cn(
-            'group cursor-pointer transition-all hover:border-primary/50 relative motion-reduce:transition-none',
+            // `@container` so {@link SkillTitleRow}'s icon tier keys off the
+            // card's own width (panel-driven), not the window — same pattern
+            // as {@link InstalledListHeader} / {@link StatsWidget}.
+            'group @container cursor-pointer transition-all hover:border-primary/50 relative motion-reduce:transition-none',
             // A ticked row tints so the batch reads at a glance; the inspected
             // row's full `border-primary` below still outranks it. The tint is
             // a background image over the card's `bg-card`, which a

@@ -43,6 +43,8 @@
 - Disabled row checkboxes now explain why a skill cannot be bulk-selected (protected, local folder, inaccessible or broken link, or no link for the selected agent), both in the tooltip and the accessible name.
 - In narrow windows the two "+N" counters in the list header are now told apart by icons — a funnel for rows hidden by search and a ban for rows that cannot take the action.
 - Closing a bulk-action dialog with the keyboard now returns focus to the list header's select-all checkbox (or the main content when it is unavailable) instead of dropping focus on the page.
+- The list and inspector panels can no longer be dragged below 264px, where the list header's buttons used to clip; at the smallest window the split simply sits at its minimum.
+- In narrow windows, a skill card's status badges (Protected, inaccessible, orphan, unreadable) and its Add/G-Stack actions collapse to icons so the title row stays readable — hover or screen readers still get the full words.
 - When the skill list fails to load, the "+N" counters no longer claim selected rows are hidden or ineligible — the counts reflect the error state.
 - Rows being unlinked now fade during the operation exactly like rows being deleted.
 - Starting a second bulk delete or unlink while one is still running is now ignored instead of corrupting the in-flight row markers.
