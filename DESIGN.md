@@ -543,6 +543,10 @@ Rules:
   `fullWidth` only when the control is the row's primary affordance and should
   fill it, e.g. a modal's full-width choice). (macOS System Settings, Linear
   preference toggles.)
+- Exception for pane-chrome view switchers: a `SegmentedControl` that flips the
+  view inside a pane (e.g. the file preview's Code/Reading mode) may use `sm`
+  and sit right-anchored in the pane's slim toolbar — it belongs to the view it
+  switches, not to a labeled setting row. (Xcode / VS Code view toggles.)
 - Keep Radix roles in mind when testing: some toggle groups expose `radio`.
 
 ### Lists and Rows

@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { PreviewContent } from '@/renderer/src/hooks/useCodePreview'
@@ -102,6 +102,12 @@ describe('CodePreview', () => {
     mockUseCodePreview.mockReset()
     // Browser-mode files share one Chromium origin: clear the persisted preview
     // mode so a Reading Mode selection can't leak into tests expecting Code.
+    window.localStorage.removeItem(MARKDOWN_PREVIEW_MODE_KEY)
+  })
+
+  afterEach(() => {
+    // A Reading-mode write in this file's last test would otherwise leak into
+    // whichever browser file runs next on the shared origin.
     window.localStorage.removeItem(MARKDOWN_PREVIEW_MODE_KEY)
   })
 
@@ -210,6 +216,9 @@ describe('CodePreview', () => {
     // Arrange — two nested files share the basename README.md; only the
     // absolute path CodePreview passes to FileContent (filePath) tells them
     // apart, so this seam test fails iff that prop is dropped at the call site.
+    // The Alpha/Omega headings are the SAME length, so both documents share
+    // lineCount and content.length — dropping the prop would collapse both
+    // keys to the basename+shape and the stale scroll would survive.
     const docsReadme = makeFile({
       name: toFileName('README.md'),
       path: toAbsolutePath(`${SKILL_PATH}/docs/README.md`),
@@ -226,14 +235,14 @@ describe('CodePreview', () => {
         name: toFileName('README.md'),
         content: `# ${heading}\n\n${'line\n'.repeat(200)}`,
         extension: toFileExtension('.md'),
-        lineCount: toLineCount(202),
+        lineCount: toLineCount(203),
       },
     })
     mockUseCodePreview.mockReturnValue(
       makeHookReturn({
         files: [docsReadme, guideReadme],
         activeFile: docsReadme.path,
-        content: readmeContent('First'),
+        content: readmeContent('Alpha'),
       }),
     )
     const { default: settingsReducer } =
@@ -277,7 +286,7 @@ describe('CodePreview', () => {
       makeHookReturn({
         files: [docsReadme, guideReadme],
         activeFile: guideReadme.path,
-        content: readmeContent('Second'),
+        content: readmeContent('Omega'),
       }),
     )
     await screen.rerender(tree2)
@@ -286,7 +295,7 @@ describe('CodePreview', () => {
     // stops passing filePath, both files key as 'README.md' and the stale
     // offset survives.
     await expect
-      .element(screen.getByRole('heading', { name: 'Second' }))
+      .element(screen.getByRole('heading', { name: 'Omega' }))
       .toBeVisible()
     const secondPane = document.querySelector<HTMLElement>(
       '[data-markdown-reading-scroll]',

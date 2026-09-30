@@ -42,6 +42,9 @@ interface FileContentProps {
    * quietly pass a basename or relative path and reintroduce that stale-scroll
    * bug. Optional because isolated renders (tests, Storybook) may not have a
    * path; falls back to `file.name`, which is enough when basenames differ.
+   * {@link TextPreview} warns once when a Markdown file renders without it, so
+   * a new production surface that forgets the prop is loud instead of silently
+   * reintroducing the fallback's weaker identity.
    */
   filePath?: AbsolutePath
   /** Markdown reading-mode body font size (CSS px). */
@@ -82,17 +85,20 @@ const DEFAULT_TEXT_PREVIEW_MODE: TextPreviewMode = 'code'
  * FileContent surface exists (SkillDetail's CodePreview). A second mounted
  * surface would diverge silently; add event sync or shared state if that ever
  * changes.
- * @returns The persisted mode, or {@link DEFAULT_TEXT_PREVIEW_MODE} when unset or storage is unavailable.
+ * @returns The persisted mode, or {@link DEFAULT_TEXT_PREVIEW_MODE} when unset,
+ * when the stored value is not a known mode, or when storage is unavailable.
  * @example
  * readStoredTextPreviewMode() // => 'reading'
  */
 function readStoredTextPreviewMode(): TextPreviewMode {
   try {
     const stored = window.localStorage.getItem(MARKDOWN_PREVIEW_MODE_KEY)
-    const isKnownMode = TEXT_PREVIEW_MODE_OPTIONS.some(
-      (option) => option.value === stored,
+    // Options are the single source of truth: a future third mode becomes a
+    // valid stored value automatically, and find() narrows without a cast.
+    return (
+      TEXT_PREVIEW_MODE_OPTIONS.find((option) => option.value === stored)
+        ?.value ?? DEFAULT_TEXT_PREVIEW_MODE
     )
-    return isKnownMode ? (stored as TextPreviewMode) : DEFAULT_TEXT_PREVIEW_MODE
   } catch {
     // localStorage can throw in restricted-storage environments.
     return DEFAULT_TEXT_PREVIEW_MODE
@@ -173,9 +179,19 @@ interface TextPreviewProps {
   codeThemeId: CodeThemeId
 }
 
+// One warning per session is enough — every mount firing it would spam dev
+// consoles on rerenders, but silence would hide a caller that dropped filePath.
+let warnedMissingMarkdownFilePath = false
+
 /**
  * Text preview shell for source-like files.
  * @param file - Loaded text file metadata and content.
+ * @param filePath - Absolute path used in the Reading Mode remount key; pass it
+ * always in production — omitting it for Markdown warns once (see
+ * {@link FileContentProps.filePath}).
+ * @param markdownFontSizePx - Reading Mode body font size (CSS px).
+ * @param codeFontSizePx - Code Mode font size (CSS px).
+ * @param codeThemeId - Curated Shiki theme for the code preview.
  * @returns Mode toolbar plus either highlighted source or rendered Markdown.
  * @example
  * <TextPreview file={{ name: 'SKILL.md', extension: '.md', content: '# Hi', lineCount: 1 }} />
@@ -188,6 +204,14 @@ const TextPreview = function TextPreview({
   codeThemeId,
 }: TextPreviewProps): React.ReactElement {
   const isMarkdown = isMarkdownPreview(file)
+  // A Markdown file without filePath keys the reading pane on the basename
+  // alone — same-named files in nested dirs then share one scroll position.
+  if (isMarkdown && filePath === undefined && !warnedMissingMarkdownFilePath) {
+    warnedMissingMarkdownFilePath = true
+    console.warn(
+      '[FileContent] Markdown preview rendered without filePath; same-basename files share one scroll key',
+    )
+  }
   const [mode, setMode] = useState<TextPreviewMode>(readStoredTextPreviewMode)
 
   const handleModeChange = (nextMode: TextPreviewMode): void => {
@@ -394,21 +418,26 @@ interface MarkdownReadingPreviewProps {
   fontSizePx: number
 }
 
+// Module-level so the array identity survives rerenders — react-markdown
+// rebuilds its processor when the plugins array changes identity.
+const MARKDOWN_REMARK_PLUGINS = [remarkGfm]
+
 /**
  * Render Markdown documents in a readable inspector view.
+ * Memoized because react-markdown runs the whole unified pipeline inside render:
+ * an unchanged (content, fontSizePx) pair must not re-parse the document when an
+ * unrelated parent rerender flows through {@link TextPreview}.
  * @param content - Markdown source.
  * @param fontSizePx - Body font size; headings/code/tables scale via em.
  * @returns Scrollable article with GitHub Flavored Markdown features enabled.
  * @example
  * <MarkdownReadingPreview content="# Title\n\n- [x] done" fontSizePx={14} />
  */
-const MarkdownReadingPreview = function MarkdownReadingPreview({
+const MarkdownReadingPreview = React.memo(function MarkdownReadingPreview({
   content,
   fontSizePx,
 }: MarkdownReadingPreviewProps): React.ReactElement {
   const readableContent = stripMarkdownFrontmatter(content)
-
-  const remarkPlugins = [remarkGfm]
 
   return (
     <div
@@ -424,7 +453,7 @@ const MarkdownReadingPreview = function MarkdownReadingPreview({
         className="markdown-reading-prose min-w-0 max-w-full overflow-x-hidden break-words px-7 py-6 pb-10 leading-loose text-foreground"
       >
         <ReactMarkdown
-          remarkPlugins={remarkPlugins}
+          remarkPlugins={MARKDOWN_REMARK_PLUGINS}
           components={markdownComponents}
         >
           {readableContent}
@@ -432,7 +461,7 @@ const MarkdownReadingPreview = function MarkdownReadingPreview({
       </article>
     </div>
   )
-}
+})
 
 /**
  * Remove leading YAML frontmatter from the Reading Mode body.

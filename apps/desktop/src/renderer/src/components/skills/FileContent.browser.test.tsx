@@ -57,14 +57,14 @@ vi.mock('./shikiPreview', async (importOriginal) => {
 function makeTextContent(
   overrides: Partial<{ content: string; name: string; extension: string }> = {},
 ): PreviewContent {
-  const content = 'content' in overrides ? overrides.content : '# Skill\n'
+  const content = overrides.content ?? '# Skill\n'
   return {
     kind: 'text',
     data: {
       name: toFileName(overrides.name ?? 'SKILL.md'),
-      content: content ?? '# Skill\n',
+      content,
       extension: toFileExtension(overrides.extension ?? '.md'),
-      lineCount: toLineCount(content?.split('\n').length ?? 1),
+      lineCount: toLineCount(content.split('\n').length),
     },
   }
 }
@@ -160,7 +160,8 @@ describe('FileContent Markdown modes', () => {
     await expect.element(codeToggle).toHaveAttribute('aria-checked', 'true')
 
     // Act — clicking the active item makes Radix emit an empty string, which
-    // the mode guard must ignore so the view does not flip or blank out.
+    // SegmentedControl's value-change guard must ignore so the view does not
+    // flip or blank out (the guard lives in segmented-control.tsx, not here).
     await codeToggle.click()
 
     // Assert — still in Code mode: the toggle stays selected, the source-code
@@ -300,12 +301,14 @@ describe('FileContent Markdown modes', () => {
     expect(secondScrollContainer?.scrollTop).toBe(0)
   })
 
-  // Value: protects=Reading Mode starts every switched-to Markdown file scrolled to top; fails_when=MarkdownReadingPreview's key regresses to file.name, so same-basename nested files (docs/README.md -> guide/README.md) never remount and keep stale scroll; why_new=existing scroll test only covers distinct names (FIRST.md -> SECOND.md); seam=none
+  // Value: protects=Reading Mode starts every switched-to Markdown file scrolled to top; fails_when=the key loses its filePath segment (prop dropped, or key regresses to basename+shape), so same-basename nested files with identically-shaped content never remount and keep stale scroll; why_new=the Alpha/Omega fixtures share lineCount AND content.length, making filePath the only differing key segment — weaker fixture shapes pass even without the prop; seam=none
   test('resets Reading Mode scroll position when switching between Markdown files that share a name', async () => {
     // Arrange — a skill's nested directories can hold different Markdown files
-    // with the same basename; both load with file.name === 'README.md', so only
-    // the filePath prop (what CodePreview passes from activeFile) tells them
-    // apart. The fixed-height flex wrapper bounds the preview pane so the scroll
+    // with the same basename; both load with file.name === 'README.md'. The
+    // Alpha/Omega headings are the SAME length, so the two documents share
+    // lineCount and content.length and filePath is the only key segment telling
+    // them apart — this is what keeps the prop load-bearing in this suite.
+    // The fixed-height flex wrapper bounds the preview pane so the scroll
     // container actually overflows, and the second file stays long so a stale
     // offset remains clamped-valid — only a real remount satisfies the assert.
     const { FileContent } = await import('./FileContent')
@@ -316,7 +319,7 @@ describe('FileContent Markdown modes', () => {
         <FileContent
           filePath={toAbsolutePath('/skills/tdd/docs/README.md')}
           content={makeTextContent({
-            content: longContent('First'),
+            content: longContent('Alpha'),
             name: 'README.md',
           })}
         />
@@ -340,7 +343,7 @@ describe('FileContent Markdown modes', () => {
         <FileContent
           filePath={toAbsolutePath('/skills/tdd/guide/README.md')}
           content={makeTextContent({
-            content: longContent('Second'),
+            content: longContent('Omega'),
             name: 'README.md',
           })}
         />
@@ -349,7 +352,7 @@ describe('FileContent Markdown modes', () => {
 
     // Assert
     await expect
-      .element(screen.getByRole('heading', { name: 'Second' }))
+      .element(screen.getByRole('heading', { name: 'Omega' }))
       .toBeVisible()
     const secondScrollContainer = document.querySelector<HTMLElement>(
       '[data-markdown-reading-scroll]',
@@ -374,6 +377,11 @@ describe('FileContent Markdown modes', () => {
       </div>,
     )
     await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
+    const initialPane = document.querySelector<HTMLElement>(
+      '[data-markdown-reading-scroll]',
+    )
+    if (!initialPane)
+      throw new Error('expected a markdown reading scroll container')
 
     // Act — selection committed: new path, stale content still on screen.
     await screen.rerender(
@@ -389,6 +397,9 @@ describe('FileContent Markdown modes', () => {
     )
     if (!stalePane)
       throw new Error('expected a markdown reading scroll container')
+    // The path segment must remount at selection-commit time — without it the
+    // pane below is the SAME node still showing the old document's scroll.
+    expect(stalePane).not.toBe(initialPane)
     stalePane.scrollTop = 900
     expect(stalePane.scrollTop).toBeGreaterThan(0)
 
