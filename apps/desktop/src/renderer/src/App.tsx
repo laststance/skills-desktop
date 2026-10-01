@@ -1,6 +1,8 @@
 import React from 'react'
 import { Panel, Group, Separator } from 'react-resizable-panels'
 
+import { PANEL_MIN_WIDTH_PX } from '@/shared/constants'
+
 import { AppToaster } from './components/AppToaster'
 import { BackgroundCanvas } from './components/background/BackgroundCanvas'
 import { DetailPanel } from './components/layout/DetailPanel'
@@ -72,7 +74,7 @@ const App = function App(): React.ReactElement {
           <Sidebar />
         </div>
         <Group orientation="horizontal" className="flex-1 h-full">
-          <Panel defaultSize="50%" minSize="20%">
+          <Panel defaultSize="50%" minSize={PANEL_MIN_WIDTH_PX}>
             <div
               data-window-section="center"
               className="window-surface h-full bg-background"
@@ -86,7 +88,7 @@ const App = function App(): React.ReactElement {
             </div>
           </Panel>
           <Separator className={separatorClass} />
-          <Panel defaultSize="50%" minSize="20%">
+          <Panel defaultSize="50%" minSize={PANEL_MIN_WIDTH_PX}>
             <div
               data-window-section="right"
               className="window-surface h-full"

@@ -5,6 +5,7 @@ import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
+import '@/renderer/src/styles/globals.css'
 import { GSTACK_REPOSITORY_URL } from '@/shared/constants'
 import type { FilesystemEntryIdentity, Skill } from '@/shared/types'
 import {
@@ -241,7 +242,7 @@ describe('SkillItem symlink status badges', () => {
     // Assert
     await expect
       .element(
-        screen.getByLabelText('Inaccessible link - manual review required'),
+        screen.getByLabelText('Inaccessible link — manual review required'),
       )
       .toBeInTheDocument()
     expect(
@@ -289,7 +290,9 @@ describe('SkillItem symlink status badges', () => {
       )
       .toBeNull()
     await expect
-      .poll(() => screen.getByRole('button', { name: 'Add' }).query())
+      .poll(() =>
+        screen.getByRole('button', { name: 'Add task to an agent' }).query(),
+      )
       .toBeNull()
   })
 
@@ -316,11 +319,13 @@ describe('SkillItem symlink status badges', () => {
     // Assert
     await expect
       .element(
-        screen.getByLabelText('Inaccessible link - manual review required'),
+        screen.getByLabelText('Inaccessible link — manual review required'),
       )
       .toBeInTheDocument()
     await expect
-      .poll(() => screen.getByRole('button', { name: /^Add$/i }).query())
+      .poll(() =>
+        screen.getByRole('button', { name: 'Add task to an agent' }).query(),
+      )
       .toBeNull()
   })
 
@@ -785,7 +790,7 @@ describe('SkillItem Add button routing', () => {
       .toBeInTheDocument()
     expect(headingWithAction.query()).toBeNull()
     await expect
-      .element(screen.getByRole('button', { name: /^Add$/i }))
+      .element(screen.getByRole('button', { name: 'Add task to an agent' }))
       .toBeInTheDocument()
   })
 
@@ -812,7 +817,7 @@ describe('SkillItem Add button routing', () => {
 
     // Assert
     await expect
-      .element(screen.getByRole('button', { name: /^Add$/i }))
+      .element(screen.getByRole('button', { name: 'Add task to an agent' }))
       .toBeInTheDocument()
   })
 
@@ -836,7 +841,7 @@ describe('SkillItem Add button routing', () => {
 
     // Act
     store.dispatch(selectAgent('cursor'))
-    await screen.getByRole('button', { name: /^Add$/i }).click()
+    await screen.getByRole('button', { name: 'Add task to an agent' }).click()
 
     // Assert
     expect(store.getState().skills.skillToCopy?.name).toBe('task')
@@ -848,7 +853,7 @@ describe('SkillItem Add button routing', () => {
     const { screen, store } = await renderSkillItem(makeSkill())
 
     // Act
-    await screen.getByRole('button', { name: /^Add$/i }).click()
+    await screen.getByRole('button', { name: 'Add task to an agent' }).click()
 
     // Assert
     expect(store.getState().skills.skillToAddSymlinks?.name).toBe('task')
@@ -883,7 +888,7 @@ describe('SkillItem G-Stack badge', () => {
     await expect.element(gstackLink).toBeInTheDocument()
     await expect
       .element(
-        screen.getByRole('link', { name: /Open G-Stack GitHub repository/i }),
+        screen.getByRole('link', { name: /G-Stack — open GitHub repository/i }),
       )
       .toBeInTheDocument()
     await expect
@@ -1342,7 +1347,7 @@ describe('SkillItem card modifier clicks', () => {
     store.dispatch(fetchSkills.fulfilled([linkedSkill], 'req-id'))
     store.dispatch(selectAgent('cursor'))
     await expect
-      .element(screen.getByRole('button', { name: /^Add$/i }))
+      .element(screen.getByRole('button', { name: 'Add task to an agent' }))
       .toBeInTheDocument()
     const searchInput = document.createElement('input')
     document.body.appendChild(searchInput)
@@ -1387,7 +1392,7 @@ describe('SkillItem card modifier clicks', () => {
     store.dispatch(selectAgent('cursor'))
     store.dispatch(toggleSelection(toSkillName('task')))
     await expect
-      .element(screen.getByRole('button', { name: /^Add$/i }))
+      .element(screen.getByRole('button', { name: 'Add task to an agent' }))
       .toBeInTheDocument()
     const searchInput = document.createElement('input')
     document.body.appendChild(searchInput)
@@ -1429,7 +1434,7 @@ describe('SkillItem card modifier clicks', () => {
     store.dispatch(fetchSkills.fulfilled([linkedSkill], 'req-id'))
     store.dispatch(selectAgent('cursor'))
     await expect
-      .element(screen.getByRole('button', { name: /^Add$/i }))
+      .element(screen.getByRole('button', { name: 'Add task to an agent' }))
       .toBeInTheDocument()
     const inspectorPane = document.createElement('aside')
     inspectorPane.setAttribute('data-inspector-pane', '')
@@ -1747,10 +1752,10 @@ describe('SkillItem G-Stack badge click', () => {
       store.dispatch(selectAgent('claude-code'))
 
       // Act
-      // The anchor's aria-label ("Open G-Stack GitHub repository") is its
+      // The anchor's aria-label ("G-Stack — open GitHub repository") is its
       // accessible name; match a substring of it.
       await screen
-        .getByRole('link', { name: /Open G-Stack GitHub repository/i })
+        .getByRole('link', { name: /G-Stack — open GitHub repository/i })
         .click()
 
       // Assert
@@ -1789,7 +1794,7 @@ describe('SkillItem copy context menu', () => {
     // handleContextMenu closes over showCopyButton, which only flips true once
     // the agent-view render lands.
     await expect
-      .element(screen.getByRole('button', { name: /^Add$/i }))
+      .element(screen.getByRole('button', { name: 'Add task to an agent' }))
       .toBeInTheDocument()
     // Right-click a stable child (the description) — the contextmenu event
     // bubbles up to the Card's onContextMenu regardless of which child owns it.
@@ -2124,5 +2129,351 @@ describe('SkillItem unreadable badge', () => {
 
     // Assert: the amber warning must not appear on every healthy row.
     expect(screen.getByTestId('skill-unreadable-badge-task').query()).toBeNull()
+  })
+})
+
+/** Card width at the 264px panel floor: 264 − 32 padding/gutter = 232. */
+const FLOOR_CARD_WIDTH_PX = 232
+/** Outer card width whose content box is 318px < 20rem once the 1px border
+ * is subtracted — the tightest wrapper that must already collapse. */
+const ICON_TIER_BOUNDARY_WIDTH_PX = 320
+/** Card width comfortably above the icon tier for the wide-tier spec. */
+const WIDE_CARD_WIDTH_PX = 480
+
+describe('SkillItem icon tier (card under 20rem)', () => {
+  test('collapses word badges and action labels to icons so the title row never clips at the 232px floor card', async () => {
+    // Arrange — protected + unreadable + the always-on Add button is the
+    // busiest realistic title row; 232px is the card width at the 264px
+    // panel floor ({@link PANEL_MIN_WIDTH_PX} in App.tsx).
+    const { addProtection } =
+      await import('@/renderer/src/redux/slices/protectSlice')
+    const busySkill = makeSkill({ isUnreadable: true })
+    const store = await createStore()
+    const { SkillItem } = await import('./SkillItem')
+    const screen = await render(
+      <Provider store={store}>
+        <TooltipProvider>
+          <div style={{ width: FLOOR_CARD_WIDTH_PX }}>
+            <SkillItem skill={busySkill} />
+          </div>
+        </TooltipProvider>
+      </Provider>,
+    )
+    store.dispatch(addProtection({ name: toSkillName('task') }))
+    const card = screen.getByTestId('skill-protected-badge-task')
+    await expect.element(card).toBeInTheDocument()
+
+    // Assert — accessible names survive the collapse (role="img" pills and
+    // the labelled Add button).
+    await expect
+      .element(
+        screen.getByLabelText(
+          'Protected — bulk delete and unlink skip this skill',
+        ),
+      )
+      .toBeInTheDocument()
+    await expect
+      .element(
+        screen.getByLabelText('Unreadable skill — SKILL.md could not be read'),
+      )
+      .toBeInTheDocument()
+    await expect
+      .element(screen.getByRole('button', { name: 'Add task to an agent' }))
+      .toBeInTheDocument()
+    // The collapsed pills are icon-sized, not word-sized. Poll because the
+    // global stylesheet lands a tick after mount in the browser lane.
+    await expect
+      .poll(
+        () =>
+          screen
+            .getByTestId('skill-protected-badge-task')
+            .element()
+            .getBoundingClientRect().width,
+      )
+      .toBeLessThan(30)
+    await expect
+      .poll(
+        () =>
+          screen
+            .getByTestId('skill-unreadable-badge-task')
+            .element()
+            .getBoundingClientRect().width,
+      )
+      .toBeLessThan(30)
+    // Nothing in the card escapes its box horizontally.
+    const cardElement = screen
+      .getByTestId('skill-protected-badge-task')
+      .element()
+      .closest('[data-skill-name]')
+    if (!cardElement) throw new Error('SkillItem card not found')
+    const cardRect = cardElement.getBoundingClientRect()
+    for (const el of cardElement.querySelectorAll('*')) {
+      const rect = el.getBoundingClientRect()
+      // Both edges — a collapse that clips left is as broken as one that
+      // overflows right.
+      expect(rect.right).toBeLessThanOrEqual(cardRect.right + 0.5)
+      expect(rect.left).toBeGreaterThanOrEqual(cardRect.left - 0.5)
+    }
+  })
+
+  test('collapses at a 320px card because the 20rem query measures the content box inside the border', async () => {
+    // Arrange — `@max-[20rem]` compiles to `width < 20rem` on the container's
+    // CONTENT box, so a 320px card (318px inside its 1px border) must already
+    // be icon-only. Pins the boundary so a future breakpoint change or a
+    // border/padding tweak can't silently shift the tier.
+    const { addProtection } =
+      await import('@/renderer/src/redux/slices/protectSlice')
+    const store = await createStore()
+    const { SkillItem } = await import('./SkillItem')
+    const screen = await render(
+      <Provider store={store}>
+        <TooltipProvider>
+          <div style={{ width: ICON_TIER_BOUNDARY_WIDTH_PX }}>
+            <SkillItem skill={makeSkill({ isUnreadable: true })} />
+          </div>
+        </TooltipProvider>
+      </Provider>,
+    )
+    store.dispatch(addProtection({ name: toSkillName('task') }))
+    const badge = screen.getByTestId('skill-protected-badge-task')
+    await expect.element(badge).toBeInTheDocument()
+
+    // Assert — poll because the global stylesheet lands a tick after mount.
+    await expect
+      .poll(() => badge.element().getBoundingClientRect().width)
+      .toBeLessThan(30)
+  })
+
+  test('keeps the badge words and action labels rendered at the wide tier so the collapse stays bounded below 20rem', async () => {
+    // Arrange — the same busiest row as the icon-tier spec, but in a 480px
+    // card (above the 320px breakpoint). If `@max-[20rem]:sr-only` ever
+    // leaked into the wide tier — unconditional class, flipped breakpoint —
+    // the aria-label assertions above would still pass because sr-only text
+    // stays in the DOM; only a width check catches the words going missing.
+    const { addProtection } =
+      await import('@/renderer/src/redux/slices/protectSlice')
+    const busySkill = makeSkill({ isUnreadable: true })
+    const store = await createStore()
+    const { SkillItem } = await import('./SkillItem')
+    const screen = await render(
+      <Provider store={store}>
+        <TooltipProvider>
+          <div style={{ width: WIDE_CARD_WIDTH_PX }}>
+            <SkillItem skill={busySkill} />
+          </div>
+        </TooltipProvider>
+      </Provider>,
+    )
+    store.dispatch(addProtection({ name: toSkillName('task') }))
+    await expect
+      .element(screen.getByTestId('skill-protected-badge-task'))
+      .toBeInTheDocument()
+
+    // Assert — each pill keeps its word, so it lands well past the <30px
+    // icon-only box the icon tier shrinks to. Poll because the global
+    // stylesheet lands a tick after mount in the browser lane.
+    const protectedBadge = screen
+      .getByTestId('skill-protected-badge-task')
+      .element()
+    await expect
+      .poll(() => protectedBadge.getBoundingClientRect().width)
+      .toBeGreaterThan(30)
+    await expect
+      .poll(
+        () =>
+          screen
+            .getByTestId('skill-unreadable-badge-task')
+            .element()
+            .getBoundingClientRect().width,
+      )
+      .toBeGreaterThan(30)
+    // A rendered word span takes real inline space; sr-only would box it at 1px.
+    const wordSpan = protectedBadge.querySelector('span')
+    if (!wordSpan) throw new Error('Protected word span not found')
+    expect(wordSpan.getBoundingClientRect().width).toBeGreaterThan(10)
+    // The new role="img" + title carry the pill's name once collapsed, and
+    // must exist in the wide tier too (the collapse is a pure visual change).
+    await expect
+      .element(
+        screen.getByRole('img', {
+          name: 'Protected — bulk delete and unlink skip this skill',
+        }),
+      )
+      .toBeInTheDocument()
+    // Add keeps its word and hover title in the wide tier.
+    const addButton = screen.getByRole('button', {
+      name: 'Add task to an agent',
+    })
+    await expect.element(addButton).toBeInTheDocument()
+    await expect
+      .element(addButton)
+      .toHaveAttribute('title', 'Add task to an agent')
+    const addWord = addButton.element().querySelector('span')
+    if (!addWord) throw new Error('Add word span not found')
+    expect(addWord.getBoundingClientRect().width).toBeGreaterThan(10)
+  })
+
+  test('collapses the G-Stack link to an icon-only anchor in the icon tier while keeping its repository name', async () => {
+    // Arrange — a gstack-managed slot for a badge-eligible agent is the only
+    // row the link renders on; 232px is the floor-width card.
+    const gstackSkill = makeSkill({
+      symlinks: [
+        {
+          agentId: 'claude-code',
+          agentName: 'Claude Code',
+          status: 'valid',
+          targetPath: toAbsolutePath('/Users/me/.claude/skills/gstack/task'),
+          linkPath: toAbsolutePath('/Users/me/.claude/skills/task'),
+          isLocal: false,
+        },
+      ],
+    })
+    const store = await createStore()
+    const { SkillItem } = await import('./SkillItem')
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+    const screen = await render(
+      <Provider store={store}>
+        <TooltipProvider>
+          <div style={{ width: FLOOR_CARD_WIDTH_PX }}>
+            <SkillItem skill={gstackSkill} />
+          </div>
+        </TooltipProvider>
+      </Provider>,
+    )
+    store.dispatch(selectAgent('claude-code'))
+
+    // Assert — the anchor keeps its accessible name + hover title while the
+    // "G-Stack" word collapses to sr-only, leaving an icon-width pill.
+    const gstackLink = screen.getByRole('link', {
+      name: 'G-Stack — open GitHub repository',
+    })
+    await expect.element(gstackLink).toBeInTheDocument()
+    await expect
+      .element(gstackLink)
+      .toHaveAttribute('title', 'G-Stack — open GitHub repository')
+    const linkElement = gstackLink.element()
+    await expect
+      .poll(() => linkElement.getBoundingClientRect().width)
+      .toBeLessThan(30)
+    const gstackWord = linkElement.querySelector('span')
+    if (!gstackWord) throw new Error('G-Stack word span not found')
+    expect(gstackWord.getBoundingClientRect().width).toBeLessThan(5)
+    // The same card's Add button collapses too — icon footprint, kept label.
+    const addWord = screen
+      .getByRole('button', { name: 'Add task to an agent' })
+      .element()
+      .querySelector('span')
+    if (!addWord) throw new Error('Add word span not found')
+    expect(addWord.getBoundingClientRect().width).toBeLessThan(5)
+  })
+
+  test('collapses the orphan and inaccessible amber pills to icons in the icon tier', async () => {
+    // Arrange — the three amber pills share AMBER_STATUS_BADGE_CLASS but are
+    // separate JSX blocks; the first spec covered unreadable, so this one
+    // exercises the other two. Orphan renders in any view; inaccessible
+    // needs a selected agent whose slot carries `inaccessible` status.
+    const orphanSkill = makeSkill({
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          status: 'broken',
+          linkPath: toAbsolutePath('/home/user/.cursor/skills/task'),
+          targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
+          isLocal: false,
+        },
+      ],
+      isOrphan: true,
+    })
+    const inaccessibleSkill = makeSkill({
+      name: toSkillName('review'),
+      path: toAbsolutePath('/home/user/.agents/skills/review'),
+      symlinks: [
+        {
+          agentId: 'claude-code',
+          agentName: 'Claude Code',
+          status: 'inaccessible',
+          linkPath: toAbsolutePath('/Users/me/.claude/skills/review'),
+          targetPath: toAbsolutePath('/home/user/.agents/skills/review'),
+          isLocal: false,
+        },
+      ],
+    })
+    const store = await createStore()
+    const { SkillItem } = await import('./SkillItem')
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+    const screen = await render(
+      <Provider store={store}>
+        <TooltipProvider>
+          <div style={{ width: FLOOR_CARD_WIDTH_PX }}>
+            <SkillItem skill={orphanSkill} />
+            <SkillItem skill={inaccessibleSkill} />
+          </div>
+        </TooltipProvider>
+      </Provider>,
+    )
+    store.dispatch(selectAgent('claude-code'))
+
+    // Assert — accessible names survive the collapse; both pills shrink to
+    // icon size (<30px, same bound as the first icon-tier spec).
+    const orphanBadge = screen.getByTestId('skill-orphan-badge-task')
+    await expect.element(orphanBadge).toBeInTheDocument()
+    const inaccessibleBadge = screen.getByLabelText(
+      'Inaccessible link — manual review required',
+    )
+    await expect.element(inaccessibleBadge).toBeInTheDocument()
+    await expect
+      .poll(() => orphanBadge.element().getBoundingClientRect().width)
+      .toBeLessThan(30)
+    await expect
+      .poll(() => inaccessibleBadge.element().getBoundingClientRect().width)
+      .toBeLessThan(30)
+  })
+
+  test('keeps the card height identical between the icon and wide tiers so virtualized row slots stay aligned', async () => {
+    // Arrange — the same busy row at 232px (icon tier) and 480px (wide). The
+    // collapse is horizontal-only on purpose: SkillsList's getRowHeight
+    // reserves one slot height, so a card that grew a line while collapsing
+    // would misalign every virtualized row below it.
+    const { addProtection } =
+      await import('@/renderer/src/redux/slices/protectSlice')
+    const narrowSkill = makeSkill({ isUnreadable: true })
+    const wideSkill = makeSkill({
+      name: toSkillName('task-wide'),
+      path: toAbsolutePath('/home/user/.agents/skills/task-wide'),
+      isUnreadable: true,
+    })
+    const store = await createStore()
+    const { SkillItem } = await import('./SkillItem')
+    await render(
+      <Provider store={store}>
+        <TooltipProvider>
+          <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+            <div style={{ width: FLOOR_CARD_WIDTH_PX }}>
+              <SkillItem skill={narrowSkill} />
+            </div>
+            <div style={{ width: WIDE_CARD_WIDTH_PX }}>
+              <SkillItem skill={wideSkill} />
+            </div>
+          </div>
+        </TooltipProvider>
+      </Provider>,
+    )
+    store.dispatch(addProtection({ name: toSkillName('task') }))
+    store.dispatch(addProtection({ name: toSkillName('task-wide') }))
+
+    // Assert — same content in both tiers: identical height. The diff is
+    // measured inside ONE poll so a late-loading stylesheet or badge can't
+    // freeze a stale wide-card height into the expectation.
+    const narrowCard = document.querySelector('[data-skill-name="task"]')
+    const wideCard = document.querySelector('[data-skill-name="task-wide"]')
+    if (!narrowCard || !wideCard) throw new Error('SkillItem card not found')
+    await expect
+      .poll(
+        () =>
+          narrowCard.getBoundingClientRect().height -
+          wideCard.getBoundingClientRect().height,
+      )
+      .toBe(0)
   })
 })

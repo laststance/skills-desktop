@@ -1312,3 +1312,21 @@ export const KEYBINDINGS = [
   action: string
   display: string
 }[]
+
+/**
+ * Pixel floor for both resizable panels — equals the default 50/50 split at
+ * the 800px minimum window: (800 content − 272px sidebar) / 2 = 264. A pixel
+ * floor (not a percent) so the list header's compact tier and the detail
+ * panel's metrics are never squeezed below their designed width; percent
+ * floors shrink with the window.
+ *
+ * At exactly 800px the two floors fill the whole 528px Group, so the
+ * Separator can't move — that's intended; there is no spare room to give. If
+ * a future change pushes the sum past the group width, the library degrades
+ * silently to proportional below-floor sizing (no error is thrown), so keep
+ * `2 × PANEL_MIN_WIDTH_PX ≤ minWidth − sidebar`. The math assumes a 16px root
+ * rem at 100% zoom (the sidebar is `w-68`); the floor is in CSS pixels, so
+ * the app's zoomIn/zoomOut menu roles shrink the CSS viewport and panels
+ * degrade proportionally under zoom — accepted for a desktop utility.
+ */
+export const PANEL_MIN_WIDTH_PX = 264

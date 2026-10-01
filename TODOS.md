@@ -36,13 +36,11 @@ the few hundred ms before the second window's store evaluates.
 
 ### P2. Main-window cards should fit the minimum desktop width
 
-**Status:** Deferred; the card and dashboard layouts are unchanged by the opacity feature.
+**Status:** Implemented — both resizable panels got a shared 264px pixel floor (`PANEL_MIN_WIDTH_PX` in `shared/constants.ts`, replacing `minSize="20%"` which allowed ~106px drags at the 800px minimum), and the skill-card title row gained an icon tier below a 20rem card width that collapses the `Protected`/`inaccessible`/`orphan`/`unreadable` word badges and the `Add`/`G-Stack` labels to icons (`SkillItem.tsx`; DESIGN.md "Panel resizing" + Lists and Rows). Covers the #347 list-header clip note: the header can no longer be asked to render under its 264px compact tier.
 
-**Finding:** At 800 × 600, skill titles and dashboard metrics crowd within the 264px center/right panels even though the window itself does not overflow.
+**Finding:** At 800 × 600, skill titles and dashboard metrics crowded within the 264px center/right panels even though the window itself did not overflow.
 
-**Fix direction:** Adapt card content and metrics to narrow panels while preserving the existing sidebar and three-column layout.
-
-**List header (#347):** The Installed list header stays on one 36px row down to a 264px center column through its compact tier. The center panel's `minSize="20%"` (`src/renderer/src/App.tsx:75`) still allows narrower drags (about 106px at the 800px window), and there the header's buttons clip. Fix direction: give the center panel a pixel floor, or fold the header actions into a menu below 264px.
+**List header (#347):** The Installed list header stays on one 36px row down to a 264px center column through its compact tier. The center panel's `minSize="20%"` (`src/renderer/src/App.tsx`) allowed narrower drags (about 106px at the 800px window) where the header's buttons clipped; the pixel floor removes that range entirely.
 
 ## List header selection review follow-ups (2026-09-26)
 

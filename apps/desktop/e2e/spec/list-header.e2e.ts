@@ -1,17 +1,19 @@
 import { mkdirSync, symlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import type { ElectronApplication, Locator, Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 
 import { test, expect } from '../fixtures/electron-app'
+import {
+  expectListHeaderRowIntact,
+  resizeWindowContent,
+} from '../helpers/layout'
 import {
   dispatchAction,
   refreshSkillsState,
   waitForInitialScan,
 } from '../helpers/redux'
 
-/** The list header is a single `h-9` row in every width tier. */
-const LIST_HEADER_HEIGHT_PX = 36
 /** Window content height used for both widths; above the 600px minimum. */
 const WINDOW_CONTENT_HEIGHT_PX = 800
 /**
@@ -70,29 +72,6 @@ function stageLinkedSkills(isolatedHome: string): string[] {
 }
 
 /**
- * Resize the main window's content area and wait until the renderer sees the
- * new width, so container-query tiers have re-evaluated before measuring.
- * @param electronApp - Launched Electron app from the fixture.
- * @param appWindow - Main window page.
- * @param widthPx - Target content width.
- * @example await resizeWindowContent(electronApp, appWindow, 800)
- */
-async function resizeWindowContent(
-  electronApp: ElectronApplication,
-  appWindow: Page,
-  widthPx: number,
-): Promise<void> {
-  const nativeWindow = await electronApp.browserWindow(appWindow)
-  await nativeWindow.evaluate(
-    (window, size) => window.setContentSize(size.width, size.height),
-    { width: widthPx, height: WINDOW_CONTENT_HEIGHT_PX },
-  )
-  await expect
-    .poll(async () => appWindow.evaluate(() => window.innerWidth))
-    .toBe(widthPx)
-}
-
-/**
  * Read an element's top edge in CSS pixels.
  * @param locator - Element to measure.
  * @returns The bounding box's `y`.
@@ -102,43 +81,6 @@ async function readTopEdge(locator: Locator): Promise<number> {
   const box = await locator.boundingBox()
   if (box === null) throw new Error('Expected a rendered element to measure')
   return box.y
-}
-
-/**
- * Assert the header is one 36px row and that every control in it (master
- * checkbox and each action button) sits fully inside its rect, which is how a
- * wrap or overflow would show up.
- * @param listHeader - The `List header` group.
- * @example await expectOneRowWithControlsInside(listHeader)
- */
-async function expectOneRowWithControlsInside(
-  listHeader: Locator,
-): Promise<void> {
-  const headerBox = await listHeader.boundingBox()
-  if (headerBox === null) throw new Error('Expected the list header to render')
-  expect(headerBox.height).toBe(LIST_HEADER_HEIGHT_PX)
-
-  const controls = await listHeader.locator('button, [role="checkbox"]').all()
-  expect(controls.length).toBeGreaterThan(0)
-  for (const control of controls) {
-    const controlBox = await control.boundingBox()
-    if (controlBox === null) continue
-    const label = (await control.getAttribute('aria-label')) ?? 'control'
-    expect(controlBox.x, `${label} left edge`).toBeGreaterThanOrEqual(
-      headerBox.x,
-    )
-    expect(controlBox.y, `${label} top edge`).toBeGreaterThanOrEqual(
-      headerBox.y,
-    )
-    expect(
-      controlBox.x + controlBox.width,
-      `${label} right edge`,
-    ).toBeLessThanOrEqual(headerBox.x + headerBox.width)
-    expect(
-      controlBox.y + controlBox.height,
-      `${label} bottom edge`,
-    ).toBeLessThanOrEqual(headerBox.y + headerBox.height)
-  }
 }
 
 /**
@@ -172,7 +114,7 @@ async function expectHeaderSharesCardEdges(
  * @param appWindow - Main window page.
  * @param primaryAction - The header's Delete/Unlink name and per-tier label.
  * @param tier - The tier the current window width puts the header in.
- * @example await expectSelectionKeepsLayout(appWindow, globalDelete, 'compact')
+ * @example await expectSelectionKeepsLayout(appWindow, { name: 'Delete', visibleLabelByTier: { full: 'Delete', narrow: 'Delete', compact: 'Delete' } }, 'compact')
  */
 async function expectSelectionKeepsLayout(
   appWindow: Page,
@@ -185,7 +127,7 @@ async function expectSelectionKeepsLayout(
   )
   await expect(firstCard).toBeVisible()
   await expectHeaderSharesCardEdges(listHeader, firstCard)
-  await expectOneRowWithControlsInside(listHeader)
+  await expectListHeaderRowIntact(listHeader)
   const listTopBeforeTick = await readTopEdge(firstCard)
 
   // First tick, through the card's own checkbox.
@@ -195,7 +137,7 @@ async function expectSelectionKeepsLayout(
     .click()
   await expect(listHeader).toContainText('1 selected')
   expect(await readTopEdge(firstCard)).toBe(listTopBeforeTick)
-  await expectOneRowWithControlsInside(listHeader)
+  await expectListHeaderRowIntact(listHeader)
 
   // Then every staged row, through the master checkbox.
   await listHeader
@@ -214,7 +156,7 @@ async function expectSelectionKeepsLayout(
     { useInnerText: true },
   )
   expect(await readTopEdge(firstCard)).toBe(listTopBeforeTick)
-  await expectOneRowWithControlsInside(listHeader)
+  await expectListHeaderRowIntact(listHeader)
 
   // Back to rest for the next width.
   await listHeader.getByRole('button', { name: 'Clear selection' }).click()
@@ -245,7 +187,12 @@ test('keeps the list header one 36px row aligned with the cards at 1200px, 1100p
 
   for (const { widthPx, tier } of WINDOW_TIERS) {
     // Act
-    await resizeWindowContent(electronApp, appWindow, widthPx)
+    await resizeWindowContent(
+      electronApp,
+      appWindow,
+      widthPx,
+      WINDOW_CONTENT_HEIGHT_PX,
+    )
 
     // Assert
     await expectSelectionKeepsLayout(
@@ -279,7 +226,12 @@ test('keeps the list header one 36px row aligned with the cards at 1200px, 1100p
 
   for (const { widthPx, tier } of WINDOW_TIERS) {
     // Act
-    await resizeWindowContent(electronApp, appWindow, widthPx)
+    await resizeWindowContent(
+      electronApp,
+      appWindow,
+      widthPx,
+      WINDOW_CONTENT_HEIGHT_PX,
+    )
 
     // Assert
     await expectSelectionKeepsLayout(

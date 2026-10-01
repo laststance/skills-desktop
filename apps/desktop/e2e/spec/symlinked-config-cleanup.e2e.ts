@@ -446,9 +446,11 @@ test('inaccessible agent symlinks stay visible for manual review without destruc
     appWindow.getByText(INACCESSIBLE_MANUAL_REVIEW_SKILL_NAME),
   ).toBeVisible()
   await expect(
-    appWindow.getByLabel('Inaccessible link - manual review required'),
+    appWindow.getByLabel('Inaccessible link — manual review required'),
   ).toBeVisible()
-  await expect(appWindow.getByRole('button', { name: /^Add$/ })).toHaveCount(0)
+  await expect(
+    appWindow.getByRole('button', { name: /^Add .* to an agent$/ }),
+  ).toHaveCount(0)
   await expect(
     appWindow.getByRole('button', {
       name: `Unlink ${INACCESSIBLE_MANUAL_REVIEW_SKILL_NAME} from Codex`,

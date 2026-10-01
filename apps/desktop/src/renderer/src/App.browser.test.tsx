@@ -26,6 +26,8 @@ const backgroundState = vi.hoisted(() => {
   return { snapshot }
 })
 beforeEach(() => {
+  panelCalls.minSizes = []
+  panelCalls.defaultSizes = []
   backgroundState.snapshot = {
     revision: 0,
     displayRetryRevision: 0,
@@ -34,9 +36,26 @@ beforeEach(() => {
   }
 })
 
+const panelCalls = vi.hoisted(() => ({
+  minSizes: [] as Array<number | string | undefined>,
+  defaultSizes: [] as Array<number | string | undefined>,
+}))
+
 vi.mock('react-resizable-panels', () => ({
   Group: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  Panel: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Panel: ({
+    children,
+    minSize,
+    defaultSize,
+  }: {
+    children: React.ReactNode
+    minSize?: number | string
+    defaultSize?: number | string
+  }) => {
+    panelCalls.minSizes.push(minSize)
+    panelCalls.defaultSizes.push(defaultSize)
+    return <div>{children}</div>
+  },
   Separator: ({ className }: { className?: string }) => (
     <div className={className} />
   ),
@@ -60,7 +79,9 @@ vi.mock('./components/layout/MainContent', () => ({
 }))
 
 vi.mock('./components/layout/Sidebar', () => ({
-  Sidebar: () => <aside data-testid="sidebar" />,
+  // Keep the real width class so the floor-invariant test measures the
+  // sidebar's rendered CSS width instead of hard-coding 272.
+  Sidebar: () => <aside aria-label="Agent sidebar" className="w-68" />,
 }))
 
 vi.mock('./components/UpdateToast', () => ({
@@ -121,6 +142,33 @@ async function renderAppWithSettings(settings: Partial<Settings>) {
 }
 
 describe('App window surface', () => {
+  test('gives both resizable panels the 264px pixel floor so a drag can never crush the list header or detail metrics', async () => {
+    // Arrange + Act
+    await renderAppWithSettings({})
+    // Assert — hard-coded 264: the regression this guards is `minSize="20%"`
+    // allowing ~106px panels at the 800px minimum window. Re-renders must not
+    // pass extra panels, and the 50/50 default split is pinned alongside.
+    expect(panelCalls.minSizes).toEqual([264, 264])
+    expect(panelCalls.defaultSizes).toEqual(['50%', '50%'])
+    // The floors must stay satisfiable at the minimum window. Measure the
+    // sidebar's rendered CSS width instead of hard-coding 272 so a root rem
+    // or utility change makes this fail (poll: globals.css lands a tick late).
+    await expect
+      .poll(
+        () =>
+          document
+            .querySelector('[aria-label="Agent sidebar"]')
+            ?.getBoundingClientRect().width,
+      )
+      .toBeGreaterThan(0)
+    const sidebar = document.querySelector('[aria-label="Agent sidebar"]')
+    if (!sidebar) throw new Error('Agent sidebar not rendered')
+    const sidebarWidth = sidebar.getBoundingClientRect().width
+    // 2 floors + measured sidebar must fit the 800px content minimum
+    // (the Separator is 0px: flexBasis auto + flexGrow 0).
+    expect(2 * 264 + sidebarWidth).toBeLessThanOrEqual(800)
+  })
+
   test('adds a single image behind all panes without replacing their mounted content when layout or opacity changes', async () => {
     // Arrange
     const selected: BackgroundSelection = {
