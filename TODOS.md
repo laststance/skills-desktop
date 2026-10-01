@@ -1286,6 +1286,8 @@ Deferred from the #347 pre-landing review (cycle 3) and its adversarial pass.
 
 ### P3. isLocal auto-protect
 
+**Status:** DEFERRED (user decision — manual lock only this release; revisit only with usage evidence).
+
 **Context:** Skills with `isLocal: true` (agent-unique, not in the universal `~/.agents/skills/` dir) are at higher risk of accidental deletion. The plan considered auto-protecting them, but user chose manual lock only for this release.
 
 **Fix direction:** After gathering usage data on the manual lock feature, consider showing a "Protect automatically?" nudge for `isLocal` skills on first lock of any skill.
@@ -1695,6 +1697,8 @@ scan false-negative, not an unprunable state — see there.
 
 ### P3. Smaller items from the same review
 
+**Status:** All sub-items FIXED (see struck bullets).
+
 - ~~`resolveLockKeyForDirectory` reads the lock outside `runLockWrite`.~~
   FIXED: it now runs inside the mutex. Nesting was verified safe against
   source first — all three `evict` call sites are detached timers or the
@@ -1799,7 +1803,7 @@ mode-specific symbols renamed to `MarkdownPreviewMode`/`MARKDOWN_PREVIEW_*`
 
 ## List-header review follow-ups (2026-10-01)
 
-### P3. `SourceLink` renders a raw `href` without a URL-scheme check
+### ~~P3. `SourceLink` renders a raw `href` without a URL-scheme check~~ — FIXED (Issue #372)
 
 `SourceLink.tsx` passes `sourceUrl` straight into `<a href>`; `handleExternalClick`
 routes external opens through `shell.openExternal`, but the constructed URL is
@@ -1807,3 +1811,13 @@ never validated for scheme. If a marketplace row ever carried a non-https URL
 (e.g. `javascript:`), the anchor would expose it. Add an `http(s)` allowlist at
 the boundary where `sourceUrl` is built. Pre-existing; surfaced by the security
 specialist during the #361 review — outside that diff's scope.
+
+**Fix:** `toHttpUrl` now verifies `new URL` + `http(s)` protocol before branding
+(throws `TypeError` otherwise), and a non-throwing `tryHttpUrl` serves
+untrusted-input boundaries. The poisoned path — `.skill-lock.json` `sourceUrl`
+in `skillScanner` — goes through `tryHttpUrl`, so a crafted `javascript:`/`file:`
+entry drops the URL but keeps the source id (SourceLink `text` mode).
+`getSourceLinkModel` also re-verifies via `tryHttpUrl` since a brand crossing
+IPC can lie. Downstream gates (`attachExternalLinkHandler` allowlist,
+`shell:openExternal` zod refine, `isAllowedSkillsUrl`) are unchanged second
+layers.

@@ -26,6 +26,7 @@
 
 ### Fixed
 
+- A crafted `.skill-lock.json` carrying a non-http(s) `sourceUrl` (e.g. `javascript:`) can no longer reach a rendered link: the URL is dropped at scan time and the skill still lists its source name.
 - Switching files in Markdown Reading Mode now starts at the top of the document, including when two files share the same name in different folders.
 - Switching files in Markdown Code Mode now also starts at the top instead of clamping the previous file's scroll position into the shorter document.
 - If the Markdown preview-mode preference cannot be saved (for example, storage is full or unavailable), a notice now explains that the choice applies for the current session but resets when the app closes — instead of silently reverting later.

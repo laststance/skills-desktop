@@ -1149,6 +1149,50 @@ describe('scanSkills source attribution from lock file', () => {
     expect(skills[0].sourceUrl).toBeUndefined()
   })
 
+  test('keeps the skill but drops a non-http(s) sourceUrl from a poisoned lock entry', async () => {
+    // Arrange: the lock file is untrusted input — a `javascript:` URL must
+    // never flow through to a rendered anchor behind the HttpUrl brand. The
+    // source id still attaches so the row shows where the skill came from.
+    readdirMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills') {
+        return [
+          createDirent('frontend-design', {
+            isDirectory: true,
+            isSymbolicLink: false,
+          }),
+        ]
+      }
+      return []
+    })
+    statMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills/frontend-design/SKILL.md') {
+        return { isFile: () => true }
+      }
+      throw new Error(`ENOENT: ${path}`)
+    })
+    mockLstatDirectories(['/mock/source/skills/frontend-design'])
+    readFileMock.mockResolvedValue(
+      JSON.stringify({
+        skills: {
+          'frontend-design': {
+            source: 'evil/repo',
+            sourceType: 'github',
+            sourceUrl: 'javascript:alert(1)',
+          },
+        },
+      }),
+    )
+    const { scanSkills } = await import('./skillScanner')
+
+    // Act
+    const skills = await scanSkills()
+
+    // Assert — scan completes; source id kept; poisoned URL dropped.
+    expect(skills).toHaveLength(1)
+    expect(skills[0].source).toBe('evil/repo')
+    expect(skills[0].sourceUrl).toBeUndefined()
+  })
+
   test('treats a lock file with no skills key as having no source data', async () => {
     // Arrange: an older / partially-initialized lock file omits the `skills`
     // key entirely. Parsing must still succeed and yield an empty source map
