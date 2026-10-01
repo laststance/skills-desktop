@@ -298,11 +298,20 @@ class SkillsCliService extends EventEmitter {
       let stderr = ''
       let settled = false
 
+      // TEST-ONLY seam: `E2E_SKILLS_CLI_BIN` is injected only by the Electron
+      // e2e spec (skill-lock-prune.e2e.ts via launchIsolatedElectron's
+      // envOverrides) to point the spawn at a guaranteed-missing binary, so
+      // the `proc.on('error')` ENOENT arm runs for real. Never set in
+      // production builds.
       // Finder-launched macOS apps do not inherit shell PATH, so buildCliEnv()
       // restores the common Node toolchain locations before resolving `npx`.
-      const proc = spawn('npx', [`skills@${SKILLS_CLI_VERSION}`, ...args], {
-        env: buildCliEnv(),
-      })
+      const proc = spawn(
+        process.env['E2E_SKILLS_CLI_BIN'] ?? 'npx',
+        [`skills@${SKILLS_CLI_VERSION}`, ...args],
+        {
+          env: buildCliEnv(),
+        },
+      )
 
       // Only cancellable commands join the set `cancel()` sweeps. A prune
       // rewrites .skill-lock.json with a plain writeFile (no temp+rename), so

@@ -1754,16 +1754,17 @@ scan false-negative, not an unprunable state — see there.
   (the line number in the original filing has drifted; the link itself is real).~~
   FIXED: it now links `{@link pruneLockEntries}`, which is the actual caller and
   a symbol a reader can reach.
-- No E2E reaches the npx-unavailable prune path. `e2e/spec/skill-lock-prune.e2e.ts`
+- ~~No E2E reaches the npx-unavailable prune path. `e2e/spec/skill-lock-prune.e2e.ts`
   (added by /qa on `feat/prune-stale-skill-lock-entries`, 2026-09-06) covers
   every guard plus one real `npx skills remove`, but the branch where the CLI
   itself cannot be spawned needs a fixture-level PATH/env override the
-  `electron-app` fixture does not expose. Note this is a coverage gap, not a
-  silent failure: `removeSkills` returning `{success:false}` leaves every key
-  in the lock, so `pruneLockEntries` classifies them as `failed`, and
-  `LockPruneDialog.tsx:68` toasts that (covered by
-  `LockPruneDialog.browser.test.tsx:106`). Untested is only the main-process
-  classification under a genuine spawn failure.
+  `electron-app` fixture does not expose.~~ FIXED (Issue #365). The fixture
+  already exposed `envOverrides` — the real missing piece was a main-side
+  spawn-target seam: `E2E_SKILLS_CLI_BIN` points `execCli`'s `spawn()` at a
+  missing binary so the `proc.on('error')` ENOENT arm runs for real (a
+  scrubbed PATH alone cannot — `buildCliPath` appends system npx dirs). The
+  spec drives the real UI: dashboard banner → LockPruneDialog → "Could not
+  remove 1 of 1 record." toast, and asserts the lock file keeps the key.
 
 ## Markdown preview review follow-ups (2026-09-30)
 
