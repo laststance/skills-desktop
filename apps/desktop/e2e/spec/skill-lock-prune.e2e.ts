@@ -11,7 +11,7 @@ import { join } from 'node:path'
 import type { Page } from '@playwright/test'
 
 import { SNAPSHOT_LOCK_FILE } from '../constants'
-import { test, expect } from '../fixtures/electron-app'
+import { test, expect, launchIsolatedElectron } from '../fixtures/electron-app'
 import { isSnapshotOffline } from '../fixtures/isolated-home'
 
 /**
@@ -26,13 +26,19 @@ import { isSnapshotOffline } from '../fixtures/isolated-home'
  * `installDir` were read one directory level off, the unit tests stay green
  * while the guard either refuses every prune (feature silently dead) or waves
  * through a delegation that recursively deletes a real agent directory. Only
- * an integrated run against a populated HOME can tell those apart.
+ * an integrated run against a populated HOME can tell those apart. The last
+ * spec is also the file's only UI-driven one — banner → dialog → toast —
+ * because "the failed classification reaches the user" is the user-visible
+ * contract the IPC helpers cannot pin.
  *
  * Spawn budget: every guard short-circuits BEFORE `skillsCliService.removeSkills`,
  * so the refusal specs cost no child process. Exactly one spec below drives the
  * real `npx skills remove` path, because "the lock key actually disappears" is
  * the user-visible bug this feature exists to fix — a lock record for a deleted
- * skill makes `skills -g update` reinstall it.
+ * skill makes `skills -g update` reinstall it. A second spec points
+ * `E2E_SKILLS_CLI_BIN` at a missing binary — it reaches `spawn()` and exercises
+ * the `error` arm without resolving `npx`, so it costs a failed spawn and no
+ * network.
  */
 
 /** Lock keys and directory names this spec owns. Fresh per test HOME. */
@@ -430,4 +436,51 @@ test('removes the lock key of a deleted skill whose only agent trace is a broken
     failed: [],
   })
   expect(readLockKeys(isolatedHome)).toEqual([])
+})
+
+test('reports the prune as failed and keeps the lock record when the skills CLI cannot spawn', async ({
+  isolatedHome,
+}) => {
+  // Arrange — a stale key with nothing on disk: every guard passes by
+  // construction (source dir absent, no tombstone, no agent-owned copy,
+  // pattern-valid name), so `failed` can only come from the spawn dying.
+  // The launch's E2E_SKILLS_CLI_BIN points execCli at a missing binary so the
+  // `proc.on('error')` ENOENT arm runs for real — a scrubbed PATH alone could
+  // not do this because buildCliPath appends system npx dirs unconditionally.
+  // XDG_STATE_HOME is scrubbed so a runner exporting it cannot move the lock
+  // file away from the isolated HOME.
+  mkdirSync(join(isolatedHome, '.agents', 'skills'), { recursive: true })
+  writeLockKeys(isolatedHome, ['lock-prune-spawn-gone'])
+  const electronApp = await launchIsolatedElectron(isolatedHome, {
+    E2E_SKILLS_CLI_BIN: 'npx-definitely-missing-e2e',
+    XDG_STATE_HOME: '',
+  })
+
+  try {
+    const appWindow = await electronApp.firstWindow()
+    await appWindow.waitForLoadState('domcontentloaded')
+
+    // Act — the dashboard's mount scan populates the stale list, so the
+    // banner appears on its own. Scope through the banner's copy: the
+    // HealthWidget renders a second "Prune lock" button on the same page and
+    // an unscoped locator resolves two elements.
+    const banner = appWindow
+      .getByText(/You can prune .+ here now/)
+      .locator('..')
+    await expect(
+      banner.getByRole('button', { name: 'Prune lock' }),
+    ).toBeVisible()
+    await banner.getByRole('button', { name: 'Prune lock' }).click()
+    await appWindow.getByRole('button', { name: 'Remove 1 record' }).click()
+
+    // Assert — the failure toast is the failed-classification surfaced
+    // (LockPruneDialog only renders it when result.failed is non-empty), and
+    // the record is still in the lock file.
+    await expect(
+      appWindow.getByText('Could not remove 1 of 1 record.'),
+    ).toBeVisible()
+    expect(readLockKeys(isolatedHome)).toEqual(['lock-prune-spawn-gone'])
+  } finally {
+    await electronApp.close()
+  }
 })
