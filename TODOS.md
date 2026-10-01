@@ -1799,7 +1799,7 @@ mode-specific symbols renamed to `MarkdownPreviewMode`/`MARKDOWN_PREVIEW_*`
 
 ## List-header review follow-ups (2026-10-01)
 
-### P3. `SourceLink` renders a raw `href` without a URL-scheme check
+### ~~P3. `SourceLink` renders a raw `href` without a URL-scheme check~~ — FIXED (Issue #372)
 
 `SourceLink.tsx` passes `sourceUrl` straight into `<a href>`; `handleExternalClick`
 routes external opens through `shell.openExternal`, but the constructed URL is
@@ -1807,3 +1807,13 @@ never validated for scheme. If a marketplace row ever carried a non-https URL
 (e.g. `javascript:`), the anchor would expose it. Add an `http(s)` allowlist at
 the boundary where `sourceUrl` is built. Pre-existing; surfaced by the security
 specialist during the #361 review — outside that diff's scope.
+
+**Fix:** `toHttpUrl` now verifies `new URL` + `http(s)` protocol before branding
+(throws `TypeError` otherwise), and a non-throwing `tryHttpUrl` serves
+untrusted-input boundaries. The poisoned path — `.skill-lock.json` `sourceUrl`
+in `skillScanner` — goes through `tryHttpUrl`, so a crafted `javascript:`/`file:`
+entry drops the URL but keeps the source id (SourceLink `text` mode).
+`getSourceLinkModel` also re-verifies via `tryHttpUrl` since a brand crossing
+IPC can lie. Downstream gates (`attachExternalLinkHandler` allowlist,
+`shell:openExternal` zod refine, `isAllowedSkillsUrl`) are unchanged second
+layers.

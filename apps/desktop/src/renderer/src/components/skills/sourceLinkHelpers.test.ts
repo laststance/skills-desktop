@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 
 import { repositoryId, toHttpUrl } from '@/shared/types'
+import type { HttpUrl } from '@/shared/types'
 
 import { getSourceLinkModel } from './sourceLinkHelpers'
 
@@ -51,17 +52,33 @@ describe('getSourceLinkModel', () => {
     })
 
     test('shows the source repo as plain text when the URL is an empty string', () => {
-      // Arrange — a source repo id with an empty URL.
+      // Arrange — a source repo id whose branded URL carries an empty string
+      // (a brand can lie across IPC, so simulate the lie with a cast).
       // Act
       const model = getSourceLinkModel(
         repositoryId('pbakaus/impeccable'),
-        toHttpUrl(''),
+        '' as HttpUrl,
       )
 
       // Assert
       expect(model).toEqual({
         kind: 'text',
         source: 'pbakaus/impeccable',
+      })
+    })
+
+    test('shows the source repo as plain text when the branded URL is a javascript: scheme', () => {
+      // Arrange — a lock file poisoned with `javascript:` survives IPC as a
+      // branded HttpUrl; the helper must not emit it as an anchor href.
+      const model = getSourceLinkModel(
+        repositoryId('evil/repo'),
+        'javascript:alert(1)' as HttpUrl,
+      )
+
+      // Assert — degrades to the `text` model: no `<a href>` is rendered.
+      expect(model).toEqual({
+        kind: 'text',
+        source: 'evil/repo',
       })
     })
   })

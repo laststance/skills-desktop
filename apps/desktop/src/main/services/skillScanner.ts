@@ -13,6 +13,7 @@ import {
   toSkillCount,
   toSkillName,
   toSymlinkCount,
+  tryHttpUrl,
 } from '@/shared/types'
 import type {
   AbsolutePath,
@@ -290,7 +291,11 @@ export async function scanSkills(): Promise<Skill[]> {
       lockEntries.get(toSkillName(dirName)) ?? lockEntries.get(skill.name)
     if (lock) {
       skill.source = repositoryId(lock.source)
-      skill.sourceUrl = lock.sourceUrl
+      // The lock file is untrusted input — validate the scheme so a
+      // `javascript:`/`file:` URL can never reach a rendered anchor behind
+      // the HttpUrl brand. A rejected URL just leaves sourceUrl unset: the
+      // skill still lists its source id (SourceLink `text` mode).
+      skill.sourceUrl = tryHttpUrl(lock.sourceUrl)
     }
   }
 

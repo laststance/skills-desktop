@@ -138,11 +138,51 @@ export const toMimeType = (value: string): MimeType => value as MimeType
 export type HttpUrl = Brand<string, 'HttpUrl'>
 
 /**
- * Construct a {@link HttpUrl} from a raw string at a trust boundary
- * (registry JSON, CLI output, or a fixture).
+ * Whether `value` parses as an http(s) URL. `new URL` normalizes the scheme
+ * to lowercase, so `HTTPS://…` passes and `javascript:`/`file:`/`data:`/
+ * protocol-relative/malformed strings all fail.
+ */
+const isHttpOrHttpsUrl = (value: string): boolean => {
+  try {
+    const { protocol } = new URL(value)
+    return protocol === 'http:' || protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Construct a {@link HttpUrl} from a raw string, verifying the http(s)
+ * scheme so the brand actually guarantees it. Use for program-built or
+ * already-trusted URLs — a throw there means a real bug. For untrusted
+ * input boundaries (`.skill-lock.json`, IPC payloads) use
+ * {@link tryHttpUrl} instead so one bad entry degrades instead of throwing.
+ *
+ * @param value - Candidate URL string.
+ * @returns The same string branded as {@link HttpUrl}.
+ * @throws {TypeError} When `value` is not an http(s) URL.
  * @example toHttpUrl('https://github.com/vercel-labs/skills.git')
  */
-export const toHttpUrl = (value: string): HttpUrl => value as HttpUrl
+export const toHttpUrl = (value: string): HttpUrl => {
+  if (!isHttpOrHttpsUrl(value)) {
+    throw new TypeError(
+      `Expected an http(s) URL, got: ${JSON.stringify(value)}`,
+    )
+  }
+  return value as HttpUrl
+}
+
+/**
+ * Non-throwing {@link toHttpUrl} for untrusted-input boundaries.
+ *
+ * @param value - Candidate URL string from a file, IPC payload, or CLI output.
+ * @returns The branded {@link HttpUrl}, or `undefined` when the value is not
+ *   an http(s) URL — callers degrade (e.g. render source text without a link)
+ *   rather than abort the enclosing operation.
+ * @example tryHttpUrl('javascript:alert(1)') // => undefined
+ */
+export const tryHttpUrl = (value: string): HttpUrl | undefined =>
+  isHttpOrHttpsUrl(value) ? (value as HttpUrl) : undefined
 
 /**
  * ISO 8601 timestamp string (UTC with milliseconds).

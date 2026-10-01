@@ -1,5 +1,5 @@
 import type { HttpUrl, RepositoryId } from '@/shared/types'
-import { toHttpUrl } from '@/shared/types'
+import { tryHttpUrl } from '@/shared/types'
 
 /**
  * Discriminated render model for `SourceLink`.
@@ -39,7 +39,12 @@ export function getSourceLinkModel(
   sourceUrl?: HttpUrl,
 ): SourceLinkModel {
   if (!source) return { kind: 'local' }
-  const href = sourceUrl ? sourceUrl.replace(/\.git$/, '') : undefined
+  // sourceUrl crosses IPC carrying only a brand — re-verify the http(s)
+  // scheme here so a poisoned value degrades to the `text` model instead of
+  // rendering a `javascript:`/`file:` anchor (or throwing mid-render).
+  const href = sourceUrl
+    ? tryHttpUrl(sourceUrl.replace(/\.git$/, ''))
+    : undefined
   if (!href) return { kind: 'text', source }
-  return { kind: 'link', source, href: toHttpUrl(href) }
+  return { kind: 'link', source, href }
 }
