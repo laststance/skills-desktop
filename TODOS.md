@@ -1286,6 +1286,8 @@ Deferred from the #347 pre-landing review (cycle 3) and its adversarial pass.
 
 ### P3. isLocal auto-protect
 
+**Status:** DEFERRED (user decision — manual lock only this release; revisit only with usage evidence).
+
 **Context:** Skills with `isLocal: true` (agent-unique, not in the universal `~/.agents/skills/` dir) are at higher risk of accidental deletion. The plan considered auto-protecting them, but user chose manual lock only for this release.
 
 **Fix direction:** After gathering usage data on the manual lock feature, consider showing a "Protect automatically?" nudge for `isLocal` skills on first lock of any skill.
@@ -1694,6 +1696,8 @@ above) shares this shape; the manual-recovery entry below turned out to be a
 scan false-negative, not an unprunable state — see there.
 
 ### P3. Smaller items from the same review
+
+**Status:** All sub-items FIXED (see struck bullets).
 
 - ~~`resolveLockKeyForDirectory` reads the lock outside `runLockWrite`.~~
   FIXED: it now runs inside the mutex. Nesting was verified safe against
