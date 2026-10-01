@@ -2060,7 +2060,8 @@ async function finalizeRestore(
 }
 
 /**
- * The only names inside a trash entry that are not user data. Listed this way
+ * The only names inside a trash entry that are not user data — as files; the
+ * same name on a directory is foreign and counts as payload. Listed this way
  * round on purpose: a payload directory added later (`source`, `local-copies`,
  * whatever comes next) is protected without anyone remembering to widen a list.
  */
@@ -2069,13 +2070,22 @@ const TRASH_ENTRY_BOOKKEEPING_NAMES = ['manifest.json', MANUAL_RECOVERY_MARKER]
 /**
  * Check whether a trash entry still holds skill data, for {@link classifyEntryForSweep}.
  * @param entryDir - Trash entry directory under TRASH_DIR.
- * @returns true when anything but bookkeeping is inside, or it cannot be listed.
+ * @returns true when anything but a bookkeeping file is inside, or it cannot
+ * be listed. A bookkeeping NAME on a non-file (e.g. a `manifest.json`
+ * directory) counts as payload: this module never wrote it, so the sweep
+ * must keep it.
  * @example await hasTrashEntryPayload('/Users/me/.agents/.trash/1729-task-abc12345')
  */
 async function hasTrashEntryPayload(entryDir: AbsolutePath): Promise<boolean> {
   try {
-    const names = await fs.readdir(entryDir)
-    return names.some((name) => !TRASH_ENTRY_BOOKKEEPING_NAMES.includes(name))
+    const dirents = await fs.readdir(entryDir, { withFileTypes: true })
+    return dirents.some(
+      (dirent) =>
+        !TRASH_ENTRY_BOOKKEEPING_NAMES.includes(dirent.name) ||
+        // A bookkeeping name counts only on a file: a `manifest.json`
+        // directory is foreign data the app never wrote, so it is payload.
+        !dirent.isFile(),
+    )
   } catch {
     // Cannot list it, so cannot prove it is empty — same posture as
     // {@link hasManualRecoveryMarker}: an unreadable check keeps the entry.

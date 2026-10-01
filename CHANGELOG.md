@@ -10,6 +10,7 @@
 ### Changed
 
 - The Markdown file preview now remembers your Code/Reading mode across file switches and app restarts instead of always reopening in Code mode.
+- A trash entry whose only content is a hand-created directory named `manifest.json` (or `.manual-recovery`) is no longer swept as empty — bookkeeping names count only on regular files.
 - Adjust the whole window or each section from 0–100% background opacity while keeping text and icons solid. Settings, menus, notifications, and code previews retain opaque backgrounds.
 - Existing opacity preferences migrate automatically and keep their previous transparency levels.
 - Select skills in the Installed list without entering a Select mode. Every row has a checkbox, and a list header above the list selects all visible rows, shows how many are selected, and holds Delete or Unlink, Copy to…, and Clear.

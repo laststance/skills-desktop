@@ -1,4 +1,5 @@
 import { existsSync, mkdtempSync, realpathSync } from 'node:fs'
+import type { Dirent } from 'node:fs'
 import { lstat, mkdir, readdir, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
@@ -94,15 +95,21 @@ vi.mock('node:fs/promises', async () => {
     }
     return actual.cp(source, destination, ...rest)
   }
-  // Single-arg on purpose: `trashService` only ever lists TRASH_DIR and one
-  // entry directory, both without options, so the overload set adds nothing.
+  // Forwards only withFileTypes — `hasTrashEntryPayload` lists entry dirs as
+  // Dirents so a bookkeeping-named directory counts as payload. The full
+  // options bag is an overload set no impl signature can annotate.
   const readdirSpy = async (
     path: Parameters<typeof actual.readdir>[0],
-  ): Promise<string[]> => {
+    options?: { withFileTypes?: boolean },
+  ): Promise<string[] | Dirent[]> => {
+    // Unconditional: arms must hold no matter which readdir shape the caller
+    // picked, or the "unlistable entry" test below silently breaks.
     if (String(path) === fsHooks.failReaddirFor) {
       throw Object.assign(new Error('listing refused'), { code: 'EACCES' })
     }
-    return actual.readdir(path)
+    return options?.withFileTypes === true
+      ? actual.readdir(path, { withFileTypes: true })
+      : actual.readdir(path)
   }
   // Scoped to the publish rename by its destination shape: the same `rename`
   // moves the source into the staged entry, and failing that would abort long
@@ -360,6 +367,41 @@ describe('moveToTrash durability across a kill', () => {
     const entryDir = join(sharedTrashDir, '1700000000000-unlistable-bbbbbbbb')
     await mkdir(entryDir, { recursive: true })
     fsHooks.failReaddirFor = entryDir
+
+    // Act
+    await startupCleanup()
+
+    // Assert
+    expect(existsSync(entryDir)).toBe(true)
+  })
+
+  test('keeps an entry whose only manifest.json is a directory the app never wrote', async () => {
+    // Arrange
+    // Every app write to manifest.json is `writeFile` — a DIRECTORY by that
+    // name is foreign data. Before Dirents were read it counted as
+    // bookkeeping, so the entry looked empty and the sweep deleted it.
+    const { startupCleanup } = await trashServicePromise
+    const entryDir = join(sharedTrashDir, '1700000000000-dirmanifest-cccccccc')
+    const manifestDir = join(entryDir, 'manifest.json')
+    await mkdir(manifestDir, { recursive: true })
+
+    // Act
+    await startupCleanup()
+
+    // Assert — the entry is kept, inner directory intact.
+    expect(existsSync(entryDir)).toBe(true)
+    expect(existsSync(manifestDir)).toBe(true)
+  })
+
+  test('keeps an entry marked only by a .manual-recovery directory', async () => {
+    // Arrange
+    // Characterization pin: `access()` checks existence, not file type, so a
+    // marker-named directory still marks. The conservative keep is the wanted
+    // posture — this guards the marker path, not the payload predicate, and
+    // passed before the Dirents fix as well.
+    const { startupCleanup } = await trashServicePromise
+    const entryDir = join(sharedTrashDir, '1700000000000-dirmarker-dddddddd')
+    await mkdir(join(entryDir, '.manual-recovery'), { recursive: true })
 
     // Act
     await startupCleanup()

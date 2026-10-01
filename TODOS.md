@@ -1555,7 +1555,14 @@ of that trade.
 
 **Depends on / blocked by:** Nothing.
 
-### P3. A bookkeeping name that is a directory reads as empty to the sweep guard
+### ~~P3. A bookkeeping name that is a directory reads as empty to the sweep guard~~
+
+FIXED (Issue #364). `hasTrashEntryPayload` now reads Dirents — a bookkeeping
+name counts as bookkeeping only on a regular file, so a `manifest.json`
+directory makes the entry read as payload and is kept. The shared
+`readdirSpy` forwards `withFileTypes` (the `failReaddirFor` arm stays
+unconditional), with two durability tests pinning both bookkeeping-dir
+corners. Original finding kept below.
 
 `hasTrashEntryPayload` decides "this entry still holds user data" by name:
 anything that is not `manifest.json` or `.manual-recovery` counts as payload.
