@@ -14,7 +14,6 @@ const mockSourceGetStats = vi.fn()
 const RESULT_WITH_CHANGES: SyncExecuteResult = {
   success: true,
   created: toSymlinkCount(2),
-
   skipped: toSymlinkCount(1),
   errors: [
     { path: toAbsolutePath('/Users/me/.codex/skills/broken'), error: 'EACCES' },
@@ -44,7 +43,6 @@ const RESULT_WITH_CHANGES: SyncExecuteResult = {
 const RESULT_NO_CHANGES: SyncExecuteResult = {
   success: true,
   created: toSymlinkCount(0),
-
   skipped: toSymlinkCount(3),
   errors: [],
   details: [
@@ -69,7 +67,6 @@ const RESULT_NO_CHANGES: SyncExecuteResult = {
 const RESULT_EMPTY_DETAILS: SyncExecuteResult = {
   success: true,
   created: toSymlinkCount(0),
-
   skipped: toSymlinkCount(0),
   errors: [],
   details: [],

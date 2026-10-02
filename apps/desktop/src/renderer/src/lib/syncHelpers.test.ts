@@ -13,7 +13,6 @@ function buildResult(
   return {
     success: true,
     created: toSymlinkCount(0),
-
     skipped: toSymlinkCount(0),
     errors: [],
     details: [],
@@ -36,7 +35,6 @@ describe('shouldShowSyncResult', () => {
     const result: SyncExecuteResult = {
       success: true,
       created: toSymlinkCount(3),
-
       skipped: toSymlinkCount(2),
       errors: [],
       details: [
@@ -58,7 +56,6 @@ describe('shouldShowSyncResult', () => {
     const result: SyncExecuteResult = {
       success: false,
       created: toSymlinkCount(0),
-
       skipped: toSymlinkCount(0),
       errors: [{ path: toAbsolutePath('/test'), error: 'fail' }],
       details: [

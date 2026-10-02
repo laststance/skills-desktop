@@ -40,8 +40,8 @@ import type { AgentName } from '@/shared/types'
  * 3. Render the count + Cleanup button once preview lands
  * 4. On confirm: `executeSyncAction({ agentId })` → `SyncResultDialog`
  *    takes over to display the per-item diff
- * 5. `clearCleanupAgentTarget()` resets the slice (also nulls
- *    `syncPreview` so the next agent gets a fresh plan)
+ * 5. The fulfilled reducer closes the preview and publishes results atomically.
+ *    Cancellation or preview failure dispatches {@link clearCleanupAgentTarget}.
  */
 export const CleanupAgentDialog =
   function CleanupAgentDialog(): React.ReactElement | null {

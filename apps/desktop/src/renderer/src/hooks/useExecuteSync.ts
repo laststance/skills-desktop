@@ -29,8 +29,7 @@ import type { SyncExecuteOptions } from '@/shared/types'
  * @example
  * const { run, isExecuting } = useExecuteSync('Cleanup failed')
  * const handleCleanup = async (): Promise<void> => {
- *   const succeeded = await run({ agentId })
- *   if (succeeded) dispatch(clearCleanupAgentTarget())
+ *   await run({ agentId }) // The fulfilled reducer hands off to results.
  * }
  */
 export function useExecuteSync(toastTitle: string): {

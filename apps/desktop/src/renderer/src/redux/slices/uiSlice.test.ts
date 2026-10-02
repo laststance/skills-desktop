@@ -124,15 +124,15 @@ async function createCombinedStore() {
 const previewWithConflicts: SyncPreviewResult = {
   forAgent: 'claude-code',
   totalSkills: toSkillCount(5),
-  totalAgents: toAgentCount(2),
+  totalAgents: toAgentCount(1),
   toCreate: toSymlinkCount(3),
-  alreadySynced: toSymlinkCount(4),
+  alreadySynced: toSymlinkCount(1),
   conflicts: [
     {
       skillName: toSkillName('agent-browser'),
-      agentId: 'cursor',
-      agentName: 'Cursor',
-      agentSkillPath: toAbsolutePath('/home/user/.cursor/skills/agent-browser'),
+      agentId: 'claude-code',
+      agentName: 'Claude Code',
+      agentSkillPath: toAbsolutePath('/home/user/.claude/skills/agent-browser'),
     },
   ],
 }
@@ -140,8 +140,8 @@ const previewWithConflicts: SyncPreviewResult = {
 /** Sample preview result without conflicts */
 const previewWithoutConflicts: SyncPreviewResult = {
   totalSkills: toSkillCount(3),
-  totalAgents: toAgentCount(2),
-  toCreate: toSymlinkCount(6),
+  totalAgents: toAgentCount(1),
+  toCreate: toSymlinkCount(3),
   alreadySynced: toSymlinkCount(0),
   conflicts: [],
   forAgent: 'claude-code',
@@ -467,7 +467,6 @@ describe('uiSlice sync thunks', () => {
     mockSyncExecute.mockResolvedValue({
       success: true,
       created: toSymlinkCount(3),
-
       skipped: toSymlinkCount(4),
       errors: [],
       details: [
@@ -515,7 +514,6 @@ describe('uiSlice sync thunks', () => {
     mockSyncExecute.mockResolvedValue({
       success: true,
       created: toSymlinkCount(1),
-
       skipped: toSymlinkCount(0),
       errors: [],
       details: [
@@ -543,7 +541,6 @@ describe('uiSlice sync thunks', () => {
     mockSyncExecute.mockResolvedValue({
       success: true,
       created: toSymlinkCount(1),
-
       skipped: toSymlinkCount(0),
       errors: [],
       details: [
@@ -1696,7 +1693,6 @@ describe('uiSlice selectors read the live ui state', () => {
     mockSyncExecute.mockResolvedValue({
       success: true,
       created: toSymlinkCount(2),
-
       skipped: toSymlinkCount(0),
       errors: [],
       details: [

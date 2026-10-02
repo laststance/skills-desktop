@@ -340,7 +340,7 @@ export const storySyncPreview: SyncPreviewResult = {
   totalSkills: toSkillCount(4),
   totalAgents: toAgentCount(1),
   toCreate: toSymlinkCount(3),
-  alreadySynced: toSymlinkCount(8),
+  alreadySynced: toSymlinkCount(0),
   conflicts: [
     {
       skillName: toSkillName('qa-electron'),
@@ -355,9 +355,8 @@ export const storySyncPreview: SyncPreviewResult = {
 
 export const storySyncResult: SyncExecuteResult = {
   success: false,
-  created: toSymlinkCount(2),
-
-  skipped: toSymlinkCount(7),
+  created: toSymlinkCount(1),
+  skipped: toSymlinkCount(1),
   errors: [
     {
       path: toAbsolutePath('/Users/raphtalia/.cursor/skills/retired-skill'),
@@ -367,12 +366,12 @@ export const storySyncResult: SyncExecuteResult = {
   details: [
     {
       skillName: toSkillName('design-review'),
-      agentName: 'Codex',
+      agentName: 'Cursor',
       action: 'created',
     },
     {
       skillName: toSkillName('task'),
-      agentName: 'Claude Code',
+      agentName: 'Cursor',
       action: 'skipped',
     },
     {

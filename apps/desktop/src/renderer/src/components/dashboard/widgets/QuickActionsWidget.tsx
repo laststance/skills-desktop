@@ -98,7 +98,7 @@ export const QuickActionsWidget =
 
     return (
       <div className="h-full w-full flex flex-col justify-center p-3">
-        <div className="grid grid-cols-2 gap-2 [&>button:last-child]:col-span-2">
+        <div className="grid grid-cols-2 gap-2 [&>button:last-child:nth-child(odd)]:col-span-2">
           <ActionTile
             icon={RefreshCw}
             label="Refresh"

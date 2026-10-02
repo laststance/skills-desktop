@@ -192,11 +192,10 @@ describe('CleanupAgentDialog', () => {
 test('keeps the new agent dialog open when an obsolete preview fails after switching agents', async () => {
   // Arrange
   let rejectOlder!: (error: Error) => void
-  mockSyncPreview.mockReturnValueOnce(
-    new Promise((_, reject) => {
-      rejectOlder = reject
-    }),
-  )
+  const olderPreview = new Promise<SyncPreviewResult>((_, reject) => {
+    rejectOlder = reject
+  })
+  mockSyncPreview.mockReturnValueOnce(olderPreview)
   const { screen, store } = await renderClosedThenOpen('claude-code')
   const { setCleanupAgentTarget } =
     await import('@/renderer/src/redux/slices/uiSlice')
@@ -213,6 +212,9 @@ test('keeps the new agent dialog open when an obsolete preview fails after switc
     .element(screen.getByRole('button', { name: 'Cleanup 2 skills' }))
     .toBeVisible()
   rejectOlder(new Error('obsolete agent preview'))
+  await olderPreview.catch(() => undefined)
+  // Allow the rejected thunk and component callback to settle before assertions.
+  await new Promise((resolve) => setTimeout(resolve, 0))
   // Assert
   await expect.poll(() => store.getState().ui.isSyncing).toBe(false)
   expect(store.getState().ui.cleanupAgentTarget).toBe('cursor')
@@ -240,6 +242,6 @@ test('explains an unavailable agent instead of claiming that all its links are p
     )
     .toBeVisible()
   await expect
-    .element(screen.getByRole('button', { name: 'Close' }).first())
+    .element(screen.getByRole('button', { name: 'Close', exact: true }).last())
     .toBeVisible()
 })

@@ -39,7 +39,7 @@ function stageCleanupSkills(home: string): void {
   )
 }
 
-test('global Sync is absent while source tools, Quick Actions and agent Cleanup remain available', async ({
+test('global Sync is absent while source tools and Quick Actions remain available', async ({
   appWindow,
 }) => {
   // Arrange
@@ -189,26 +189,29 @@ test('unscoped and legacy replacement IPC requests fail before any agent filesys
   await waitForInitialScan(appWindow)
   stageCleanupSkills(isolatedHome)
   // Act: exercise the real preload and main validation using an untyped legacy caller.
-  const messages = await appWindow.evaluate(async () => {
-    const invalid = [
-      undefined,
-      {},
-      { agentId: 'unknown-agent' },
-      { agentId: 'cursor', replaceConflicts: ['/tmp/local-work'] },
-    ]
-    return Promise.all(
-      invalid.map(async (options) => {
-        try {
-          await Reflect.apply(window.electron.sync.execute, undefined, [
-            options,
-          ])
-          return 'unexpected success'
-        } catch (error) {
-          return String(error)
-        }
-      }),
-    )
-  })
+  const messages = await appWindow.evaluate(
+    async (conflictPath) => {
+      const invalid = [
+        undefined,
+        {},
+        { agentId: 'unknown-agent' },
+        { agentId: 'cursor', replaceConflicts: [conflictPath] },
+      ]
+      return Promise.all(
+        invalid.map(async (options) => {
+          try {
+            await Reflect.apply(window.electron.sync.execute, undefined, [
+              options,
+            ])
+            return 'unexpected success'
+          } catch (error) {
+            return String(error)
+          }
+        }),
+      )
+    },
+    join(isolatedHome, '.cursor', 'skills', 'retirement-conflict'),
+  )
   // Assert
   expect(messages).toHaveLength(4)
   for (const message of messages) {

@@ -299,7 +299,8 @@ export const fetchSyncPreview = createAsyncThunk(
 
 /**
  * Execute the agent-scoped recovery confirmed by {@link CleanupAgentDialog}.
- * @returns SyncExecuteResult
+ * @example
+ * await dispatch(executeSyncAction({ agentId: 'cursor' }))
  */
 export const executeSyncAction = createAsyncThunk(
   'ui/executeSyncAction',

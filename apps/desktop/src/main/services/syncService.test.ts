@@ -317,7 +317,7 @@ describe('syncExecute', () => {
     expect(rmMock).not.toHaveBeenCalled()
   })
 
-  test('leaves a conflicting local folder in place when the user declines to replace it', async () => {
+  test('preserves a conflicting local folder during agent Cleanup', async () => {
     // Arrange
     const conflictPath = join('/mock/agents/claude/skills', 'local-skill')
 
@@ -337,12 +337,11 @@ describe('syncExecute', () => {
     const { syncExecute } = await import('./syncService')
 
     // Act
-    const result = await syncExecute({ agentId: 'claude-code' }) // Not approved
+    const result = await syncExecute({ agentId: 'claude-code' })
 
     // Assert
-    expect(result.skipped).toBe(1) // unapproved conflict skipped
+    expect(result.skipped).toBe(1) // Local folders are always skipped.
     expect(rmMock).not.toHaveBeenCalled()
-    // Cursor path: created
     expect(result.created).toBe(0)
     // Existing conflict is now surfaced as a skipped detail row (not folded into aggregate)
     expect(result.details).toHaveLength(1)
@@ -591,10 +590,15 @@ describe('scoped sync (per-agent)', () => {
   })
 })
 
-test('does no filesystem work when a direct recovery call omits the agent', async () => {
+test('creates no agent links when a direct recovery call omits the agent', async () => {
   // Arrange
   vi.resetAllMocks()
-  readdirMock.mockResolvedValue([])
+  readdirMock.mockResolvedValue([
+    { name: 'available-skill', isDirectory: () => true },
+  ])
+  statMock.mockResolvedValue({ isFile: () => true })
+  accessMock.mockResolvedValue(undefined)
+  lstatMock.mockRejectedValue(new Error('ENOENT'))
   const { syncExecute } = await import('./syncService')
   // Act: reflect an untyped legacy caller at the real service boundary.
   const result = await Reflect.apply(syncExecute, undefined, [{}])

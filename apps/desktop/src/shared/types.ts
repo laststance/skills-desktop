@@ -1593,8 +1593,7 @@ export interface SyncPreviewOptions {
 
 /**
  * Result from sync preview (dry run).
- * @example { totalSkills: 5, totalAgents: 3, toCreate: 10, alreadySynced: 5, conflicts: [] }
- * @example { totalSkills: 5, totalAgents: 1, toCreate: 4, alreadySynced: 1, conflicts: [], forAgent: 'cursor' }
+ * @example { forAgent: 'cursor', totalSkills: 5, totalAgents: 1, toCreate: 3, alreadySynced: 2, conflicts: [] }
  */
 export interface SyncPreviewResult {
   /** Number of source skills considered. @example 5 */

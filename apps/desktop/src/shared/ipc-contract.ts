@@ -175,7 +175,7 @@ export interface IpcInvokeContract {
   'backgrounds:retryDisplay': { args: []; result: BackgroundSnapshot }
   'theme:broadcast': { args: [ThemeState]; result: void }
   'activity:list': {
-    // Always 1-arg (possibly `undefined`) to match the Zod tuple schema, like
+    // Always 1-arg (possibly `undefined`) to match the Zod tuple schema.
     // Preload forwards the options arg even when it is
     // `undefined`, so this contract reflects reality.
     args: [ActivityListOptions | undefined]
