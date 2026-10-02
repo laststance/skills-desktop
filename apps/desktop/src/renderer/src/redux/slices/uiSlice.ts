@@ -463,12 +463,6 @@ const uiSlice = createSlice({
     clearExcludedSkillTypeFilters: (state) => {
       state.excludedSkillTypeFilters = []
     },
-    setSyncPreview: (
-      state,
-      action: PayloadAction<SyncPreviewResult | null>,
-    ) => {
-      state.syncPreview = action.payload
-    },
     clearSyncResult: (state) => {
       state.syncResult = null
     },
@@ -760,7 +754,6 @@ export const {
   setSkillTypeFilter,
   toggleExcludedSkillTypeFilter,
   clearExcludedSkillTypeFilters,
-  setSyncPreview,
   clearSyncResult,
   setSelectedBookmarkForDetail,
   clearSelectedBookmarkForDetail,
@@ -796,7 +789,6 @@ export const selectSelectedAgentId = (state: RootState): AgentId | null =>
   state.ui.selectedAgentId
 export const selectIsRefreshing = (state: RootState): boolean =>
   state.ui.isRefreshing
-export const selectIsSyncing = (state: RootState): boolean => state.ui.isSyncing
 export const selectSyncPreview = (state: RootState): SyncPreviewResult | null =>
   state.ui.syncPreview
 export const selectSyncResult = (state: RootState): SyncExecuteResult | null =>

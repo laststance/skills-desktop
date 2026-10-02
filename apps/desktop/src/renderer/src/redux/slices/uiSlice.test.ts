@@ -572,16 +572,17 @@ describe('uiSlice sync thunks', () => {
     await promise
   })
 
-  test('dismisses the sync preview when it is cleared programmatically', async () => {
+  test('dismisses the scoped preview when agent Cleanup is closed', async () => {
     // Arrange
     mockSyncPreview.mockResolvedValue(previewWithConflicts)
     const store = await createTestStore()
-    const { fetchSyncPreview, setSyncPreview } = await import('./uiSlice')
+    const { fetchSyncPreview, clearCleanupAgentTarget } =
+      await import('./uiSlice')
     await store.dispatch(fetchSyncPreview({ agentId: 'claude-code' }))
     expect(store.getState().ui.syncPreview).not.toBeNull()
 
     // Act
-    store.dispatch(setSyncPreview(null))
+    store.dispatch(clearCleanupAgentTarget())
 
     // Assert
     expect(store.getState().ui.syncPreview).toBeNull()
@@ -1548,10 +1549,14 @@ describe('uiSlice per-agent cleanup dialog', () => {
   test('closes the per-agent cleanup dialog and discards its scoped sync preview', async () => {
     // Arrange — open the dialog with an agent target and a scoped preview present
     const store = await createTestStore()
-    const { setCleanupAgentTarget, setSyncPreview, clearCleanupAgentTarget } =
+    const { setCleanupAgentTarget, fetchSyncPreview, clearCleanupAgentTarget } =
       await import('./uiSlice')
+    mockSyncPreview.mockResolvedValue({
+      ...previewWithConflicts,
+      forAgent: 'cursor',
+    })
     store.dispatch(setCleanupAgentTarget('cursor'))
-    store.dispatch(setSyncPreview(previewWithConflicts))
+    await store.dispatch(fetchSyncPreview({ agentId: 'cursor' }))
     expect(store.getState().ui.cleanupAgentTarget).toBe('cursor')
     expect(store.getState().ui.syncPreview).not.toBeNull()
 
@@ -1704,19 +1709,15 @@ describe('uiSlice selectors read the live ui state', () => {
       ],
     } satisfies SyncExecuteResult)
     const store = await createTestStore()
-    const {
-      executeSyncAction,
-      selectIsSyncing,
-      selectSyncPreview,
-      selectSyncResult,
-    } = await import('./uiSlice')
+    const { executeSyncAction, selectSyncPreview, selectSyncResult } =
+      await import('./uiSlice')
     await store.dispatch(executeSyncAction({ agentId: 'claude-code' }))
 
     // Cast the ui-only test store to RootState; selectors only read state.ui.
     const rootState = store.getState() as RootState
 
     // Act + Assert
-    expect(selectIsSyncing(rootState)).toBe(false)
+    expect(rootState.ui.isSyncing).toBe(false)
     expect(selectSyncPreview(rootState)).toBeNull()
     expect(selectSyncResult(rootState)).not.toBeNull()
   })
