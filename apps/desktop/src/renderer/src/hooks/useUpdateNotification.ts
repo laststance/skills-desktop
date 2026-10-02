@@ -32,6 +32,7 @@ function getUpdateAPI(): UpdateAPI | undefined {
  * Hook to subscribe to auto-update IPC events
  * Sets up listeners on mount and cleans up on unmount
  */
+// eslint-disable-next-line @laststance/react-next/no-single-use-hook-file -- Dedicated update IPC module has direct tests and an App mock seam.
 export function useUpdateNotification(): void {
   const dispatch = useAppDispatch()
 

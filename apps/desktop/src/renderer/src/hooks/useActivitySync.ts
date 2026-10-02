@@ -23,6 +23,7 @@ import { FEATURE_FLAGS } from '@/shared/featureFlags'
  *   return <Layout />
  * }
  */
+// eslint-disable-next-line @laststance/react-next/no-single-use-hook-file -- Dedicated IPC subscription module has direct hydration regression tests.
 export function useActivitySync(): void {
   const dispatch = useAppDispatch()
 

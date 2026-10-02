@@ -6,27 +6,39 @@ packages:
 # package. Reference them as `catalog:`; sherif fails CI on version drift.
 catalogMode: strict
 catalog:
+  '@typescript/native': npm:typescript@7.0.2
   '@eslint/js': ^10.0.1
   '@orpc/client': 1.15.4
   '@orpc/contract': 1.15.4
   '@orpc/server': 1.15.4
   '@orpc/tanstack-query': 1.15.4
-  '@types/node': ^26.6.2
+  '@types/node': ^26.6.4
   '@types/react': ^19.3.0
   '@types/react-dom': ^19.3.0
-  '@vitest/browser-playwright': ^5.0.2
-  '@vitest/coverage-v8': ^5.0.2
+  '@vitest/browser-playwright': ^5.0.3
+  '@vitest/coverage-v8': ^5.0.3
   eslint: ^10.11.0
   eslint-plugin-react-hooks: ^7.1.1
-  lucide-react: ^1.48.0
+  lucide-react: ^1.50.0
   prettier: ^3.9.9
   react: ^19.3.0
   react-dom: ^19.3.0
   tailwindcss: ^4.3.3
-  typescript: 6.0.3
-  typescript-eslint: ^8.70.1
-  vitest: ^5.0.2
+  # Keep the TypeScript 6 JS API at the `typescript` import for ESLint and other tools.
+  # @typescript/native provides TypeScript 7's `tsc` binary without a bin conflict.
+  typescript: npm:@typescript/typescript6@6.0.2
+  typescript-eslint: ^8.71.0
+  vitest: ^5.0.3
   zod: 4.6.5
+
+# The TypeScript 6 compatibility wrapper reports package version 6.0.2 while
+# its JS API and `tsc6` binary are 6.0.3. Electron's Vite 8 build is covered
+# by the repository's build and E2E gates until electron-vite widens its peer.
+peerDependencyRules:
+  allowedVersions:
+    '@laststance/react-next-eslint-plugin>typescript': 6.0.2
+    'eslint-config-ts-prefixer>typescript': 6.0.2
+    'electron-vite>vite': ^8.3.2
 
 allowBuilds:
   # Click-to-source does not use Code Inspector's optional terminal probe.
@@ -91,7 +103,7 @@ minimumReleaseAgeExclude:
   - browserslist@4.28.9
   - eslint-plugin-browser-security@2.1.5
   - lint-staged@17.5.0
-  - lucide-react@1.41.0
+  - lucide-react@1.41.0 || 1.50.0
   - playwright-core@1.63.0
   - playwright@1.63.0
   - tinyspy@4.0.6
@@ -114,4 +126,8 @@ minimumReleaseAgeExclude:
   - react-draggable@4.7.2
   - rolldown@1.2.9
   # Keep the cooldown for future versions while allowing this 2026-09-26 refresh.
-  - '@tanstack/query-core@5.104.0'
+  - '@tanstack/query-core@5.104.0 || 5.104.1'
+  # Allow the exact newest releases selected by the 2026-10-02 upgrade.
+  - '@types/node@24.19.1 || 26.6.4'
+  - baseline-browser-mapping@2.11.27
+  - electron-to-chromium@1.5.444

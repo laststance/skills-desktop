@@ -26,6 +26,7 @@ interface FocusedOverlayState {
  * @example
  * const { isExpanded, expand, collapse, closeButtonRef } = useFocusedOverlay(skill.url)
  */
+// eslint-disable-next-line @laststance/react-next/no-single-use-hook-file -- Dedicated focus controller has direct keyboard and restoration regression tests.
 export function useFocusedOverlay(resetKey: string): FocusedOverlayState {
   const [isExpanded, setIsExpanded] = useState(false)
   const closeButtonRef = useRef<HTMLButtonElement | null>(null)

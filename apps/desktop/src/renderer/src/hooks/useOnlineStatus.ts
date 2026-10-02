@@ -4,6 +4,7 @@ import { useSyncExternalStore } from 'react'
  * @returns Current browser connectivity, updated by online/offline events.
  * @example const online = useOnlineStatus()
  */
+// eslint-disable-next-line @laststance/react-next/no-single-use-hook-file -- Connectivity subscription stays isolated from gallery rendering.
 export function useOnlineStatus(): boolean {
   return useSyncExternalStore(subscribe, () => navigator.onLine)
 }

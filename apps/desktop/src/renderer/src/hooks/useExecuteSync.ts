@@ -32,6 +32,7 @@ import type { SyncExecuteOptions } from '@/shared/types'
  *   await run({ agentId }) // The fulfilled reducer hands off to results.
  * }
  */
+// eslint-disable-next-line @laststance/react-next/no-single-use-hook-file -- Dedicated sync module has direct error and duplicate-submit regression tests.
 export function useExecuteSync(toastTitle: string): {
   run: (options: SyncExecuteOptions) => Promise<boolean>
   isExecuting: boolean

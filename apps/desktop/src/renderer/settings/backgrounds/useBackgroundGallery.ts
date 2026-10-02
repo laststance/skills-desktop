@@ -50,6 +50,7 @@ const initialState: GalleryState = {
  * @returns Gallery state and user actions; cancelling restores the exact pre-upload image and crop.
  * @example const gallery = useBackgroundGallery(snapshot); gallery.openGallery()
  */
+// eslint-disable-next-line @laststance/react-next/no-single-use-hook-file -- Gallery draft controller stays separate from the editor and settings view.
 export function useBackgroundGallery(snapshot: BackgroundSnapshot) {
   const [state, setState] = useState(initialState)
   const requestGeneration = useRef(0)

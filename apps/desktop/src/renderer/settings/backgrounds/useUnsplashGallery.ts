@@ -15,6 +15,7 @@ import { backgroundRpc } from './query'
  * @returns Deduplicated photos, search input and recoverable pagination state.
  * @example const photos = useUnsplashGallery(isUnsplashVisible)
  */
+// eslint-disable-next-line @laststance/react-next/no-single-use-hook-file -- Query and pagination controller stays separate from the large gallery view.
 export function useUnsplashGallery(enabled: boolean) {
   const [search, setSearch] = useState(UNSPLASH_DEFAULT_QUERY)
   const [query, setQuery] = useState(UNSPLASH_DEFAULT_QUERY)

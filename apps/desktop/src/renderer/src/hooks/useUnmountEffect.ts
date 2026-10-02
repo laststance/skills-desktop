@@ -13,6 +13,7 @@ import { useEffect, useRef } from 'react'
  *   window.clearTimeout(timerId)
  * })
  */
+// eslint-disable-next-line @laststance/react-next/no-single-use-hook-file -- Lifecycle helper stays independently tested and reused by clipboard logic.
 export function useUnmountEffect(callback: () => void): void {
   const callbackRef = useRef(callback)
   // Keep cleanup pointed at the newest callback before passive effects flush.

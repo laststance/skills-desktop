@@ -42,6 +42,7 @@ Run package scripts from the repository root. The root `package.json` delegates 
 - [sherif](https://github.com/QuiiBz/sherif) runs in the Lint workflow and fails on mismatched versions or misplaced dependencies across the workspace.
 - Workspace packages ship TypeScript source. The desktop app lists them as **devDependencies**, so electron-vite bundles them into `out/main`. If one moves to `dependencies`, electron-vite externalizes it and the packaged app cannot resolve it. `pnpm check:bundled-workspace` guards this after `pnpm build`.
 - The workspace keeps a minimum release age for new versions. Only add a `minimumReleaseAgeExclude` entry with a reason.
+- Type checks use TypeScript 7's `tsc` through the `@typescript/native` alias. Tools that import the compiler API use TypeScript 6 through the `typescript` alias to `@typescript/typescript6`, following the [TypeScript 7 side-by-side guide](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/#running-side-by-side-with-typescript-60). The compatibility package reports package version 6.0.2 but exposes the 6.0.3 API; `pnpm-workspace.yaml` limits the peer exception to the two tools that require `~6.0.3`.
 
 ## Make a change
 
@@ -64,6 +65,7 @@ Run package scripts from the repository root. The root `package.json` delegates 
 - Code and documentation use English.
 - Prettier uses `singleQuote: true` and `semi: false`. `pnpm format:check` runs in CI; the pre-commit hook formats staged files.
 - ESLint builds on `eslint-config-ts-prefixer`. Lint runs with `--max-warnings 0`.
+- The desktop enables all 16 non-memoization rules from `@laststance/react-next-eslint-plugin` at error severity. The single-use Hook rule uses the complete desktop TSConfig; existing dedicated Hook modules document intentional inline exceptions.
 - Never access `fs` from the renderer. Context isolation is on, so renderer code goes through the typed preload IPC bridge.
 - Explain non-obvious functions with JSDoc covering why the function exists and when it runs. Refer to project symbols as `{@link Symbol}`.
 - UI changes follow [DESIGN.md](DESIGN.md).

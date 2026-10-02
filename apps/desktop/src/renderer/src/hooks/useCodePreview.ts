@@ -45,6 +45,7 @@ interface UseCodePreviewReturn {
  * const { files, content, setActiveFile } = useCodePreview('/skills/tdd')
  * // content.kind === 'text' | 'image' | 'binary' | 'empty'
  */
+// eslint-disable-next-line @laststance/react-next/no-single-use-hook-file -- Dedicated file-loading module has direct browser regression tests and a component mock seam.
 export function useCodePreview(skillPath: AbsolutePath): UseCodePreviewReturn {
   const [files, setFiles] = useState<SkillFile[]>([])
   const [loadedPath, setLoadedPath] = useState<AbsolutePath | null>(null)
