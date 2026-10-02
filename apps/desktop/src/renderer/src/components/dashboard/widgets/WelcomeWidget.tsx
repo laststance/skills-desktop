@@ -87,7 +87,7 @@ export const WelcomeWidget = function WelcomeWidget({
           <p className="text-xs text-muted-foreground leading-relaxed">
             Visualize and manage shared skills across your AI agents. Install
             from the marketplace, link them into Claude / Cursor / Codex, and
-            keep every agent in sync from one place.
+            inspect each agent’s installed skills from one place.
           </p>
         </div>
         <button
