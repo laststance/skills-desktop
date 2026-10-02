@@ -1,7 +1,7 @@
 # Activity Log (Activity Timeline)
 
 The **activity log** is an append-only, cross-session record of skill mutations
-(add / remove / sync). The dashboard's **Activity Timeline** widget renders it.
+(add / remove / agent cleanup). The dashboard's **Activity Timeline** widget renders it.
 
 This implements [#178](https://github.com/laststance/skills-desktop/issues/178).
 It replaces the widget's earlier placeholder, which could only show the _last
@@ -65,7 +65,7 @@ interface ActivityEvent {
   timestamp: string // ISO-8601, main-process clock
   type: 'created' | 'removed' | 'synced' | 'renamed'
   skillName: string // a skill name, or a scope label like 'Sync'
-  agentName?: string // present for per-agent events; omitted for sync summaries
+  agentName?: string // selected agent for Cleanup; historical all-agent Sync may omit it
   detail?: string // e.g. '10 created · 1 replaced · 5 skipped'
 }
 ```
@@ -86,13 +86,13 @@ the main process stamps `id` (uuid) and `timestamp`.
 
 ### Emit sites
 
-| Mutation                | Handler                 | Events                                                                                                                         |
-| ----------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Add to agents (symlink) | `skills:createSymlinks` | one `created` per successful agent                                                                                             |
-| Copy to agents          | `skills:copyToAgents`   | one `created` per successful agent                                                                                             |
-| Delete skill            | `skills:deleteSkill`    | one `removed` (detail = cascaded agent links)                                                                                  |
-| Bulk delete             | `skills:deleteSkills`   | one `removed` per deleted skill, batched into one write                                                                        |
-| Sync                    | `sync:execute`          | exactly one `synced` **summary** (counts in `detail`) — never per-item, or a sync touching dozens of pairs would flood the log |
+| Mutation                | Handler                 | Events                                                                                                                             |
+| ----------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Add to agents (symlink) | `skills:createSymlinks` | one `created` per successful agent                                                                                                 |
+| Copy to agents          | `skills:copyToAgents`   | one `created` per successful agent                                                                                                 |
+| Delete skill            | `skills:deleteSkill`    | one `removed` (detail = cascaded agent links)                                                                                      |
+| Bulk delete             | `skills:deleteSkills`   | one `removed` per deleted skill, batched into one write                                                                            |
+| Agent Cleanup           | `sync:execute`          | exactly one `synced` **summary** (counts in `detail`) — never per-item, or a cleanup touching dozens of skills would flood the log |
 
 ## Known gap: `renamed` has no emit site
 
@@ -128,3 +128,5 @@ From #178:
    `ENABLE_DASHBOARD_EXPERIMENTAL` is the one outward-facing change and is held
    back deliberately (same pattern as the deferred marketplace work). When the
    flag flips, the recorder, the sync hook, and the widget activate together.
+
+Global Sync is retired. Agent Cleanup still records the `synced` event type, labelled `Cleanup` with the selected agent and created/skipped counts. Historical all-agent `Sync` rows remain schema-valid and render unchanged.

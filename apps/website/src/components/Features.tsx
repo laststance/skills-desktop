@@ -1,6 +1,6 @@
 'use client'
 
-import { Monitor, Link2, Palette, Bot, FolderSync, Eye } from 'lucide-react'
+import { Monitor, Link2, Palette, Bot, Folder, Eye } from 'lucide-react'
 
 const features = [
   {
@@ -22,10 +22,10 @@ const features = [
       '54 visual themes across OKLCH color hues, pure neutrals, and shadcn/ui tinted neutrals.',
   },
   {
-    icon: FolderSync,
+    icon: Folder,
     title: 'Centralized Skills Hub',
     description:
-      'All skills stored in ~/.agents/skills/ and symlinked to each agent. One source of truth.',
+      'Browse shared skills in ~/.agents/skills/ alongside agent-local folders. Recover missing links for one selected agent.',
   },
   {
     icon: Monitor,

@@ -31,16 +31,8 @@ import type { AgentName } from '@/shared/types'
  * Opens when the user picks "Cleanup missing skills..." from `AgentItem`'s
  * right-click menu. Triggers a scoped `fetchSyncPreview({ agentId })`,
  * shows the resulting `toCreate` count, and on confirm dispatches
- * `executeSyncAction({ replaceConflicts: [], agentId })` to recreate just
+ * `executeSyncAction({ agentId })` to recreate just
  * that agent's missing symlinks.
- *
- * Why this is separate from `SyncConfirmDialog`:
- * - Global sync acts across every detected agent. A scoped per-agent run
- *   shares the IPC plumbing but needs different copy ("Cleanup `<agent>`"
- *   vs "Sync Skills") and a different mental model (recover one agent vs
- *   propagate everything).
- * - The global dialogs gate themselves on `!preview.forAgent` so a scoped
- *   preview never accidentally opens both surfaces at once.
  *
  * Lifecycle:
  * 1. `setCleanupAgentTarget(agentId)` from AgentItem
@@ -48,8 +40,8 @@ import type { AgentName } from '@/shared/types'
  * 3. Render the count + Cleanup button once preview lands
  * 4. On confirm: `executeSyncAction({ agentId })` → `SyncResultDialog`
  *    takes over to display the per-item diff
- * 5. `clearCleanupAgentTarget()` resets the slice (also nulls
- *    `syncPreview` so the global confirm can't latch onto it)
+ * 5. The fulfilled reducer closes the preview and publishes results atomically.
+ *    Cancellation or preview failure dispatches {@link clearCleanupAgentTarget}.
  */
 export const CleanupAgentDialog =
   function CleanupAgentDialog(): React.ReactElement | null {
@@ -70,8 +62,11 @@ export const CleanupAgentDialog =
     useCycleEffect(() => {
       if (!cleanupAgentTarget) return
 
+      // Ignore obsolete responses after closing or switching the agent.
+      let isCurrent = true
       dispatch(fetchSyncPreview({ agentId: cleanupAgentTarget })).then(
         (action) => {
+          if (!isCurrent) return
           if (fetchSyncPreview.rejected.match(action)) {
             toast.error('Failed to load cleanup preview', {
               description: errorToastDescription(action),
@@ -80,6 +75,9 @@ export const CleanupAgentDialog =
           }
         },
       )
+      return (): void => {
+        isCurrent = false
+      }
     }, [cleanupAgentTarget, dispatch])
 
     const handleClose = (): void => {
@@ -93,23 +91,15 @@ export const CleanupAgentDialog =
       // stable hook order; only execute once a concrete agent owns the flow.
       if (!cleanupAgentTarget) return
 
-      const succeeded = await executeCleanup({
-        replaceConflicts: [],
-        agentId: cleanupAgentTarget,
-      })
-      if (succeeded) {
-        // Close this dialog so `SyncResultDialog` (which `executeSyncAction`
-        // already populated via `syncResult`) becomes the sole foreground
-        // surface — otherwise the per-agent dialog stays mounted underneath.
-        dispatch(clearCleanupAgentTarget())
-      }
+      // The fulfilled reducer closes this preview atomically with publishing results.
+      await executeCleanup({ agentId: cleanupAgentTarget })
     }
 
     if (!cleanupAgentTarget) return null
 
     // Stale-preview guard: only trust the preview when its `forAgent`
     // matches the currently-targeted agent. Defends against the race
-    // where a global preview lands while a scoped fetch is in flight.
+    // where a previous agent's preview lands while a new fetch is in flight.
     const previewMatchesTarget =
       syncPreview?.forAgent === cleanupAgentTarget ? syncPreview : null
 
@@ -168,13 +158,15 @@ export const CleanupAgentDialog =
               )}
               {!hasWork && conflictCount === 0 && (
                 <p className="text-muted-foreground pt-1">
-                  Nothing to clean up — every source skill is already linked.
+                  {previewMatchesTarget.totalAgents === 0
+                    ? 'This agent is no longer available. Close and refresh the agent list.'
+                    : 'Nothing to clean up — every source skill is already linked.'}
                 </p>
               )}
               {conflictCount > 0 && (
                 <p className="text-xs text-muted-foreground pt-1">
                   Conflicts (real folders blocking a symlink) are not touched by
-                  cleanup. Resolve them from the global Sync flow.
+                  cleanup. Inspect this agent's folder to resolve them manually.
                 </p>
               )}
             </div>

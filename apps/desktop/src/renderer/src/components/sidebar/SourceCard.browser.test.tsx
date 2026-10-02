@@ -3,22 +3,15 @@ import { Provider } from 'react-redux'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
-import type { SyncPreviewResult } from '@/shared/types'
-import {
-  toAgentCount,
-  toSearchQuery,
-  toSkillCount,
-  toSymlinkCount,
-} from '@/shared/types'
+import { toSearchQuery } from '@/shared/types'
 
 const mockSourceGetStats = vi.fn()
 const mockSkillsGetAll = vi.fn()
 const mockAgentsGetAll = vi.fn()
 const mockRevealInFinder = vi.fn()
 const mockOpenInTerminal = vi.fn()
-const mockSyncPreview = vi.fn()
 
-// Spy on sonner so toast feedback (refresh failure, sync edge cases) can be
+// Spy on sonner so toast feedback (refresh failure) can be
 // asserted directly instead of racing the portal-rendered toast DOM.
 const toastError = vi.fn()
 const toastInfo = vi.fn()
@@ -31,15 +24,6 @@ vi.mock('sonner', () => ({
     dismiss: vi.fn(),
   }),
 }))
-
-/** Minimal sync preview with a single create — opens the confirm dialog path. */
-const PREVIEW_WITH_WORK: SyncPreviewResult = {
-  totalSkills: toSkillCount(2),
-  totalAgents: toAgentCount(3),
-  toCreate: toSymlinkCount(4),
-  alreadySynced: toSymlinkCount(0),
-  conflicts: [],
-}
 
 beforeEach(() => {
   mockSourceGetStats.mockReset()
@@ -56,8 +40,6 @@ beforeEach(() => {
   mockRevealInFinder.mockResolvedValue({ ok: true })
   mockOpenInTerminal.mockReset()
   mockOpenInTerminal.mockResolvedValue({ ok: true })
-  mockSyncPreview.mockReset()
-  mockSyncPreview.mockResolvedValue(PREVIEW_WITH_WORK)
   toastError.mockReset()
   toastInfo.mockReset()
   // SourceCard's mount effect reads source stats through the preload bridge;
@@ -75,9 +57,6 @@ beforeEach(() => {
     folder: {
       revealInFinder: mockRevealInFinder,
       openInTerminal: mockOpenInTerminal,
-    },
-    sync: {
-      preview: mockSyncPreview,
     },
   })
 })
@@ -300,79 +279,6 @@ describe('Sidebar → SourceCard folder actions', () => {
   })
 })
 
-describe('Sidebar → SourceCard sync', () => {
-  test('stores a sync preview with pending work so a confirm dialog can open', async () => {
-    // Arrange
-    const { screen, store } = await renderSourceCard()
-
-    // Act
-    await screen.getByRole('button', { name: /^Sync$/i }).click()
-
-    // Assert — preview with toCreate>0 is left in Redux for the dialog to read.
-    await vi.waitFor(() => {
-      expect(store.getState().ui.syncPreview).toEqual(PREVIEW_WITH_WORK)
-    })
-  })
-
-  test('tells the user there is nothing to sync when no skills exist', async () => {
-    // Arrange
-    mockSyncPreview.mockResolvedValue({
-      totalSkills: 0,
-      totalAgents: 3,
-      toCreate: 0,
-      alreadySynced: 0,
-      conflicts: [],
-    })
-    const { screen, store } = await renderSourceCard()
-
-    // Act
-    await screen.getByRole('button', { name: /^Sync$/i }).click()
-
-    // Assert
-    await vi.waitFor(() => {
-      expect(toastInfo).toHaveBeenCalledWith('No skills to sync')
-    })
-    expect(store.getState().ui.syncPreview).toBeNull()
-  })
-
-  test('tells the user everything is already synced when nothing needs creating', async () => {
-    // Arrange
-    mockSyncPreview.mockResolvedValue({
-      totalSkills: 5,
-      totalAgents: 3,
-      toCreate: 0,
-      alreadySynced: 5,
-      conflicts: [],
-    })
-    const { screen, store } = await renderSourceCard()
-
-    // Act
-    await screen.getByRole('button', { name: /^Sync$/i }).click()
-
-    // Assert
-    await vi.waitFor(() => {
-      expect(toastInfo).toHaveBeenCalledWith('Already synced', {
-        description: 'All 5 skills are already linked',
-      })
-    })
-    expect(store.getState().ui.syncPreview).toBeNull()
-  })
-
-  test('shows a failure toast when the sync preview request rejects', async () => {
-    // Arrange
-    mockSyncPreview.mockRejectedValue(new Error('preview blew up'))
-    const { screen } = await renderSourceCard()
-
-    // Act
-    await screen.getByRole('button', { name: /^Sync$/i }).click()
-
-    // Assert
-    await vi.waitFor(() => {
-      expect(toastError).toHaveBeenCalledWith('Failed to preview sync')
-    })
-  })
-})
-
 describe('Sidebar → SourceCard unreadable source folder', () => {
   test('explains a source folder it could not open instead of reporting zero skills', async () => {
     // Arrange: the main process could not readdir ~/.agents/skills.
@@ -409,4 +315,21 @@ describe('Sidebar → SourceCard unreadable source folder', () => {
         .query(),
     ).toBeNull()
   })
+})
+
+test('removes global Sync while retaining source refresh and folder actions', async () => {
+  // Arrange + Act
+  const { screen } = await renderSourceCard()
+  // Assert
+  await expect
+    .element(screen.getByRole('button', { name: 'Sync', exact: true }))
+    .not.toBeInTheDocument()
+  await expect
+    .element(
+      screen.getByRole('button', { name: 'Refresh skills and agent status' }),
+    )
+    .toBeVisible()
+  await expect
+    .element(screen.getByRole('button', { name: 'Source folder actions' }))
+    .toBeVisible()
 })

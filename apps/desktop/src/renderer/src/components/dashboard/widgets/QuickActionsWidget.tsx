@@ -1,12 +1,10 @@
-import { LayoutGrid, RefreshCw, RotateCw, Store } from 'lucide-react'
+import { LayoutGrid, RefreshCw, Store } from 'lucide-react'
 import React from 'react'
 
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import { resetToDefaults } from '@/renderer/src/redux/slices/dashboardSlice'
 import {
-  fetchSyncPreview,
   selectIsRefreshing,
-  selectIsSyncing,
   setActiveTab,
 } from '@/renderer/src/redux/slices/uiSlice'
 import { refreshAllData } from '@/renderer/src/redux/thunks'
@@ -68,9 +66,7 @@ const ActionTile = function ActionTile({
 /**
  * Quick Actions widget body.
  *
- * Four shortcuts the user needs most often from a cold start:
- *   - Sync: opens the sync preview dialog (fetches conflicts, then the
- *     existing SyncResultDialog handles execution + result display).
+ * Three shortcuts the user needs most often from a cold start:
  *   - Refresh: re-reads skills/agents/source-stats in parallel via the
  *     shared `refreshAllData` thunk.
  *   - Open Marketplace: flips the main tab so the user lands on search.
@@ -78,18 +74,13 @@ const ActionTile = function ActionTile({
  *     preserving `welcomeDismissed` so reset is a "layout" thing, not a
  *     "settings wipe".
  *
- * Spinning icons on Sync and Refresh mirror the status bar indicators so
+ * The spinning icon on Refresh mirrors the status bar indicator so
  * the user sees activity without having to look elsewhere.
  */
 export const QuickActionsWidget =
   function QuickActionsWidget(): React.ReactElement {
     const dispatch = useAppDispatch()
-    const isSyncing = useAppSelector(selectIsSyncing)
     const isRefreshing = useAppSelector(selectIsRefreshing)
-
-    const handleSync = (): void => {
-      dispatch(fetchSyncPreview())
-    }
 
     const handleRefresh = (): void => {
       refreshAllData(dispatch)
@@ -107,16 +98,7 @@ export const QuickActionsWidget =
 
     return (
       <div className="h-full w-full flex flex-col justify-center p-3">
-        <div className="grid grid-cols-2 gap-2">
-          <ActionTile
-            icon={RotateCw}
-            label="Sync"
-            description="Preview conflicts"
-            onClick={handleSync}
-            isBusy={isSyncing}
-            accentClass="text-primary"
-          />
-
+        <div className="grid grid-cols-2 gap-2 [&>button:last-child:nth-child(odd)]:col-span-2">
           <ActionTile
             icon={RefreshCw}
             label="Refresh"

@@ -342,24 +342,11 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
     }),
   ]),
 
-  // Sync operations
-  // Optional `agentId` scopes preview/execute to a single agent — used by
-  // the per-agent Cleanup flow surfaced from AgentItem's context menu.
-  'sync:preview': z.tuple([
-    z
-      .object({
-        agentId: nonEmptyString.optional(),
-      })
-      .optional(),
-  ]),
-  'sync:execute': z.tuple([
-    z.object({
-      replaceConflicts: z.array(z.string()),
-      agentId: nonEmptyString.optional(),
-    }),
-  ]),
+  // Missing-link recovery always targets one known agent; legacy replacement is rejected.
+  'sync:preview': z.tuple([z.object({ agentId: z.enum(AGENT_IDS) }).strict()]),
+  'sync:execute': z.tuple([z.object({ agentId: z.enum(AGENT_IDS) }).strict()]),
 
-  // Activity timeline — optional paging options. Mirrors `sync:preview`'s
+  // Activity timeline — optional paging options retain their
   // 1-arg-possibly-undefined shape so typedInvoke can always forward the arg.
   'activity:list': z.tuple([
     z

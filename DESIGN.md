@@ -12,7 +12,7 @@ visual QA. Keep `AGENTS.md` focused on build, release, and operational rules.
 
 Skills Desktop is a macOS Electron app for developers who use multiple AI
 coding agents. The core job is to visualize skill symlink health, install
-marketplace skills, and keep local agent environments in sync.
+marketplace skills, and recover missing links for a selected agent.
 
 Users open the app for quick operational glances during active development.
 They need confidence, control, and low-friction action. They do not need a
@@ -471,13 +471,13 @@ target — there is no 44px touch inflation. Use a token below; never hard-code
 `h-11`/`min-h-11` (44px) on a visible button (see Target sizing for the one
 invisible-hit-area exception).
 
-| Variant   | Class        | Height | Use                                            |
-| --------- | ------------ | ------ | ---------------------------------------------- |
-| `xs`      | `h-6 px-2`   | 24px   | Inline / metadata-dense actions (AA floor)     |
-| `sm`      | `h-7 px-2.5` | 28px   | Row tools, toolbar buttons, filters            |
-| `default` | `h-8 px-3`   | 32px   | Primary and secondary actions (Install, sync)  |
-| `lg`      | `h-9 px-4`   | 36px   | Prominent / isolated hero CTAs                 |
-| `icon`    | `size-7`     | 28px   | Icon-only buttons (close, settings, row tools) |
+| Variant   | Class        | Height | Use                                              |
+| --------- | ------------ | ------ | ------------------------------------------------ |
+| `xs`      | `h-6 px-2`   | 24px   | Inline / metadata-dense actions (AA floor)       |
+| `sm`      | `h-7 px-2.5` | 28px   | Row tools, toolbar buttons, filters              |
+| `default` | `h-8 px-3`   | 32px   | Primary and secondary actions (Install, Cleanup) |
+| `lg`      | `h-9 px-4`   | 36px   | Prominent / isolated hero CTAs                   |
+| `icon`    | `size-7`     | 28px   | Icon-only buttons (close, settings, row tools)   |
 
 Base (all variants): `text-[13px]`, `rounded-md`, 16px glyphs (`[&_svg]:size-4`),
 `focus-visible:ring-1`.
@@ -772,6 +772,11 @@ Use them on toolbar buttons where the shortcut is non-obvious:
   resting state.
 
 ### Cards and Widgets
+
+- Removing an action must remove its trigger and explanatory copy together.
+  Keep surviving actions in their existing layout; an odd final Quick Actions
+  tile spans the row so the grid has no vacant cell. Preserve the remaining
+  controls' accessible names, keyboard order and neutral visual weight.
 
 - Use cards for repeated standalone items, dashboard widgets, dialogs, and
   genuinely framed tools.

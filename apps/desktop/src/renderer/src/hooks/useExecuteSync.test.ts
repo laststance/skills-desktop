@@ -49,7 +49,7 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-const sampleOptions: SyncExecuteOptions = { replaceConflicts: [] }
+const sampleOptions: SyncExecuteOptions = { agentId: 'claude-code' }
 
 describe('useExecuteSync', () => {
   test('reports success and skips the failure toast when the sync thunk fulfills', async () => {

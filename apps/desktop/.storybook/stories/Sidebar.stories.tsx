@@ -11,8 +11,6 @@ import { CleanupAgentDialog } from '@/renderer/src/components/sidebar/CleanupAge
 import { SidebarFooter } from '@/renderer/src/components/sidebar/SidebarFooter'
 import { SidebarHeader } from '@/renderer/src/components/sidebar/SidebarHeader'
 import { SourceCard } from '@/renderer/src/components/sidebar/SourceCard'
-import { SyncConfirmDialog } from '@/renderer/src/components/sidebar/SyncConfirmDialog'
-import { SyncConflictDialog } from '@/renderer/src/components/sidebar/SyncConflictDialog'
 import { SyncResultDialog } from '@/renderer/src/components/sidebar/SyncResultDialog'
 import { Sidebar } from '@/renderer/src/components/layout/Sidebar'
 
@@ -105,35 +103,6 @@ export const AgentDeleteOpen: Story = {
       state: {
         agents: {
           agentToDelete: storyAgents[1],
-        },
-      },
-    },
-  },
-}
-
-export const SyncConfirmOpen: Story = {
-  render: () => <SyncConfirmDialog />,
-  parameters: {
-    skillsDesktop: {
-      state: {
-        ui: {
-          syncPreview: {
-            ...storySyncPreview,
-            conflicts: [],
-          },
-        },
-      },
-    },
-  },
-}
-
-export const SyncConflictOpen: Story = {
-  render: () => <SyncConflictDialog />,
-  parameters: {
-    skillsDesktop: {
-      state: {
-        ui: {
-          syncPreview: storySyncPreview,
         },
       },
     },

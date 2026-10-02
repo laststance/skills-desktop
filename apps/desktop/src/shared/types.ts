@@ -407,7 +407,7 @@ export const toBatchItemCount = (value: number): BatchItemCount =>
 
 /**
  * A non-negative count of agent symlink records. Used in three senses:
- * - Sync operation outcomes — `SyncExecuteResult.{created,replaced,skipped}`
+ * - Sync operation outcomes — `SyncExecuteResult.{created,skipped}`
  *   and `SyncPreviewResult.{toCreate,alreadySynced}` — count valid symlinks
  *   only (broken/missing excluded by those callers).
  * - "Agents linked to this skill" — `Skill.symlinkCount` — valid links only.
@@ -1583,56 +1583,44 @@ export interface SyncConflict {
 }
 
 /**
- * Options for previewing sync, optionally scoped to a single agent.
- * Nil `agentId` = global preview (every detected agent). Specifying
- * `agentId` narrows preview to that one agent — used by the per-agent
- * Cleanup flow so the dialog can show "N skills missing for <agent>"
- * without surfacing other agents' state.
- * @example {} // global
- * @example { agentId: 'cursor' } // scoped
+ * Scope for the missing-link preview opened by {@link CleanupAgentDialog}.
+ * A target is mandatory so recovery cannot distribute skills across all agents.
+ * @example { agentId: 'cursor' }
  */
 export interface SyncPreviewOptions {
-  /** When set, restrict preview to this single agent. */
-  agentId?: AgentId
+  agentId: AgentId
 }
 
 /**
  * Result from sync preview (dry run).
- * @example { totalSkills: 5, totalAgents: 3, toCreate: 10, alreadySynced: 5, conflicts: [] }
- * @example { totalSkills: 5, totalAgents: 1, toCreate: 4, alreadySynced: 1, conflicts: [], forAgent: 'cursor' }
+ * @example { forAgent: 'cursor', totalSkills: 5, totalAgents: 1, toCreate: 3, alreadySynced: 2, conflicts: [] }
  */
 export interface SyncPreviewResult {
   /** Number of source skills considered. @example 5 */
   totalSkills: SkillCount
-  /** Number of agents considered (1 when scoped to one agent). @example 3 */
+  /** Number of available target agents (0 or 1). @example 1 */
   totalAgents: AgentCount
   /** Symlinks that would be created on execute (excludes conflicts). @example 10 */
   toCreate: SymlinkCount
   /** Symlinks already in place — nothing to do for these. @example 5 */
   alreadySynced: SymlinkCount
-  /** Per-agent folders that block creation until the user chooses to replace. */
+  /** Per-agent folders that block creation that recovery leaves untouched. */
   conflicts: SyncConflict[]
   /**
-   * Echoes the `agentId` filter the preview was computed with, if any.
+   * Echoes the target `agentId` the preview was computed with.
    * Lets the renderer keep dialog state in sync with the preview that
    * actually returned (defends against stale dialog after agent switch).
    */
-  forAgent?: AgentId
+  forAgent: AgentId
 }
 
 /**
- * Options for executing sync with conflict resolution choices.
- * Optional `agentId` scopes the operation to that single agent — used
- * by the per-agent Cleanup flow. Nil `agentId` = full sync across every
- * detected agent (existing behavior).
- * @example { replaceConflicts: [] } // full sync
- * @example { replaceConflicts: [], agentId: 'cursor' } // per-agent cleanup
+ * Scope for missing-link recovery confirmed by {@link CleanupAgentDialog}.
+ * Existing links and real folders are preserved; conflicts are never replaced.
+ * @example { agentId: 'cursor' }
  */
 export interface SyncExecuteOptions {
-  /** Absolute paths of conflicting folders the user explicitly opted to replace with symlinks. */
-  replaceConflicts: AbsolutePath[]
-  /** When set, restrict execution to this single agent. */
-  agentId?: AgentId
+  agentId: AgentId
 }
 
 /**
@@ -1642,16 +1630,14 @@ export interface SyncExecuteOptions {
  * post-sync result dialog.
  *
  * - `created`: new symlink was created at this slot.
- * - `replaced`: existing conflict folder was overwritten with a symlink
- *   (only for slots the user opted to replace).
  * - `skipped`: slot was already in the desired state (already-synced
- *   symlink or user-declined conflict) — no filesystem change.
+ *   symlink or real-folder conflict) — no filesystem change.
  * - `error`: operation failed; the row carries a `error: string` message.
  *
  * @example 'created'
  * @example 'skipped'
  */
-export type SyncResultAction = 'created' | 'replaced' | 'skipped' | 'error'
+export type SyncResultAction = 'created' | 'skipped' | 'error'
 
 /** Shared fields for every sync result row. */
 type SyncResultBase = {
@@ -1668,20 +1654,18 @@ type SyncResultBase = {
  * @example { skillName: 's', agentName: 'Cursor', action: 'error', error: 'EACCES' }
  */
 export type SyncResultItem =
-  | (SyncResultBase & { action: 'created' | 'replaced' | 'skipped' })
+  | (SyncResultBase & { action: 'created' | 'skipped' })
   | (SyncResultBase & { action: 'error'; error: string })
 
 /**
  * Result from executing sync.
- * @example { success: true, created: 10, replaced: 2, skipped: 5, errors: [], details: [...] }
+ * @example { success: true, created: 10, skipped: 5, errors: [], details: [...] }
  */
 export interface SyncExecuteResult {
   /** true if every planned operation succeeded (errors.length === 0). */
   success: boolean
   /** Number of newly-created symlinks. @example 10 */
   created: SymlinkCount
-  /** Number of existing folders replaced with symlinks (user opted-in). @example 2 */
-  replaced: SymlinkCount
   /** Number of already-synced items that were skipped. @example 5 */
   skipped: SymlinkCount
   /** Per-path errors encountered during execution (empty on full success). */

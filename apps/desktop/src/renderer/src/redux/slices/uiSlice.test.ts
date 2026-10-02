@@ -122,27 +122,29 @@ async function createCombinedStore() {
 
 /** Sample preview result with conflicts for testing */
 const previewWithConflicts: SyncPreviewResult = {
+  forAgent: 'claude-code',
   totalSkills: toSkillCount(5),
-  totalAgents: toAgentCount(2),
+  totalAgents: toAgentCount(1),
   toCreate: toSymlinkCount(3),
-  alreadySynced: toSymlinkCount(4),
+  alreadySynced: toSymlinkCount(1),
   conflicts: [
     {
       skillName: toSkillName('agent-browser'),
-      agentId: 'cursor',
-      agentName: 'Cursor',
-      agentSkillPath: toAbsolutePath('/home/user/.cursor/skills/agent-browser'),
+      agentId: 'claude-code',
+      agentName: 'Claude Code',
+      agentSkillPath: toAbsolutePath('/home/user/.claude/skills/agent-browser'),
     },
   ],
 }
 
 /** Sample preview result without conflicts */
-const previewNoConflicts: SyncPreviewResult = {
+const previewWithoutConflicts: SyncPreviewResult = {
   totalSkills: toSkillCount(3),
-  totalAgents: toAgentCount(2),
-  toCreate: toSymlinkCount(6),
+  totalAgents: toAgentCount(1),
+  toCreate: toSymlinkCount(3),
   alreadySynced: toSymlinkCount(0),
   conflicts: [],
+  forAgent: 'claude-code',
 }
 
 describe('uiSlice hidden agents deletion review', () => {
@@ -399,7 +401,7 @@ describe('uiSlice sync thunks', () => {
     const { fetchSyncPreview } = await import('./uiSlice')
 
     // Act
-    await store.dispatch(fetchSyncPreview())
+    await store.dispatch(fetchSyncPreview({ agentId: 'claude-code' }))
 
     // Assert
     const state = store.getState().ui
@@ -420,13 +422,13 @@ describe('uiSlice sync thunks', () => {
     const { fetchSyncPreview } = await import('./uiSlice')
 
     // Act
-    const promise = store.dispatch(fetchSyncPreview())
+    const promise = store.dispatch(fetchSyncPreview({ agentId: 'claude-code' }))
 
     // Assert
     expect(store.getState().ui.isSyncing).toBe(true)
 
     // Resolve to clean up
-    resolve(previewNoConflicts)
+    resolve(previewWithoutConflicts)
     await promise
   })
 
@@ -437,7 +439,7 @@ describe('uiSlice sync thunks', () => {
     const { fetchSyncPreview } = await import('./uiSlice')
 
     // Act
-    await store.dispatch(fetchSyncPreview())
+    await store.dispatch(fetchSyncPreview({ agentId: 'claude-code' }))
 
     // Assert
     expect(store.getState().ui.isSyncing).toBe(false)
@@ -446,16 +448,16 @@ describe('uiSlice sync thunks', () => {
 
   test('shows the sync preview once the preview request resolves', async () => {
     // Arrange
-    mockSyncPreview.mockResolvedValue(previewNoConflicts)
+    mockSyncPreview.mockResolvedValue(previewWithoutConflicts)
     const store = await createTestStore()
     const { fetchSyncPreview } = await import('./uiSlice')
 
     // Act
-    await store.dispatch(fetchSyncPreview())
+    await store.dispatch(fetchSyncPreview({ agentId: 'claude-code' }))
 
     // Assert
     const state = store.getState().ui
-    expect(state.syncPreview).toEqual(previewNoConflicts)
+    expect(state.syncPreview).toEqual(previewWithoutConflicts)
     expect(state.isSyncing).toBe(false)
   })
 
@@ -465,7 +467,6 @@ describe('uiSlice sync thunks', () => {
     mockSyncExecute.mockResolvedValue({
       success: true,
       created: toSymlinkCount(3),
-      replaced: toSymlinkCount(1),
       skipped: toSymlinkCount(4),
       errors: [],
       details: [
@@ -478,17 +479,11 @@ describe('uiSlice sync thunks', () => {
     } satisfies SyncExecuteResult)
     const store = await createTestStore()
     const { fetchSyncPreview, executeSyncAction } = await import('./uiSlice')
-    await store.dispatch(fetchSyncPreview())
+    await store.dispatch(fetchSyncPreview({ agentId: 'claude-code' }))
     expect(store.getState().ui.syncPreview).not.toBeNull()
 
     // Act — execute the sync
-    await store.dispatch(
-      executeSyncAction({
-        replaceConflicts: [
-          toAbsolutePath('/home/user/.cursor/skills/agent-browser'),
-        ],
-      }),
-    )
+    await store.dispatch(executeSyncAction({ agentId: 'claude-code' }))
 
     // Assert — preview is dismissed and a populated result drives the dialog
     const state = store.getState().ui
@@ -507,7 +502,7 @@ describe('uiSlice sync thunks', () => {
     const { executeSyncAction } = await import('./uiSlice')
 
     // Act
-    await store.dispatch(executeSyncAction({ replaceConflicts: [] }))
+    await store.dispatch(executeSyncAction({ agentId: 'claude-code' }))
 
     // Assert
     expect(store.getState().ui.isSyncing).toBe(false)
@@ -519,7 +514,6 @@ describe('uiSlice sync thunks', () => {
     mockSyncExecute.mockResolvedValue({
       success: true,
       created: toSymlinkCount(1),
-      replaced: toSymlinkCount(0),
       skipped: toSymlinkCount(0),
       errors: [],
       details: [
@@ -532,7 +526,7 @@ describe('uiSlice sync thunks', () => {
     } satisfies SyncExecuteResult)
     const store = await createTestStore()
     const { executeSyncAction, clearSyncResult } = await import('./uiSlice')
-    await store.dispatch(executeSyncAction({ replaceConflicts: [] }))
+    await store.dispatch(executeSyncAction({ agentId: 'claude-code' }))
     expect(store.getState().ui.syncResult).not.toBeNull()
 
     // Act
@@ -547,7 +541,6 @@ describe('uiSlice sync thunks', () => {
     mockSyncExecute.mockResolvedValue({
       success: true,
       created: toSymlinkCount(1),
-      replaced: toSymlinkCount(0),
       skipped: toSymlinkCount(0),
       errors: [],
       details: [
@@ -560,7 +553,7 @@ describe('uiSlice sync thunks', () => {
     } satisfies SyncExecuteResult)
     const store = await createTestStore()
     const { executeSyncAction, fetchSyncPreview } = await import('./uiSlice')
-    await store.dispatch(executeSyncAction({ replaceConflicts: [] }))
+    await store.dispatch(executeSyncAction({ agentId: 'claude-code' }))
     expect(store.getState().ui.syncResult).not.toBeNull()
 
     // Act — start a new preview; the pending phase should clear the old result
@@ -570,25 +563,26 @@ describe('uiSlice sync thunks', () => {
         resolve = r
       }),
     )
-    const promise = store.dispatch(fetchSyncPreview())
+    const promise = store.dispatch(fetchSyncPreview({ agentId: 'claude-code' }))
 
     // Assert
     expect(store.getState().ui.syncResult).toBeNull()
 
-    resolve(previewNoConflicts)
+    resolve(previewWithoutConflicts)
     await promise
   })
 
-  test('dismisses the sync preview when it is cleared programmatically', async () => {
+  test('dismisses the scoped preview when agent Cleanup is closed', async () => {
     // Arrange
     mockSyncPreview.mockResolvedValue(previewWithConflicts)
     const store = await createTestStore()
-    const { fetchSyncPreview, setSyncPreview } = await import('./uiSlice')
-    await store.dispatch(fetchSyncPreview())
+    const { fetchSyncPreview, clearCleanupAgentTarget } =
+      await import('./uiSlice')
+    await store.dispatch(fetchSyncPreview({ agentId: 'claude-code' }))
     expect(store.getState().ui.syncPreview).not.toBeNull()
 
     // Act
-    store.dispatch(setSyncPreview(null))
+    store.dispatch(clearCleanupAgentTarget())
 
     // Assert
     expect(store.getState().ui.syncPreview).toBeNull()
@@ -766,12 +760,12 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
     )
 
     // Act
-    const promise = store.dispatch(fetchSyncPreview())
+    const promise = store.dispatch(fetchSyncPreview({ agentId: 'claude-code' }))
 
     // Assert
     expect(store.getState().ui.undoToast).toBeNull()
 
-    resolve(previewNoConflicts)
+    resolve(previewWithoutConflicts)
     await promise
   })
 
@@ -1011,7 +1005,7 @@ describe('uiSlice atomic-clear contract on context switch', () => {
     )
 
     // Act
-    const promise = store.dispatch(fetchSyncPreview())
+    const promise = store.dispatch(fetchSyncPreview({ agentId: 'claude-code' }))
 
     // Assert
     expect(store.getState().ui).toMatchObject({
@@ -1019,7 +1013,7 @@ describe('uiSlice atomic-clear contract on context switch', () => {
       bulkConfirm: null,
     })
 
-    resolve(previewNoConflicts)
+    resolve(previewWithoutConflicts)
     await promise
   })
 
@@ -1555,10 +1549,14 @@ describe('uiSlice per-agent cleanup dialog', () => {
   test('closes the per-agent cleanup dialog and discards its scoped sync preview', async () => {
     // Arrange — open the dialog with an agent target and a scoped preview present
     const store = await createTestStore()
-    const { setCleanupAgentTarget, setSyncPreview, clearCleanupAgentTarget } =
+    const { setCleanupAgentTarget, fetchSyncPreview, clearCleanupAgentTarget } =
       await import('./uiSlice')
+    mockSyncPreview.mockResolvedValue({
+      ...previewWithConflicts,
+      forAgent: 'cursor',
+    })
     store.dispatch(setCleanupAgentTarget('cursor'))
-    store.dispatch(setSyncPreview(previewWithConflicts))
+    await store.dispatch(fetchSyncPreview({ agentId: 'cursor' }))
     expect(store.getState().ui.cleanupAgentTarget).toBe('cursor')
     expect(store.getState().ui.syncPreview).not.toBeNull()
 
@@ -1700,7 +1698,6 @@ describe('uiSlice selectors read the live ui state', () => {
     mockSyncExecute.mockResolvedValue({
       success: true,
       created: toSymlinkCount(2),
-      replaced: toSymlinkCount(0),
       skipped: toSymlinkCount(0),
       errors: [],
       details: [
@@ -1712,19 +1709,15 @@ describe('uiSlice selectors read the live ui state', () => {
       ],
     } satisfies SyncExecuteResult)
     const store = await createTestStore()
-    const {
-      executeSyncAction,
-      selectIsSyncing,
-      selectSyncPreview,
-      selectSyncResult,
-    } = await import('./uiSlice')
-    await store.dispatch(executeSyncAction({ replaceConflicts: [] }))
+    const { executeSyncAction, selectSyncPreview, selectSyncResult } =
+      await import('./uiSlice')
+    await store.dispatch(executeSyncAction({ agentId: 'claude-code' }))
 
     // Cast the ui-only test store to RootState; selectors only read state.ui.
     const rootState = store.getState() as RootState
 
     // Act + Assert
-    expect(selectIsSyncing(rootState)).toBe(false)
+    expect(rootState.ui.isSyncing).toBe(false)
     expect(selectSyncPreview(rootState)).toBeNull()
     expect(selectSyncResult(rootState)).not.toBeNull()
   })
@@ -1780,4 +1773,83 @@ describe('uiSlice selectors read the live ui state', () => {
     // setCleanupAgentTarget closes the dashboard dialog (one surface at a time).
     expect(selectSymlinkCleanupDialogOpen(rootState)).toBe(false)
   })
+})
+
+describe('Cleanup preview request ownership', () => {
+  test('keeps the newest agent preview when an older agent response arrives last', async () => {
+    // Arrange
+    const store = await createTestStore()
+    const { fetchSyncPreview } = await import('./uiSlice')
+    let resolveOlder!: (value: SyncPreviewResult) => void
+    const older = new Promise<SyncPreviewResult>((resolve) => {
+      resolveOlder = resolve
+    })
+    mockSyncPreview
+      .mockReturnValueOnce(older)
+      .mockResolvedValueOnce({ ...previewWithoutConflicts, forAgent: 'cursor' })
+    // Act
+    const olderRequest = store.dispatch(
+      fetchSyncPreview({ agentId: 'claude-code' }),
+    )
+    await store.dispatch(fetchSyncPreview({ agentId: 'cursor' }))
+    resolveOlder({ ...previewWithoutConflicts, forAgent: 'claude-code' })
+    await olderRequest
+    // Assert
+    expect(store.getState().ui.syncPreview?.forAgent).toBe('cursor')
+    expect(store.getState().ui.isSyncing).toBe(false)
+  })
+  test('ignores an older failure after a newer agent preview succeeded', async () => {
+    // Arrange
+    const store = await createTestStore()
+    const { fetchSyncPreview } = await import('./uiSlice')
+    let rejectOlder!: (error: Error) => void
+    const older = new Promise<SyncPreviewResult>((_, reject) => {
+      rejectOlder = reject
+    })
+    mockSyncPreview
+      .mockReturnValueOnce(older)
+      .mockResolvedValueOnce({ ...previewWithoutConflicts, forAgent: 'cursor' })
+    // Act
+    const olderRequest = store.dispatch(
+      fetchSyncPreview({ agentId: 'claude-code' }),
+    )
+    await store.dispatch(fetchSyncPreview({ agentId: 'cursor' }))
+    rejectOlder(new Error('obsolete preview failed'))
+    await olderRequest
+    // Assert
+    expect(store.getState().ui.syncPreview?.forAgent).toBe('cursor')
+    expect(store.getState().ui.error).toBeNull()
+    expect(store.getState().ui.isSyncing).toBe(false)
+  })
+})
+
+test('closes the agent preview in the same update that publishes successful Cleanup results', async () => {
+  // Arrange
+  const store = await createTestStore()
+  const { setCleanupAgentTarget, fetchSyncPreview, executeSyncAction } =
+    await import('./uiSlice')
+  store.dispatch(setCleanupAgentTarget('claude-code'))
+  mockSyncPreview.mockResolvedValue(previewWithoutConflicts)
+  mockSyncExecute.mockResolvedValue({
+    success: true,
+    created: toSymlinkCount(1),
+    skipped: toSymlinkCount(0),
+    errors: [],
+    details: [],
+  })
+  await store.dispatch(fetchSyncPreview({ agentId: 'claude-code' }))
+  const overlappingStates: boolean[] = []
+  const unsubscribe = store.subscribe(() => {
+    const ui = store.getState().ui
+    overlappingStates.push(
+      ui.syncResult !== null && ui.cleanupAgentTarget !== null,
+    )
+  })
+  // Act
+  await store.dispatch(executeSyncAction({ agentId: 'claude-code' }))
+  unsubscribe()
+  // Assert
+  expect(overlappingStates).not.toContain(true)
+  expect(store.getState().ui.cleanupAgentTarget).toBeNull()
+  expect(store.getState().ui.syncResult?.created).toBe(1)
 })

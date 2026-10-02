@@ -922,3 +922,30 @@ describe('theme:broadcast', () => {
     expect(result.success).toBe(false)
   })
 })
+
+describe('agent-scoped Cleanup IPC boundary', () => {
+  test.each(['sync:preview', 'sync:execute'] as const)(
+    '%s rejects all-agent and legacy replacement requests',
+    (channel) => {
+      // Arrange
+      const invalidArgs = [
+        [],
+        [undefined],
+        [null],
+        [{}],
+        [{ agentId: 'unknown-agent' }],
+        [{ agentId: 'cursor' }, {}],
+        [{ agentId: 'cursor', replaceConflicts: ['/tmp/local-work'] }],
+      ]
+      const schema = IPC_ARG_SCHEMAS[channel]
+      // Act + Assert
+      expect(schema).toBeDefined()
+      for (const args of invalidArgs) {
+        expect(schema!.safeParse(args).success).toBe(false)
+      }
+      expect(schema!.parse([{ agentId: 'cursor' }])).toEqual([
+        { agentId: 'cursor' },
+      ])
+    },
+  )
+})

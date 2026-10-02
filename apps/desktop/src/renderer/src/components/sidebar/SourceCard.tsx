@@ -1,8 +1,6 @@
 import {
   Folder,
   FolderOpen,
-  FolderSync,
-  Loader2,
   MoreVertical,
   RefreshCw,
   Terminal,
@@ -28,23 +26,22 @@ import {
   clearExcludedSkillTypeFilters,
   clearSelectedSources,
   fetchSourceStats,
-  fetchSyncPreview,
   selectAgent,
   setActiveTab,
   setSearchQuery,
   setSkillTypeFilter,
-  setSyncPreview,
 } from '@/renderer/src/redux/slices/uiSlice'
 import { toSearchQuery } from '@/shared/types'
 
 /**
- * Source directory card showing stats, refresh, and sync buttons
+ * Source directory card showing stats, refresh, and folder actions
  * Clicking the path clears all filters to show all skills
  */
 export const SourceCard = function SourceCard(): React.ReactElement {
   const dispatch = useAppDispatch()
-  const { sourceStats, isRefreshing, isSyncing, selectedAgentId } =
-    useAppSelector((state) => state.ui)
+  const { sourceStats, isRefreshing, selectedAgentId } = useAppSelector(
+    (state) => state.ui,
+  )
   const isActive = selectedAgentId === null
   const [contextOpen, setContextOpen] = useState(false)
   const { revealInFinder, openInTerminal } = useOpenFolder()
@@ -109,44 +106,8 @@ export const SourceCard = function SourceCard(): React.ReactElement {
     void openInTerminal(sourceStats.path)
   }
 
-  /**
-   * Fetch sync preview and let the appropriate dialog handle execution.
-   * SyncConfirmDialog opens when there are symlinks to create (no conflicts).
-   * SyncConflictDialog opens when conflicts exist.
-   * Edge cases (no skills, already synced) are handled with toasts.
-   */
-  const handleSync = async (): Promise<void> => {
-    const previewResult = await dispatch(fetchSyncPreview())
-
-    if (fetchSyncPreview.fulfilled.match(previewResult)) {
-      const preview = previewResult.payload
-
-      if (preview.totalSkills === 0) {
-        dispatch(setSyncPreview(null))
-        toast.info('No skills to sync')
-        return
-      }
-
-      if (preview.toCreate === 0 && preview.conflicts.length === 0) {
-        dispatch(setSyncPreview(null))
-        toast.info('Already synced', {
-          description: `All ${preview.alreadySynced} skills are already linked`,
-        })
-        return
-      }
-      // Otherwise, syncPreview state in Redux will open the appropriate dialog
-    } else {
-      toast.error('Failed to preview sync')
-    }
-  }
-
   const handleContextOpenChange = (open: boolean): void => {
     if (!open) setContextOpen(false)
-  }
-
-  const handleSyncClick = (e: React.MouseEvent): void => {
-    e.stopPropagation()
-    void handleSync()
   }
 
   const handleRefreshClick = (e: React.MouseEvent): void => {
@@ -174,20 +135,6 @@ export const SourceCard = function SourceCard(): React.ReactElement {
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <Folder className="h-4 w-4 text-primary" />
-              <Button
-                variant="ghost"
-                size="sm"
-                className="px-2 text-xs font-medium gap-1"
-                onClick={handleSyncClick}
-                disabled={isSyncing}
-              >
-                {isSyncing ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <FolderSync className="h-3 w-3" />
-                )}
-                Sync
-              </Button>
             </div>
             <div className="flex items-center gap-1">
               <Button
