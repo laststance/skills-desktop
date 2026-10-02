@@ -25,6 +25,7 @@ interface CopyToClipboardState {
  * const { copied, copy } = useCopyToClipboard()
  * <button onClick={() => copy(url, 'preview URL')}>{copied ? 'Copied' : 'Copy'}</button>
  */
+// eslint-disable-next-line @laststance/react-next/no-single-use-hook-file -- Dedicated clipboard module has direct browser regression tests.
 export function useCopyToClipboard(): CopyToClipboardState {
   const [copied, setCopied] = useState(false)
   const resetCopiedTimeoutRef = useRef<number | null>(null)

@@ -105,7 +105,7 @@ PRs are ready to ship only when `validate` and e2e both pass in that order.
 | Repository     | https://github.com/vercel-labs/skills (paths below are inside that repo)                                                                                      |
 | CLI agent list | `src/agents.ts`                                                                                                                                               |
 | CLI types      | `src/types.ts`                                                                                                                                                |
-| Pinned version | `SKILLS_CLI_VERSION` in `apps/desktop/src/shared/constants.ts` (currently `1.6.0`) — bump when re-syncing `AGENT_DEFINITIONS` against the upstream skills CLI |
+| Pinned version | `SKILLS_CLI_VERSION` in `apps/desktop/src/shared/constants.ts` (currently `1.7.0`) — bump when re-syncing `AGENT_DEFINITIONS` against the upstream skills CLI |
 
 `AGENT_DEFINITIONS` in `apps/desktop/src/shared/constants.ts` mirrors the CLI's agent
 list. Each entry: `id` (app state), `cliId` (`--agent` flag), `name`

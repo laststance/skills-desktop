@@ -26,6 +26,7 @@ import { isEditableTarget } from '@/renderer/src/utils/isEditableTarget'
  *   // ...
  * }
  */
+// eslint-disable-next-line @laststance/react-next/no-single-use-hook-file -- Dedicated shortcut module has direct keyboard regression tests.
 export function useDashboardKeyboardShortcuts(): void {
   const dispatch = useAppDispatch()
   const pages = useAppSelector(selectDashboardPages)

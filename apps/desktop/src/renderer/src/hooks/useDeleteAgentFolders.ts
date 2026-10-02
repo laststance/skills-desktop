@@ -29,6 +29,7 @@ import type { Agent } from '@/shared/types'
  * @returns Review state, protected count, pending status, and review/close/delete actions.
  * @example const deletion = useDeleteAgentFolders(hiddenInstalled, 'hidden')
  */
+// eslint-disable-next-line @laststance/react-next/no-single-use-hook-file -- Deletion controller stays separate from its menu and confirmation view.
 export function useDeleteAgentFolders(
   agents: Agent[],
   group: AgentFolderGroup,

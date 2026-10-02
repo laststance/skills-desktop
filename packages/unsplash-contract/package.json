@@ -19,6 +19,7 @@
   },
   "devDependencies": {
     "@eslint/js": "catalog:",
+    "@typescript/native": "catalog:",
     "eslint": "catalog:",
     "typescript": "catalog:",
     "typescript-eslint": "catalog:",

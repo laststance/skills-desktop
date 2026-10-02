@@ -7,13 +7,14 @@ import reactYouMightNotNeedAnEffect from 'eslint-plugin-react-you-might-not-need
 import { defineConfig } from 'eslint/config'
 
 /**
- * Rules intentionally enabled for @laststance/react-next-eslint-plugin v2.3.0.
+ * Rules intentionally enabled for @laststance/react-next-eslint-plugin v2.4.0.
  * Keeping the list explicit means dependency upgrades cannot silently turn on a
  * new rule without a focused lint-fix pass in the same PR.
  *
- * Memoization-enforcing rules (all-memo, prefer-usecallback-*, prefer-usememo-*,
- * prefer-stable-context-value, no-deopt-use-callback/memo) are intentionally
- * omitted — React Compiler handles memoization automatically.
+ * Memoization-related rules (all-memo, prefer-usecallback-*, prefer-usememo-*,
+ * prefer-stable-context-value, no-deopt-use-callback/memo) are omitted because
+ * React Compiler handles memoization automatically.
+ * no-single-use-hook-file is configured separately with a complete typed project.
  */
 const laststanceReactNextRuleNames = [
   'jsx-no-useless-fragment',
@@ -21,6 +22,7 @@ const laststanceReactNextRuleNames = [
   'no-direct-use-effect',
   'no-duplicate-key',
   'no-forward-ref',
+  'no-jsx-iife',
   'no-jsx-without-return',
   'no-missing-button-type',
   'no-missing-component-display-name',
@@ -151,6 +153,18 @@ export default defineConfig([
       ...laststanceReactNextRules,
       // Keep the stricter prop-drilling depth while still enforcing the rule at error severity.
       '@laststance/react-next/no-set-state-prop-drilling': ['error'],
+    },
+  },
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    languageOptions: {
+      parserOptions: {
+        projectService: false,
+        project: './tsconfig.json',
+      },
+    },
+    rules: {
+      '@laststance/react-next/no-single-use-hook-file': 'error',
     },
   },
 ])

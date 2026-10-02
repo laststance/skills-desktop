@@ -7,6 +7,7 @@ import { setInstallProgress } from '@/renderer/src/redux/slices/marketplaceSlice
  * Hook to subscribe to skill installation progress events
  * Sets up IPC listener and cleans up on unmount
  */
+// eslint-disable-next-line @laststance/react-next/no-single-use-hook-file -- Dedicated IPC subscription module has direct progress regression tests.
 export function useMarketplaceProgress(): void {
   const dispatch = useAppDispatch()
 

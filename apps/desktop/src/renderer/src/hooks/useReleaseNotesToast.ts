@@ -23,6 +23,7 @@ import { RELEASE_NOTES_LAST_SEEN_VERSION_KEY } from '@/shared/constants'
  * // Inside <App /> root:
  * useReleaseNotesToast()
  */
+// eslint-disable-next-line @laststance/react-next/no-single-use-hook-file -- Dedicated release cue module has direct browser tests and an App mock seam.
 export function useReleaseNotesToast(): void {
   useEffect(() => {
     const currentVersion = __APP_VERSION__

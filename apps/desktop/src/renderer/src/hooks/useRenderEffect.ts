@@ -25,6 +25,7 @@ export function useRenderEffect(
   effect: EffectCallback,
   deps: NonEmptyDependencyList,
 ): void
+// eslint-disable-next-line @laststance/react-next/no-single-use-hook-file -- Lifecycle helper stays independently tested with its type-level overloads.
 export function useRenderEffect(
   effect: EffectCallback,
   deps?: DependencyList,
