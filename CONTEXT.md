@@ -41,7 +41,7 @@ by definition: pruning never creates a lock record. Concerns the lock only —
 leftover symlinks are a broken slot, and cleaning those is Symlink Health's job.
 _Avoid_: sync, reconcile, clean
 
-> **`sync` is reserved, twice over.** The skills CLI owns `skills sync`
-> (discovering skills inside `node_modules`), and this app's Quick Actions
-> already labels a tile "Sync" (previewing conflicts). Neither means lock
-> maintenance, so lock work never borrows the word.
+> **`sync` is reserved for Skills CLI.** The CLI owns `skills sync`
+> (discovering skills inside `node_modules`). The app's per-agent missing-link
+> recovery is named "Cleanup missing skills"; it never distributes to all agents.
+> Neither operation means lock maintenance, so lock work never borrows the word.

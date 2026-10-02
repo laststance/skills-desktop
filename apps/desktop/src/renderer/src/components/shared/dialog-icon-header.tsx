@@ -35,8 +35,7 @@ interface DialogIconHeaderProps {
 /**
  * The icon + title pair that opens every sync-related dialog. Replaces
  * the inline `<div className="flex items-center gap-2"><Icon … /><DialogTitle>…</DialogTitle></div>`
- * markup that was duplicated across `SyncConfirmDialog`,
- * `SyncConflictDialog`, and `CleanupAgentDialog`. Render this as the
+ * markup that was duplicated across {@link CleanupAgentDialog}. Render this as the
  * first child of `<DialogHeader>` (before `<DialogDescription>`).
  *
  * @example

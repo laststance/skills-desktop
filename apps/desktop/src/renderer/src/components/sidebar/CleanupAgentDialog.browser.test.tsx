@@ -165,10 +165,7 @@ describe('CleanupAgentDialog', () => {
     await expect
       .poll(() =>
         mockSyncExecute.mock.calls.some(
-          ([options]) =>
-            options?.agentId === 'claude-code' &&
-            Array.isArray(options?.replaceConflicts) &&
-            options.replaceConflicts.length === 0,
+          ([options]) => options?.agentId === 'claude-code',
         ),
       )
       .toBe(true)
@@ -190,4 +187,59 @@ describe('CleanupAgentDialog', () => {
     await expect.poll(() => store.getState().ui.cleanupAgentTarget).toBeNull()
     expect(mockSyncExecute).toHaveBeenCalledTimes(0)
   })
+})
+
+test('keeps the new agent dialog open when an obsolete preview fails after switching agents', async () => {
+  // Arrange
+  let rejectOlder!: (error: Error) => void
+  mockSyncPreview.mockReturnValueOnce(
+    new Promise((_, reject) => {
+      rejectOlder = reject
+    }),
+  )
+  const { screen, store } = await renderClosedThenOpen('claude-code')
+  const { setCleanupAgentTarget } =
+    await import('@/renderer/src/redux/slices/uiSlice')
+  mockSyncPreview.mockResolvedValueOnce({
+    ...SCOPED_PREVIEW,
+    forAgent: 'cursor',
+  })
+  // Act
+  store.dispatch(setCleanupAgentTarget('cursor'))
+  await expect
+    .element(screen.getByText('Cleanup missing skills — Cursor'))
+    .toBeVisible()
+  await expect
+    .element(screen.getByRole('button', { name: 'Cleanup 2 skills' }))
+    .toBeVisible()
+  rejectOlder(new Error('obsolete agent preview'))
+  // Assert
+  await expect.poll(() => store.getState().ui.isSyncing).toBe(false)
+  expect(store.getState().ui.cleanupAgentTarget).toBe('cursor')
+  expect(mockToastError).not.toHaveBeenCalled()
+  await expect
+    .element(screen.getByRole('button', { name: 'Cleanup 2 skills' }))
+    .toBeVisible()
+})
+
+test('explains an unavailable agent instead of claiming that all its links are present', async () => {
+  // Arrange
+  mockSyncPreview.mockResolvedValue({
+    ...SCOPED_PREVIEW,
+    totalAgents: toAgentCount(0),
+    toCreate: toSymlinkCount(0),
+  })
+  // Act
+  const { screen } = await renderClosedThenOpen('claude-code')
+  // Assert
+  await expect
+    .element(
+      screen.getByText(
+        'This agent is no longer available. Close and refresh the agent list.',
+      ),
+    )
+    .toBeVisible()
+  await expect
+    .element(screen.getByRole('button', { name: 'Close' }))
+    .toBeVisible()
 })

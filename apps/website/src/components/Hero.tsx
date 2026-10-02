@@ -21,7 +21,7 @@ export function Hero() {
 
           <p className="mb-10 max-w-2xl text-lg text-muted-foreground lg:text-xl">
             Visualize installed Skills, check symlink status across 75 AI
-            agents, and keep your development tools perfectly synchronized.
+            agents, and inspect their local installation status.
           </p>
 
           <div className="flex flex-col gap-4 sm:flex-row">

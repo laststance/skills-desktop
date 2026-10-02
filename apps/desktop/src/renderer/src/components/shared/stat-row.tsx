@@ -11,7 +11,7 @@ type StatRowTone = 'default' | 'primary' | 'amber'
 
 /**
  * Map of tone → utility classes applied to the value `<span>`. Centralised
- * here so the three sync dialogs cannot drift on accent colour or weight.
+ * here so the cleanup dialogs cannot drift on accent colour or weight.
  */
 const VALUE_CLASS_BY_TONE: Record<StatRowTone, string> = {
   default: 'font-medium',
@@ -30,9 +30,8 @@ interface StatRowProps {
 
 /**
  * One row of the "skills considered / symlinks to create / conflicts skipped"
- * count list rendered by every sync-related dialog. Replaces the inline
- * `flex justify-between` markup that was duplicated three times across
- * `SyncConfirmDialog`, `SyncConflictDialog`, and `CleanupAgentDialog`.
+ * count list rendered by {@link CleanupAgentDialog}. Keeps numeric emphasis
+ * consistent across its recovery states.
  *
  * @example
  * <StatRow label="Skills considered" value={preview.totalSkills} />

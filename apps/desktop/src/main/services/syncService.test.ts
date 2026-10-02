@@ -2,8 +2,6 @@ import { join } from 'node:path'
 
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
-import { toAbsolutePath } from '@/shared/types'
-
 /**
  * Create a mock Stats-like object for lstat results.
  * @param options - Whether the entry is a symbolic link
@@ -65,11 +63,11 @@ describe('syncPreview', () => {
     const { syncPreview } = await import('./syncService')
 
     // Act
-    const result = await syncPreview()
+    const result = await syncPreview({ agentId: 'claude-code' })
 
     // Assert
     expect(result.totalSkills).toBe(0)
-    expect(result.totalAgents).toBe(2)
+    expect(result.totalAgents).toBe(1)
     expect(result.toCreate).toBe(0)
     expect(result.alreadySynced).toBe(0)
     expect(result.conflicts).toHaveLength(0)
@@ -96,12 +94,12 @@ describe('syncPreview', () => {
     const { syncPreview } = await import('./syncService')
 
     // Act
-    const result = await syncPreview()
+    const result = await syncPreview({ agentId: 'claude-code' })
 
     // Assert: creating symlinks for a directory we cannot confirm is a skill is
     // a fan-out on a guess, so sync stays on the one skill it could verify.
     expect(result.totalSkills).toBe(1)
-    expect(result.toCreate).toBe(2) // 1 verifiable skill x 2 agents
+    expect(result.toCreate).toBe(1) // 1 verifiable skill x 1 selected agent
   })
 
   test('syncs nothing when the source directory itself could not be read', async () => {
@@ -116,14 +114,14 @@ describe('syncPreview', () => {
     const { syncPreview } = await import('./syncService')
 
     // Act
-    const result = await syncPreview()
+    const result = await syncPreview({ agentId: 'claude-code' })
 
     // Assert: same degrade-to-empty the old swallow produced, now on purpose.
     expect(result.totalSkills).toBe(0)
     expect(result.toCreate).toBe(0)
   })
 
-  test('reports an existing symlink in every agent as already synced', async () => {
+  test('reports an existing symlink in the selected agent as already synced', async () => {
     // Arrange
     readdirMock.mockImplementation(async (dir: string) => {
       if (dir === '/mock/source/skills') {
@@ -136,16 +134,16 @@ describe('syncPreview', () => {
     const { syncPreview } = await import('./syncService')
 
     // Act
-    const result = await syncPreview()
+    const result = await syncPreview({ agentId: 'claude-code' })
 
     // Assert
     expect(result.totalSkills).toBe(1)
-    expect(result.alreadySynced).toBe(2) // 1 skill × 2 agents
+    expect(result.alreadySynced).toBe(1) // 1 skill × 1 selected agent
     expect(result.toCreate).toBe(0)
     expect(result.conflicts).toHaveLength(0)
   })
 
-  test('reports a missing skill link in every agent as needing creation', async () => {
+  test('reports a missing skill link in the selected agent as needing creation', async () => {
     // Arrange
     readdirMock.mockImplementation(async (dir: string) => {
       if (dir === '/mock/source/skills') {
@@ -165,10 +163,10 @@ describe('syncPreview', () => {
     const { syncPreview } = await import('./syncService')
 
     // Act
-    const result = await syncPreview()
+    const result = await syncPreview({ agentId: 'claude-code' })
 
     // Assert
-    expect(result.toCreate).toBe(2) // 1 skill × 2 agents
+    expect(result.toCreate).toBe(1) // 1 skill × 1 selected agent
     expect(result.alreadySynced).toBe(0)
     expect(result.conflicts).toHaveLength(0)
   })
@@ -187,20 +185,15 @@ describe('syncPreview', () => {
     const { syncPreview } = await import('./syncService')
 
     // Act
-    const result = await syncPreview()
+    const result = await syncPreview({ agentId: 'claude-code' })
 
     // Assert
-    expect(result.conflicts).toHaveLength(2) // 1 skill × 2 agents
+    expect(result.conflicts).toHaveLength(1) // 1 skill × 1 selected agent
     expect(result.conflicts[0]).toMatchObject({
       skillName: 'local-skill',
       agentId: 'claude-code',
       agentName: 'Claude Code',
       agentSkillPath: join('/mock/agents/claude/skills', 'local-skill'),
-    })
-    expect(result.conflicts[1]).toMatchObject({
-      skillName: 'local-skill',
-      agentId: 'cursor',
-      agentName: 'Cursor',
     })
     expect(result.toCreate).toBe(0)
     expect(result.alreadySynced).toBe(0)
@@ -234,12 +227,12 @@ describe('syncPreview', () => {
     const { syncPreview } = await import('./syncService')
 
     // Act
-    const result = await syncPreview()
+    const result = await syncPreview({ agentId: 'claude-code' })
 
     // Assert
-    expect(result.alreadySynced).toBe(2) // synced-skill in both agents
+    expect(result.alreadySynced).toBe(1) // selected agent link
     expect(result.conflicts).toHaveLength(1) // conflict-skill in claude
-    expect(result.toCreate).toBe(1) // conflict-skill in cursor
+    expect(result.toCreate).toBe(0) // selected agent conflict is skipped
   })
 
   test('reports an empty preview when the source dir cannot be read', async () => {
@@ -248,7 +241,7 @@ describe('syncPreview', () => {
     const { syncPreview } = await import('./syncService')
 
     // Act
-    const result = await syncPreview()
+    const result = await syncPreview({ agentId: 'claude-code' })
 
     // Assert
     expect(result.totalSkills).toBe(0)
@@ -267,7 +260,7 @@ describe('syncExecute', () => {
     rmMock.mockResolvedValue(undefined)
   })
 
-  test('creates a symlink for every agent missing the skill', async () => {
+  test('creates a symlink for the selected agent missing the skill', async () => {
     // Arrange
     readdirMock.mockImplementation(async (dir: string) => {
       if (dir === '/mock/source/skills') {
@@ -280,20 +273,19 @@ describe('syncExecute', () => {
     const { syncExecute } = await import('./syncService')
 
     // Act
-    const result = await syncExecute({ replaceConflicts: [] })
+    const result = await syncExecute({ agentId: 'claude-code' })
 
     // Assert
-    expect(result.created).toBe(2) // 1 skill × 2 agents
-    expect(result.replaced).toBe(0)
+    expect(result.created).toBe(1) // 1 skill × 1 selected agent
     expect(result.skipped).toBe(0)
     expect(result.success).toBe(true)
-    expect(result.details).toHaveLength(2)
+    expect(result.details).toHaveLength(1)
     expect(result.details[0]).toMatchObject({
       skillName: 'new-skill',
       agentName: 'Claude Code',
       action: 'created',
     })
-    expect(symlinkMock).toHaveBeenCalledTimes(2)
+    expect(symlinkMock).toHaveBeenCalledTimes(1)
     expect(symlinkMock).toHaveBeenCalledWith(
       join('/mock/source/skills', 'new-skill'),
       join('/mock/agents/claude/skills', 'new-skill'),
@@ -313,69 +305,16 @@ describe('syncExecute', () => {
     const { syncExecute } = await import('./syncService')
 
     // Act
-    const result = await syncExecute({ replaceConflicts: [] })
+    const result = await syncExecute({ agentId: 'claude-code' })
 
     // Assert
     expect(result.created).toBe(0)
-    expect(result.replaced).toBe(0)
-    expect(result.skipped).toBe(2) // 1 skill × 2 agents, all already symlinked
+    expect(result.skipped).toBe(1) // 1 skill × 1 selected agent, all already symlinked
     // Skipped items now appear per-item in details so the dialog can show them
-    expect(result.details).toHaveLength(2)
+    expect(result.details).toHaveLength(1)
     expect(result.details.every((item) => item.action === 'skipped')).toBe(true)
     expect(symlinkMock).not.toHaveBeenCalled()
     expect(rmMock).not.toHaveBeenCalled()
-  })
-
-  test('replaces a conflicting local folder with a symlink once the user approves it', async () => {
-    // Arrange
-    const conflictPath = join('/mock/agents/claude/skills', 'local-skill')
-
-    readdirMock.mockImplementation(async (dir: string) => {
-      if (dir === '/mock/source/skills') {
-        return [{ name: 'local-skill', isDirectory: () => true }]
-      }
-      return []
-    })
-    accessMock.mockResolvedValue(undefined)
-    lstatMock.mockImplementation(async (path: string) => {
-      if (path === conflictPath) {
-        return createStats({ isSymbolicLink: false })
-      }
-      throw new Error('ENOENT')
-    })
-    const { syncExecute } = await import('./syncService')
-
-    // Act
-    const result = await syncExecute({
-      replaceConflicts: [toAbsolutePath(conflictPath)],
-    })
-
-    // Assert
-    expect(result.replaced).toBe(1)
-    expect(result.details).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          skillName: 'local-skill',
-          agentName: 'Claude Code',
-          action: 'replaced',
-        }),
-        expect.objectContaining({
-          skillName: 'local-skill',
-          agentName: 'Cursor',
-          action: 'created',
-        }),
-      ]),
-    )
-    expect(rmMock).toHaveBeenCalledWith(conflictPath, {
-      recursive: true,
-      force: true,
-    })
-    expect(symlinkMock).toHaveBeenCalledWith(
-      join('/mock/source/skills', 'local-skill'),
-      conflictPath,
-    )
-    // Cursor path doesn't exist → created
-    expect(result.created).toBe(1)
   })
 
   test('leaves a conflicting local folder in place when the user declines to replace it', async () => {
@@ -398,27 +337,21 @@ describe('syncExecute', () => {
     const { syncExecute } = await import('./syncService')
 
     // Act
-    const result = await syncExecute({ replaceConflicts: [] }) // Not approved
+    const result = await syncExecute({ agentId: 'claude-code' }) // Not approved
 
     // Assert
-    expect(result.replaced).toBe(0)
     expect(result.skipped).toBe(1) // unapproved conflict skipped
     expect(rmMock).not.toHaveBeenCalled()
     // Cursor path: created
-    expect(result.created).toBe(1)
-    // Declined conflict is now surfaced as a skipped detail row (not folded into aggregate)
-    expect(result.details).toHaveLength(2)
+    expect(result.created).toBe(0)
+    // Existing conflict is now surfaced as a skipped detail row (not folded into aggregate)
+    expect(result.details).toHaveLength(1)
     expect(result.details).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           skillName: 'local-skill',
           agentName: 'Claude Code',
           action: 'skipped',
-        }),
-        expect.objectContaining({
-          skillName: 'local-skill',
-          agentName: 'Cursor',
-          action: 'created',
         }),
       ]),
     )
@@ -438,17 +371,17 @@ describe('syncExecute', () => {
     const { syncExecute } = await import('./syncService')
 
     // Act
-    const result = await syncExecute({ replaceConflicts: [] })
+    const result = await syncExecute({ agentId: 'claude-code' })
 
     // Assert
     expect(result.success).toBe(false)
-    expect(result.errors).toHaveLength(2)
+    expect(result.errors).toHaveLength(1)
     expect(result.errors[0]).toMatchObject({
       path: join('/mock/agents/claude/skills', 'fail-skill'),
       error: 'EPERM: operation not permitted',
     })
     // Error items tracked in details with action='error'
-    expect(result.details).toHaveLength(2)
+    expect(result.details).toHaveLength(1)
     expect(result.details[0]).toMatchObject({
       skillName: 'fail-skill',
       agentName: 'Claude Code',
@@ -457,7 +390,7 @@ describe('syncExecute', () => {
     })
   })
 
-  test('creates each agent skills directory before linking into it', async () => {
+  test('creates the selected agent skills directory without touching the other agent', async () => {
     // Arrange
     readdirMock.mockImplementation(async (dir: string) => {
       if (dir === '/mock/source/skills') {
@@ -470,15 +403,16 @@ describe('syncExecute', () => {
     const { syncExecute } = await import('./syncService')
 
     // Act
-    await syncExecute({ replaceConflicts: [] })
+    await syncExecute({ agentId: 'claude-code' })
 
     // Assert
     expect(mkdirMock).toHaveBeenCalledWith('/mock/agents/claude/skills', {
       recursive: true,
     })
-    expect(mkdirMock).toHaveBeenCalledWith('/mock/agents/cursor/skills', {
-      recursive: true,
-    })
+    expect(mkdirMock).not.toHaveBeenCalledWith(
+      '/mock/agents/cursor/skills',
+      expect.anything(),
+    )
   })
 
   test('creates the agent skills directory only once when several new skills land in the same agent', async () => {
@@ -499,7 +433,6 @@ describe('syncExecute', () => {
 
     // Act
     const result = await syncExecute({
-      replaceConflicts: [],
       agentId: 'cursor',
     })
 
@@ -526,9 +459,7 @@ describe('syncExecute', () => {
 /**
  * Scoped (per-agent) sync — drives the per-agent Cleanup flow surfaced
  * from AgentItem's right-click "Cleanup missing skills..." menu item.
- * Both `syncPreview` and `syncExecute` accept an optional `agentId` that
- * narrows the operation to one agent. The whole-agent global sync flow is
- * unchanged when `agentId` is omitted (covered by the suites above).
+ * Both `syncPreview` and `syncExecute` require an `agentId` so no request expands to all agents.
  */
 describe('scoped sync (per-agent)', () => {
   beforeEach(() => {
@@ -563,19 +494,6 @@ describe('scoped sync (per-agent)', () => {
     expect(result.forAgent).toBe('cursor')
   })
 
-  test('leaves a whole-fleet preview unlabeled by any single agent', async () => {
-    // Arrange
-    readdirMock.mockResolvedValue([])
-    const { syncPreview } = await import('./syncService')
-
-    // Act
-    const result = await syncPreview()
-
-    // Assert
-    expect(result.forAgent).toBeUndefined()
-    expect(result.totalAgents).toBe(2)
-  })
-
   test('links the skill only into the scoped agent and never touches the others', async () => {
     // Arrange
     readdirMock.mockImplementation(async (dir: string) => {
@@ -589,7 +507,6 @@ describe('scoped sync (per-agent)', () => {
 
     // Act
     const result = await syncExecute({
-      replaceConflicts: [],
       agentId: 'cursor',
     })
 
@@ -638,7 +555,6 @@ describe('scoped sync (per-agent)', () => {
 
     // Act
     const result = await syncExecute({
-      replaceConflicts: [],
       agentId: 'codex',
     })
 
@@ -673,4 +589,19 @@ describe('scoped sync (per-agent)', () => {
     expect(result.forAgent).toBe('codex')
     expect(lstatMock).not.toHaveBeenCalled()
   })
+})
+
+test('does no filesystem work when a direct recovery call omits the agent', async () => {
+  // Arrange
+  vi.resetAllMocks()
+  readdirMock.mockResolvedValue([])
+  const { syncExecute } = await import('./syncService')
+  // Act: reflect an untyped legacy caller at the real service boundary.
+  const result = await Reflect.apply(syncExecute, undefined, [{}])
+  // Assert
+  expect(result.created).toBe(0)
+  expect(result.details).toEqual([])
+  expect(accessMock).not.toHaveBeenCalled()
+  expect(mkdirMock).not.toHaveBeenCalled()
+  expect(symlinkMock).not.toHaveBeenCalled()
 })

@@ -336,8 +336,9 @@ export const storySkillFileContent: SkillFileContent = {
 }
 
 export const storySyncPreview: SyncPreviewResult = {
+  forAgent: 'cursor',
   totalSkills: toSkillCount(4),
-  totalAgents: toAgentCount(3),
+  totalAgents: toAgentCount(1),
   toCreate: toSymlinkCount(3),
   alreadySynced: toSymlinkCount(8),
   conflicts: [
@@ -355,7 +356,7 @@ export const storySyncPreview: SyncPreviewResult = {
 export const storySyncResult: SyncExecuteResult = {
   success: false,
   created: toSymlinkCount(2),
-  replaced: toSymlinkCount(1),
+
   skipped: toSymlinkCount(7),
   errors: [
     {
@@ -368,11 +369,6 @@ export const storySyncResult: SyncExecuteResult = {
       skillName: toSkillName('design-review'),
       agentName: 'Codex',
       action: 'created',
-    },
-    {
-      skillName: toSkillName('qa-electron'),
-      agentName: 'Cursor',
-      action: 'replaced',
     },
     {
       skillName: toSkillName('task'),

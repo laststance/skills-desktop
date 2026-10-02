@@ -248,7 +248,7 @@ test('starting a sync preview clears the selection, but other sync thunks leave 
   await dispatchAction(appWindow, {
     type: 'ui/executeSyncAction/pending',
     meta: {
-      arg: { replaceConflicts: [] },
+      arg: { agentId: 'cursor' },
       requestId: 'e2e-d1-negative',
       requestStatus: 'pending',
     },

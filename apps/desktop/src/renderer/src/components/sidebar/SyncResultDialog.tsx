@@ -26,7 +26,6 @@ const ACTION_BADGE_VARIANT: Record<
   'valid' | 'broken' | 'destructive' | 'secondary'
 > = {
   created: 'valid',
-  replaced: 'broken',
   skipped: 'secondary',
   error: 'destructive',
 }
@@ -34,7 +33,6 @@ const ACTION_BADGE_VARIANT: Record<
 /** Human-readable labels for each action type */
 const ACTION_LABEL: Record<SyncResultAction, string> = {
   created: 'Created',
-  replaced: 'Replaced',
   skipped: 'Skipped',
   error: 'Error',
 }
@@ -53,9 +51,7 @@ export const SyncResultDialog =
     const handleClose = (): void => {
       const hadChanges =
         syncResult !== null &&
-        (syncResult.created > 0 ||
-          syncResult.replaced > 0 ||
-          syncResult.errors.length > 0)
+        (syncResult.created > 0 || syncResult.errors.length > 0)
       dispatch(clearSyncResult())
       if (hadChanges) {
         refreshAllData(dispatch)
@@ -74,7 +70,7 @@ export const SyncResultDialog =
           <DialogHeader>
             <div className="flex items-center gap-2">
               <HeaderIcon className={`h-5 w-5 ${iconColor}`} />
-              <DialogTitle>Sync Results</DialogTitle>
+              <DialogTitle>Cleanup Results</DialogTitle>
             </div>
             <DialogDescription>{description}</DialogDescription>
           </DialogHeader>
@@ -84,11 +80,6 @@ export const SyncResultDialog =
               {syncResult.created > 0 && (
                 <span className="text-primary">
                   {syncResult.created} created
-                </span>
-              )}
-              {syncResult.replaced > 0 && (
-                <span className="text-amber-400">
-                  {syncResult.replaced} replaced
                 </span>
               )}
               {syncResult.errors.length > 0 && (

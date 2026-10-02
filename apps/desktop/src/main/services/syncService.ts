@@ -1,7 +1,7 @@
-import { access, lstat, mkdir, rm, symlink } from 'fs/promises'
+import { access, lstat, mkdir, symlink } from 'fs/promises'
 import { join } from 'path'
 
-import { match, P } from 'ts-pattern'
+import { match } from 'ts-pattern'
 
 import { AGENTS } from '@/main/constants'
 import { extractErrorMessage } from '@/main/utils/errors'
@@ -33,38 +33,22 @@ import {
 type ExistingAgent = { id: AgentId; name: AgentName; path: AbsolutePath }
 
 /**
- * Get agents whose base directory exists on disk
- * @returns Array of agents with existing directories
+ * Resolve the one available agent requested by {@link syncPreview} or {@link syncExecute}.
+ * Unknown or absent agents produce no work, so a missing scope never expands to all agents.
+ * @example await getExistingAgent('cursor')
  */
-async function getExistingAgents(): Promise<ExistingAgent[]> {
-  const existing: ExistingAgent[] = []
-  for (const agent of AGENTS) {
-    try {
-      // Check parent dir (e.g. ~/.claude) not skills dir
-      const parentDir = join(agent.path, '..')
-      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- access() per distinct agent parent dir pushed to existing[] in AGENTS order; N is bounded to the agent set, so parallel gain is imperceptible on local fs.
-      await access(parentDir)
-      existing.push(agent)
-    } catch {
-      // Agent directory doesn't exist
-    }
+async function getExistingAgent(
+  agentId: AgentId,
+): Promise<ExistingAgent | null> {
+  const agent = AGENTS.find((candidate) => candidate.id === agentId)
+  if (!agent) return null
+  try {
+    // Check the agent parent; recovery can create its missing skills directory.
+    await access(join(agent.path, '..'))
+    return agent
+  } catch {
+    return null
   }
-  return existing
-}
-
-/**
- * Narrow `getExistingAgents()` to a single agent when `options.agentId` is set.
- * Lifted out so `syncPreview` and `syncExecute` cannot drift on the filter rule.
- * Returns `[]` when the requested agent isn't on disk — preview/execute then
- * short-circuit with empty results rather than silently no-op'ing across all
- * agents (defends against typos in the agentId arg).
- */
-function filterAgentsByOption<TAgent extends { id: AgentId }>(
-  agents: TAgent[],
-  agentId: AgentId | undefined,
-): TAgent[] {
-  if (!agentId) return agents
-  return agents.filter((a) => a.id === agentId)
 }
 
 /**
@@ -85,28 +69,21 @@ function syncableSourceSkills(listing: SourceSkillDirListing): SkillDirEntry[] {
 }
 
 /**
- * Preview sync: detect what would happen without making changes.
- * Optionally scoped to a single agent for the per-agent Cleanup flow.
- * @param options - When `agentId` is set, restricts preview to that one agent.
- * @returns SyncPreviewResult with counts, conflicts, and (when scoped) `forAgent` echo.
- * @example
- * syncPreview()
- * // => { totalSkills: 5, totalAgents: 3, toCreate: 10, alreadySynced: 5, conflicts: [] }
- * @example
- * syncPreview({ agentId: 'cursor' })
- * // => { totalSkills: 5, totalAgents: 1, toCreate: 4, alreadySynced: 1, conflicts: [], forAgent: 'cursor' }
+ * Preview missing links for the agent selected in {@link CleanupAgentDialog}.
+ * Existing symlinks and real-folder conflicts are counted without filesystem changes.
+ * @example await syncPreview({ agentId: 'cursor' })
  */
 export async function syncPreview(
-  options?: SyncPreviewOptions,
+  options: SyncPreviewOptions,
 ): Promise<SyncPreviewResult> {
   // Independent reads (source skills + on-disk agents); both helpers are total
   // (never reject), so parallelizing is behavior-identical aside from speed.
-  const [listing, allAgents] = await Promise.all([
+  const [listing, agent] = await Promise.all([
     listSourceSkillDirs(),
-    getExistingAgents(),
+    getExistingAgent(options.agentId),
   ])
   const skills = syncableSourceSkills(listing)
-  const agents = filterAgentsByOption(allAgents, options?.agentId)
+  const agents = agent ? [agent] : []
 
   let toCreate = 0
   let alreadySynced = 0
@@ -144,40 +121,28 @@ export async function syncPreview(
     toCreate: toSymlinkCount(toCreate),
     alreadySynced: toSymlinkCount(alreadySynced),
     conflicts,
-    ...(options?.agentId ? { forAgent: options.agentId } : {}),
+    forAgent: options.agentId,
   }
 }
 
 /**
- * Execute sync: create symlinks and optionally replace conflicts.
- * Tracks per-item details for displaying a sync diff after completion.
- * Optionally scoped to a single agent for the per-agent Cleanup flow.
- * @param options - replaceConflicts: paths to replace with symlinks. agentId: restrict to one agent.
- * @returns SyncExecuteResult with counts, per-item details, and errors
- * @example
- * syncExecute({ replaceConflicts: ['/Users/x/.claude/skills/my-skill'] })
- * // => { success: true, created: 10, replaced: 1, skipped: 5, errors: [], details: [...] }
- * @example
- * syncExecute({ replaceConflicts: [], agentId: 'cursor' })
- * // => { success: true, created: 4, replaced: 0, skipped: 1, errors: [], details: [...] }
+ * Recreate missing links for the agent confirmed in {@link CleanupAgentDialog}.
+ * Records per-skill outcomes for {@link SyncResultDialog}; real folders are always preserved.
+ * @example await syncExecute({ agentId: 'cursor' })
  */
 export async function syncExecute(
   options: SyncExecuteOptions,
 ): Promise<SyncExecuteResult> {
-  const { replaceConflicts, agentId } = options
-  const replaceSet = new Set(replaceConflicts)
-
   // Independent reads (source skills + on-disk agents); both helpers are total
   // (never reject), so parallelizing is behavior-identical aside from speed.
-  const [listing, allAgents] = await Promise.all([
+  const [listing, agent] = await Promise.all([
     listSourceSkillDirs(),
-    getExistingAgents(),
+    getExistingAgent(options.agentId),
   ])
   const skills = syncableSourceSkills(listing)
-  const agents = filterAgentsByOption(allAgents, agentId)
+  const agents = agent ? [agent] : []
 
   let created = 0
-  let replaced = 0
   let skipped = 0
   const errors: SyncExecuteResult['errors'] = []
   const details: SyncResultItem[] = []
@@ -204,9 +169,8 @@ export async function syncExecute(
         const action = await match({
           exists,
           isSymlink,
-          shouldReplace: replaceSet.has(linkPath),
         })
-          .returnType<Promise<'created' | 'skipped' | 'replaced'>>()
+          .returnType<Promise<'created' | 'skipped'>>()
           .with({ exists: false }, async () => {
             if (!ensuredAgentDirs.has(agent.path)) {
               await mkdir(agent.path, { recursive: true })
@@ -220,19 +184,12 @@ export async function syncExecute(
             skipped++
             return 'skipped' as const
           })
-          .with({ shouldReplace: true }, async () => {
-            await rm(linkPath, { recursive: true, force: true })
-            await symlink(skill.path, linkPath)
-            replaced++
-            return 'replaced' as const
-          })
-          .with(P._, async () => {
-            // Conflict the user declined to replace. Track as skipped so the dialog
+          .otherwise(async () => {
+            // Real-folder conflict is always preserved. Track as skipped so the dialog
             // can show it per-item, rather than silently folding it into the aggregate.
             skipped++
             return 'skipped' as const
           })
-          .exhaustive()
 
         details.push({
           skillName: skill.name,
@@ -255,7 +212,6 @@ export async function syncExecute(
   return {
     success: errors.length === 0,
     created: toSymlinkCount(created),
-    replaced: toSymlinkCount(replaced),
     skipped: toSymlinkCount(skipped),
     errors,
     details,

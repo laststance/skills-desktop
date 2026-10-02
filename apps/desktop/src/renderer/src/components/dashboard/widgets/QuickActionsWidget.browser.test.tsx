@@ -5,31 +5,20 @@ import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
 
-// QuickActionsWidget's Sync/Refresh tiles dispatch async thunks that read the
-// preload bridge (`window.electron.sync.preview`, `skills.getAll`,
-// `agents.getAll`, `source.getStats`). Browser-mode tests replace that bridge,
-// so every IPC method is stubbed with a never-resolving promise: this keeps the
-// thunk parked in `pending` (so `isSyncing` / `isRefreshing` stay true for the
-// disabled-state assertions) and prevents a late `fulfilled` action from
-// dispatching after a test's assertion and flipping the flag back — the classic
-// browser-lane "passes then flakes" race.
-const mockSyncPreview = vi.fn()
+// Refresh reads the preload bridge; never-resolving mocks retain its busy state.
 const mockSkillsGetAll = vi.fn()
 const mockAgentsGetAll = vi.fn()
 const mockSourceGetStats = vi.fn()
 
 beforeEach(() => {
-  mockSyncPreview.mockReset()
   mockSkillsGetAll.mockReset()
   mockAgentsGetAll.mockReset()
   mockSourceGetStats.mockReset()
   // Never-resolving so each thunk stays pending after a click.
-  mockSyncPreview.mockReturnValue(new Promise(() => {}))
   mockSkillsGetAll.mockReturnValue(new Promise(() => {}))
   mockAgentsGetAll.mockReturnValue(new Promise(() => {}))
   mockSourceGetStats.mockReturnValue(new Promise(() => {}))
   vi.stubGlobal('electron', {
-    sync: { preview: mockSyncPreview },
     skills: { getAll: mockSkillsGetAll },
     agents: { getAll: mockAgentsGetAll },
     source: { getStats: mockSourceGetStats },
@@ -41,9 +30,9 @@ afterEach(() => {
 })
 
 /**
- * Render the real QuickActionsWidget against a fresh store with all four
+ * Render the real QuickActionsWidget against a fresh store with all
  * action-relevant slices wired up. A new store per call guarantees
- * `isSyncing` / `isRefreshing` start false so the Sync/Refresh buttons are
+ * `isRefreshing` starts false so the Refresh button is
  * enabled and their click handlers actually run.
  * @returns Render screen plus the backing Redux store.
  */
@@ -81,15 +70,15 @@ async function renderQuickActions() {
 }
 
 describe('QuickActionsWidget', () => {
-  test('offers all four cold-start shortcuts as labelled buttons', async () => {
+  test('offers three shortcuts and no all-agent Sync action', async () => {
     // Arrange + Act
     const { screen } = await renderQuickActions()
 
     // Assert: each shortcut renders its own labelled tile, so a regression that
-    // drops or mislabels one of the four quick actions fails here.
+    // drops or mislabels one of the three quick actions fails here.
     await expect
       .element(screen.getByRole('button', { name: 'Sync' }))
-      .toBeVisible()
+      .not.toBeInTheDocument()
     await expect
       .element(screen.getByRole('button', { name: 'Refresh' }))
       .toBeVisible()
@@ -99,21 +88,6 @@ describe('QuickActionsWidget', () => {
     await expect
       .element(screen.getByRole('button', { name: 'Reset Layout' }))
       .toBeVisible()
-  })
-
-  test('starts a sync preview and shows the Sync tile as busy when clicked', async () => {
-    // Arrange
-    const { screen } = await renderQuickActions()
-
-    // Act
-    await screen.getByRole('button', { name: 'Sync' }).click()
-
-    // Assert: the preview IPC fired and the in-flight sync disables the tile
-    // (the spinner/busy wiring the user relies on to know work has started).
-    expect(mockSyncPreview).toHaveBeenCalledTimes(1)
-    await expect
-      .element(screen.getByRole('button', { name: 'Sync' }))
-      .toBeDisabled()
   })
 
   test('re-scans skills, agents, and source stats and shows Refresh as busy when clicked', async () => {

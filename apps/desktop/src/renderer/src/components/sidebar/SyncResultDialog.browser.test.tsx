@@ -14,7 +14,7 @@ const mockSourceGetStats = vi.fn()
 const RESULT_WITH_CHANGES: SyncExecuteResult = {
   success: true,
   created: toSymlinkCount(2),
-  replaced: toSymlinkCount(1),
+
   skipped: toSymlinkCount(1),
   errors: [
     { path: toAbsolutePath('/Users/me/.codex/skills/broken'), error: 'EACCES' },
@@ -26,11 +26,6 @@ const RESULT_WITH_CHANGES: SyncExecuteResult = {
       skillName: toSkillName('tdd-workflow'),
       agentName: 'Claude Code',
       action: 'created',
-    },
-    {
-      skillName: toSkillName('commit-helper'),
-      agentName: 'Codex',
-      action: 'replaced',
     },
     {
       skillName: toSkillName('already-there'),
@@ -49,7 +44,7 @@ const RESULT_WITH_CHANGES: SyncExecuteResult = {
 const RESULT_NO_CHANGES: SyncExecuteResult = {
   success: true,
   created: toSymlinkCount(0),
-  replaced: toSymlinkCount(0),
+
   skipped: toSymlinkCount(3),
   errors: [],
   details: [
@@ -74,7 +69,7 @@ const RESULT_NO_CHANGES: SyncExecuteResult = {
 const RESULT_EMPTY_DETAILS: SyncExecuteResult = {
   success: true,
   created: toSymlinkCount(0),
-  replaced: toSymlinkCount(0),
+
   skipped: toSymlinkCount(0),
   errors: [],
   details: [],
@@ -129,7 +124,7 @@ async function renderWithResult(syncResult: SyncExecuteResult | null) {
   if (syncResult) {
     store.dispatch(
       executeSyncAction.fulfilled(syncResult, 'req-sync', {
-        replaceConflicts: [],
+        agentId: 'claude-code',
       }),
     )
   }
@@ -148,7 +143,7 @@ describe('SyncResultDialog', () => {
     const { screen } = await renderWithResult(null)
 
     // Assert
-    expect(screen.getByText('Sync Results').query()).toBeNull()
+    expect(screen.getByText('Cleanup Results').query()).toBeNull()
   })
 
   test('opens with a header summary once a sync result is available', async () => {
@@ -156,11 +151,9 @@ describe('SyncResultDialog', () => {
     const { screen } = await renderWithResult(RESULT_WITH_CHANGES)
 
     // Assert — header plus the derived "partial" summary line.
-    await expect.element(screen.getByText('Sync Results')).toBeVisible()
+    await expect.element(screen.getByText('Cleanup Results')).toBeVisible()
     await expect
-      .element(
-        screen.getByText('Created 2 symlinks, Replaced 1 conflict, 1 failed'),
-      )
+      .element(screen.getByText('Created 2 symlinks, 1 failed'))
       .toBeVisible()
   })
 
@@ -170,7 +163,6 @@ describe('SyncResultDialog', () => {
 
     // Assert — each nonzero bucket surfaces its own chip.
     await expect.element(screen.getByText('2 created')).toBeVisible()
-    await expect.element(screen.getByText('1 replaced')).toBeVisible()
     await expect.element(screen.getByText('1 errors')).toBeVisible()
     await expect.element(screen.getByText('1 skipped')).toBeVisible()
   })
@@ -186,16 +178,13 @@ describe('SyncResultDialog', () => {
       .element(screen.getByText('Created', { exact: true }))
       .toBeVisible()
     await expect
-      .element(screen.getByText('Replaced', { exact: true }))
-      .toBeVisible()
-    await expect
       .element(screen.getByText('Skipped', { exact: true }))
       .toBeVisible()
     await expect
       .element(screen.getByText('Error', { exact: true }))
       .toBeVisible()
     await expect.element(screen.getByText('tdd-workflow')).toBeVisible()
-    await expect.element(screen.getByText('commit-helper')).toBeVisible()
+    await expect.element(screen.getByText('already-there')).toBeVisible()
   })
 
   test('surfaces the failure message on an errored row', async () => {
@@ -217,9 +206,9 @@ describe('SyncResultDialog', () => {
   })
 
   test('refreshes app data after closing a result that changed the filesystem', async () => {
-    // Arrange — a result with created/replaced/errors counts as "had changes".
+    // Arrange — a result with created/errors counts as "had changes".
     const { screen, store } = await renderWithResult(RESULT_WITH_CHANGES)
-    await expect.element(screen.getByText('Sync Results')).toBeVisible()
+    await expect.element(screen.getByText('Cleanup Results')).toBeVisible()
 
     // Act — the footer Close button dismisses the dialog and triggers
     // refreshAllData. (Radix also renders an X with the name "Close"; the footer
@@ -236,7 +225,7 @@ describe('SyncResultDialog', () => {
   test('skips the data refresh when closing a result that changed nothing', async () => {
     // Arrange — an all-skipped result has no changes, so no refresh should run.
     const { screen, store } = await renderWithResult(RESULT_NO_CHANGES)
-    await expect.element(screen.getByText('Sync Results')).toBeVisible()
+    await expect.element(screen.getByText('Cleanup Results')).toBeVisible()
 
     // Act — click the footer Close button (first in DOM order).
     await screen.getByRole('button', { name: 'Close' }).first().click()

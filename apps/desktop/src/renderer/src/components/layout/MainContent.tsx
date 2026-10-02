@@ -8,8 +8,6 @@ import { SkillsMarketplace } from '@/renderer/src/components/marketplace'
 import { InstallModal } from '@/renderer/src/components/marketplace/InstallModal'
 import { FilterPill } from '@/renderer/src/components/shared/FilterPill'
 import { CleanupAgentDialog } from '@/renderer/src/components/sidebar/CleanupAgentDialog'
-import { SyncConfirmDialog } from '@/renderer/src/components/sidebar/SyncConfirmDialog'
-import { SyncConflictDialog } from '@/renderer/src/components/sidebar/SyncConflictDialog'
 import { SyncResultDialog } from '@/renderer/src/components/sidebar/SyncResultDialog'
 import { AddSymlinkModal } from '@/renderer/src/components/skills/AddSymlinkModal'
 import { BulkCopyToAgentsModal } from '@/renderer/src/components/skills/BulkCopyToAgentsModal'
@@ -1298,8 +1296,6 @@ export const MainContent = function MainContent(): React.ReactElement {
       <AddSymlinkModal />
       <CopyToAgentsModal />
       <BulkCopyToAgentsModal />
-      <SyncConfirmDialog />
-      <SyncConflictDialog />
       <SyncResultDialog />
       <CleanupAgentDialog />
       <SymlinkCleanupDialog />

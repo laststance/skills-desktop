@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://skills-desktop.vercel.app'),
   title: 'Skills Desktop - AI Agent Skills Manager',
   description:
-    'Visualize and manage installed Skills across 75 AI agents. See symlink status, discover skills, and keep your AI tools in sync.',
+    'Visualize and manage installed Skills across 75 AI agents. See symlink status, discover skills, and manage each agent’s local skills.',
   keywords: ['AI', 'Claude Code', 'Skills', 'Desktop App', 'macOS', 'Electron'],
   authors: [{ name: 'Laststance.io' }],
   openGraph: {

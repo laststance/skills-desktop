@@ -168,14 +168,14 @@ When the **Installed** tab is open and no skill is selected, the detail panel re
 | Bookmarks      | Saved skills from the marketplace                                                      |
 | Trending       | Popular marketplace skills right now                                                   |
 | What's New     | Recently added or updated marketplace skills                                           |
-| Quick Actions  | Frequent actions: sync, refresh, open marketplace                                      |
+| Quick Actions  | Frequent actions: refresh, open marketplace, reset layout                              |
 
 **Experimental widgets** — hidden from the picker unless `FEATURE_FLAGS.ENABLE_DASHBOARD_EXPERIMENTAL` is enabled:
 
-| Widget            | Shows                                                |
-| ----------------- | ---------------------------------------------------- |
-| Agent Heatmap     | Symlink density per agent visualized as a heatmap    |
-| Activity Timeline | Recent add/remove/sync events in chronological order |
+| Widget            | Shows                                                         |
+| ----------------- | ------------------------------------------------------------- |
+| Agent Heatmap     | Symlink density per agent visualized as a heatmap             |
+| Activity Timeline | Recent add/remove/agent-cleanup events in chronological order |
 
 ### Skills Marketplace
 
@@ -267,7 +267,7 @@ When a skill source directory is deleted (e.g. `rm -rf ~/.agents/skills/foo`) bu
 | Global cleanup           | Sidebar footer "Clean up orphan symlinks"  | Removes all orphan symlinks across every agent               |
 | Symlink Health cleanup   | Dashboard widget → "Scan issues"           | Reviews and removes orphan records plus broken agent links   |
 
-The per-agent dialog uses the scoped sync IPC (`sync:preview` / `sync:execute` accept an optional `agentId`) so both the preview and execution stay restricted to the targeted agent. When the dialog opens with no actionable orphans (only conflicts to acknowledge), it surfaces a "conflicts skipped" hint instead of an empty success.
+Missing-link recovery is separate from orphan cleanup. The agent menu's "Cleanup missing skills..." uses `sync:preview` / `sync:execute` with a required `agentId` to recreate only that agent's missing source-skill links. Existing symlinks and real folders are preserved. Global Sync and conflict replacement are unavailable; malformed or legacy requests are rejected before execution.
 
 ### Skill Metadata
 
@@ -528,9 +528,9 @@ listenerMiddleware.startListening({
 'skills:cli:cancel'   → void
 'skills:cli:progress' → (Main → Renderer event)
 
-// Sync (agent-scoped when `agentId` is set; global otherwise)
-'sync:preview'        → (options?: { agentId?: AgentId }) => Promise<SyncPreviewResult>
-'sync:execute'        → (options:  { agentId?: AgentId }) => Promise<SyncExecuteResult>
+// Agent-scoped missing-link recovery (agentId required)
+'sync:preview'        → (options: { agentId: AgentId }) => Promise<SyncPreviewResult>
+'sync:execute'        → (options: { agentId: AgentId }) => Promise<SyncExecuteResult>
 
 // Settings (atomic-write JSON at userData/settings.json)
 'settings:open'       → void
@@ -724,7 +724,7 @@ skills-desktop/               # pnpm workspace root (private, no version)
 │   │   │   │       ├── fileReader.ts
 │   │   │   │       ├── settings.ts          # Atomic-write settings.json + load/parse
 │   │   │   │       ├── settingsWindow.ts    # Settings BrowserWindow lifecycle
-│   │   │   │       ├── syncService.ts       # Preview/execute sync (scoped or global)
+│   │   │   │       ├── syncService.ts       # Preview/execute per-agent missing-link recovery
 │   │   │   │       └── skillsCliService.ts  # npx skills CLI wrapper
 │   │   │   ├── preload/
 │   │   │   │   ├── index.ts          # Context bridge

@@ -8,7 +8,7 @@ import { Footer } from '@/components/Footer'
 export const metadata: Metadata = {
   title: 'Skills Desktop - AI Agent Skills Manager',
   description:
-    'Visualize and manage installed Skills across AI agents, inspect symlink status, and keep local coding tools in sync.',
+    'Visualize and manage installed Skills across AI agents, inspect symlink status, and recover missing links for a selected agent.',
 }
 
 export default function Home() {

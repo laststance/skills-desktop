@@ -258,11 +258,8 @@ declare global {
        * `SyncExecuteResult` shapes (which evolve with feature work).
        */
       sync: {
-        preview: (options?: { agentId?: string }) => Promise<unknown>
-        execute: (options: {
-          replaceConflicts: string[]
-          agentId?: string
-        }) => Promise<unknown>
+        preview: (options: { agentId: string }) => Promise<unknown>
+        execute: (options: { agentId: string }) => Promise<unknown>
       }
     }
   }

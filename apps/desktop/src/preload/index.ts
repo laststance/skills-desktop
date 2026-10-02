@@ -150,7 +150,7 @@ contextBridge.exposeInMainWorld('electron', {
   },
   // Sync API
   sync: {
-    preview: async (options?: SyncPreviewOptions) =>
+    preview: async (options: SyncPreviewOptions) =>
       typedInvoke('sync:preview', options),
     execute: async (options: SyncExecuteOptions) =>
       typedInvoke('sync:execute', options),

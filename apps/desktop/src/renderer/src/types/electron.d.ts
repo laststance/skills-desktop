@@ -156,7 +156,7 @@ declare global {
         }) => Promise<SkillSearchResult[]>
       }
       sync: {
-        preview: (options?: SyncPreviewOptions) => Promise<SyncPreviewResult>
+        preview: (options: SyncPreviewOptions) => Promise<SyncPreviewResult>
         execute: (options: SyncExecuteOptions) => Promise<SyncExecuteResult>
       }
       settings: {

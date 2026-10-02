@@ -7,10 +7,8 @@ import { errorToastDescription } from '@/renderer/src/utils/errorToastDescriptio
 import type { SyncExecuteOptions } from '@/shared/types'
 
 /**
- * Encapsulates the dispatch + rejected-match + toast flow shared by every
- * sync-related dialog (`SyncConfirmDialog`, `SyncConflictDialog`,
- * `CleanupAgentDialog`). Replaces three near-identical handlers that each
- * managed their own `isExecuting` and toast call.
+ * Dispatch the per-agent recovery requested by {@link CleanupAgentDialog}.
+ * Keeps execution, failure feedback and duplicate-submit protection together.
  *
  * The hook owns the component-local executing flag so dialogs no longer
  * need their own `useState`. `run` resolves to `true` only when the thunk
@@ -31,7 +29,7 @@ import type { SyncExecuteOptions } from '@/shared/types'
  * @example
  * const { run, isExecuting } = useExecuteSync('Cleanup failed')
  * const handleCleanup = async (): Promise<void> => {
- *   const succeeded = await run({ replaceConflicts: [], agentId })
+ *   const succeeded = await run({ agentId })
  *   if (succeeded) dispatch(clearCleanupAgentTarget())
  * }
  */

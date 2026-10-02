@@ -198,6 +198,8 @@ interface UiState {
   isSyncing: boolean
   /** Sync preview result (null when not previewing) */
   syncPreview: SyncPreviewResult | null
+  /** Request that owns the visible cleanup preview; late responses are ignored. */
+  syncPreviewRequestId: string | null
   /** Sync execution result for showing per-item diff (null when not displaying) */
   syncResult: SyncExecuteResult | null
   error: string | null
@@ -260,6 +262,7 @@ const initialState: UiState = {
   excludedSkillTypeFilters: [],
   isSyncing: false,
   syncPreview: null,
+  syncPreviewRequestId: null,
   syncResult: null,
   error: null,
   selectedBookmarkForDetail: null,
@@ -284,28 +287,18 @@ export const fetchSourceStats = createAsyncThunk(
 )
 
 /**
- * Preview sync: detect conflicts and count operations without executing.
- * When `options.agentId` is provided, narrows the preview to that single
- * agent — drives the per-agent Cleanup dialog opened from `AgentItem`'s
- * right-click menu. Without options, runs the global sync preview as
- * before.
- * @param options - When `agentId` is set, restricts the preview to that
- *   agent. Optional; omit for the global preview.
- * @returns SyncPreviewResult — includes `forAgent` echo when scoped.
- * @example
- * dispatch(fetchSyncPreview())                     // global
- * dispatch(fetchSyncPreview({ agentId: 'cursor' })) // per-agent cleanup
+ * Load the target agent's missing-link plan when {@link CleanupAgentDialog} opens.
+ * @example dispatch(fetchSyncPreview({ agentId: 'cursor' }))
  */
 export const fetchSyncPreview = createAsyncThunk(
   'ui/fetchSyncPreview',
-  async (options?: SyncPreviewOptions) => {
+  async (options: SyncPreviewOptions) => {
     return window.electron.sync.preview(options)
   },
 )
 
 /**
- * Execute sync with conflict resolution choices
- * @param options - replaceConflicts paths
+ * Execute the agent-scoped recovery confirmed by {@link CleanupAgentDialog}.
  * @returns SyncExecuteResult
  */
 export const executeSyncAction = createAsyncThunk(
@@ -610,12 +603,13 @@ const uiSlice = createSlice({
     },
     /**
      * Close the per-agent Cleanup dialog. Also clears any stale
-     * `syncPreview` to keep the global sync confirm dialog from latching
-     * onto a per-agent preview if the user pivots back to it.
+     * preview ownership so an in-flight response cannot reopen a closed plan.
      */
     clearCleanupAgentTarget: (state) => {
       state.cleanupAgentTarget = null
       state.syncPreview = null
+      state.syncPreviewRequestId = null
+      state.isSyncing = false
     },
     /**
      * Open the Dashboard Symlink Health cleanup dialog. The component performs
@@ -626,6 +620,9 @@ const uiSlice = createSlice({
       // One cleanup surface at a time: opening the dashboard dialog clears any
       // per-agent target so the two cleanup surfaces stay mutually exclusive.
       state.cleanupAgentTarget = null
+      state.syncPreview = null
+      state.syncPreviewRequestId = null
+      state.isSyncing = false
     },
     /**
      * Close the Dashboard Symlink Health cleanup dialog. Local plan and row
@@ -663,24 +660,32 @@ const uiSlice = createSlice({
       .addCase(fetchSourceStats.rejected, (state) => {
         state.isRefreshing = false
       })
-      .addCase(fetchSyncPreview.pending, (state) => {
+      .addCase(fetchSyncPreview.pending, (state, action) => {
+        state.syncPreviewRequestId = action.meta.requestId
+        state.syncPreview = null
         state.isSyncing = true
         // Close result dialog when starting a new sync preview (prevents overlapping dialogs)
         state.syncResult = null
         // A fresh sync attempt takes notification precedence; any pending undo is stale.
         state.undoToast = null
-        // Close an open bulk confirm — sync conflict dialog will render on top.
+        // The target-agent recovery plan owns confirmation.
         state.bulkConfirm = null
         // Sync is another filesystem plan; do not overlap with symlink cleanup.
         state.symlinkCleanupDialogOpen = false
       })
       .addCase(fetchSyncPreview.fulfilled, (state, action) => {
+        // A newer request or a closed dialog invalidates this response.
+        if (state.syncPreviewRequestId !== action.meta.requestId) return
+        state.syncPreviewRequestId = null
         state.syncPreview = action.payload
         // Preview phase complete — stop syncing so UI buttons are enabled.
         // executeSyncAction handles its own loading state via isExecuting (component-local).
         state.isSyncing = false
       })
       .addCase(fetchSyncPreview.rejected, (state, action) => {
+        // Ignore an obsolete failure without clearing the current preview.
+        if (state.syncPreviewRequestId !== action.meta.requestId) return
+        state.syncPreviewRequestId = null
         state.isSyncing = false
         /* v8 ignore next -- normal app flow rejects via IPC with an Error carrying a message; fallback only reachable through a messageless/non-Error rejection no app path produces (ui.error has no selector — dead read) */
         state.error = action.error.message ?? 'Failed to fetch sync preview'

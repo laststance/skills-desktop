@@ -146,12 +146,6 @@ vi.mock('../skills/AddSymlinkModal', () => ({
 vi.mock('../skills/CopyToAgentsModal', () => ({
   CopyToAgentsModal: () => null,
 }))
-vi.mock('../sidebar/SyncConfirmDialog', () => ({
-  SyncConfirmDialog: () => null,
-}))
-vi.mock('../sidebar/SyncConflictDialog', () => ({
-  SyncConflictDialog: () => null,
-}))
 vi.mock('../sidebar/SyncResultDialog', () => ({
   SyncResultDialog: () => null,
 }))
