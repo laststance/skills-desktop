@@ -128,6 +128,7 @@ test('agent Cleanup creates missing links only for the chosen agent and preserve
   await appWindow
     .getByRole('dialog', { name: 'Cleanup Results' })
     .getByRole('button', { name: 'Close' })
+    .first()
     .click()
   await expect(
     appWindow.getByRole('dialog', { name: 'Cleanup Results' }),

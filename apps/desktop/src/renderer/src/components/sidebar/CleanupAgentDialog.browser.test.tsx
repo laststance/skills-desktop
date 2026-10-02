@@ -240,6 +240,6 @@ test('explains an unavailable agent instead of claiming that all its links are p
     )
     .toBeVisible()
   await expect
-    .element(screen.getByRole('button', { name: 'Close' }))
+    .element(screen.getByRole('button', { name: 'Close' }).first())
     .toBeVisible()
 })

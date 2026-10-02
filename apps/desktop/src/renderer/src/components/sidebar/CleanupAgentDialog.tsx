@@ -91,15 +91,8 @@ export const CleanupAgentDialog =
       // stable hook order; only execute once a concrete agent owns the flow.
       if (!cleanupAgentTarget) return
 
-      const succeeded = await executeCleanup({
-        agentId: cleanupAgentTarget,
-      })
-      if (succeeded) {
-        // Close this dialog so `SyncResultDialog` (which `executeSyncAction`
-        // already populated via `syncResult`) becomes the sole foreground
-        // surface — otherwise the per-agent dialog stays mounted underneath.
-        dispatch(clearCleanupAgentTarget())
-      }
+      // The fulfilled reducer closes this preview atomically with publishing results.
+      await executeCleanup({ agentId: cleanupAgentTarget })
     }
 
     if (!cleanupAgentTarget) return null

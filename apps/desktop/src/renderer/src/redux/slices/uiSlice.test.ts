@@ -1825,3 +1825,34 @@ describe('Cleanup preview request ownership', () => {
     expect(store.getState().ui.isSyncing).toBe(false)
   })
 })
+
+test('closes the agent preview in the same update that publishes successful Cleanup results', async () => {
+  // Arrange
+  const store = await createTestStore()
+  const { setCleanupAgentTarget, fetchSyncPreview, executeSyncAction } =
+    await import('./uiSlice')
+  store.dispatch(setCleanupAgentTarget('claude-code'))
+  mockSyncPreview.mockResolvedValue(previewWithoutConflicts)
+  mockSyncExecute.mockResolvedValue({
+    success: true,
+    created: toSymlinkCount(1),
+    skipped: toSymlinkCount(0),
+    errors: [],
+    details: [],
+  })
+  await store.dispatch(fetchSyncPreview({ agentId: 'claude-code' }))
+  const overlappingStates: boolean[] = []
+  const unsubscribe = store.subscribe(() => {
+    const ui = store.getState().ui
+    overlappingStates.push(
+      ui.syncResult !== null && ui.cleanupAgentTarget !== null,
+    )
+  })
+  // Act
+  await store.dispatch(executeSyncAction({ agentId: 'claude-code' }))
+  unsubscribe()
+  // Assert
+  expect(overlappingStates).not.toContain(true)
+  expect(store.getState().ui.cleanupAgentTarget).toBeNull()
+  expect(store.getState().ui.syncResult?.created).toBe(1)
+})

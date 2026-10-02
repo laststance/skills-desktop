@@ -693,7 +693,11 @@ const uiSlice = createSlice({
       .addCase(executeSyncAction.fulfilled, (state, action) => {
         state.isSyncing = false
         state.syncPreview = null
-        // Store result for SyncResultDialog to display per-item diff
+        // Hand off atomically: the preview must not flash its loading state behind results.
+        if (state.cleanupAgentTarget === action.meta.arg.agentId) {
+          state.cleanupAgentTarget = null
+          state.syncPreviewRequestId = null
+        }
         state.syncResult = action.payload
       })
       .addCase(executeSyncAction.rejected, (state, action) => {
