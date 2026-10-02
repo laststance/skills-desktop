@@ -14,7 +14,7 @@ Skills Desktop scans your `~/.agents/skills/` directory and displays the symlink
 
 - **Skill Visualization**: Real-time symlink status monitoring with valid/broken/inaccessible/missing indicators.
 - **75 AI Agents Support**: Claude Code, Cursor, Codex, Gemini CLI, GitHub Copilot, Cline, Roo Code, Amp, Goose, Devin Desktop, Continue, Trae, Junie, Kilo Code, OpenCode, Warp, Zed, ZCode, Grok Build, Kimchi, MiniMax Code, Posit Assistant, and more.
-- **Centralized Skills Hub**: All skills stored in `~/.agents/skills/` and symlinked to each agent directory.
+- **Centralized Skills Hub**: Browse shared skills in `~/.agents/skills/` alongside agent-local folders. Recover missing links for one selected agent.
 - **Native macOS Experience**: Electron-based desktop app with system integration.
 - **37 Theme Presets**: 54 visual themes across OKLCH color hues, pure neutrals, and shadcn/ui tinted neutrals.
 

@@ -65,7 +65,7 @@ interface ActivityEvent {
   timestamp: string // ISO-8601, main-process clock
   type: 'created' | 'removed' | 'synced' | 'renamed'
   skillName: string // a skill name, or a scope label like 'Sync'
-  agentName?: string // present for per-agent events; omitted for sync summaries
+  agentName?: string // selected agent for Cleanup; historical all-agent Sync may omit it
   detail?: string // e.g. '10 created · 1 replaced · 5 skipped'
 }
 ```
