@@ -26,7 +26,7 @@ Renderer (React, Redux Toolkit)  ──window.electron──▶  Preload (contex
 - **Main process** (`apps/desktop/src/main`):
   - `services/` scans `~/.agents/skills` and each agent's skills directory, and classifies every symlink as `valid`, `broken`, `inaccessible` or `missing`. It also moves deleted skills to a trash with undo, writes the [activity log](docs/activity-log.md), and persists settings.
   - `ipc/` registers handlers with `typedHandle`. It validates each argument against a Zod schema in `ipc/ipc-schemas.ts`, then checks filesystem paths against the allowed skills locations before doing any work.
-  - `updater.ts` checks GitHub releases through electron-updater.
+  - `updater.ts` checks GitHub releases through electron-updater. Downloads and installation require explicit renderer actions; startup and legacy settings changes keep automatic download and install-on-quit disabled.
 - **Preload** (`apps/desktop/src/preload`) exposes a narrow, typed `window.electron` API through `contextBridge`. Windows run sandboxed with context isolation on and Node integration off.
 - **Renderer** (`apps/desktop/src/renderer`) has two entries:
   - `index.html` is the main window.

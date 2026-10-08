@@ -29,7 +29,7 @@ Skills Desktop provides a GUI to manage and monitor skills installed via [`npx s
 - **54 Themes** - 34 OKLCH color themes (17 hues × light/dark) + 2 pure neutral + 18 tinted neutral
 - **Background Opacity** - In Settings → Appearance, choose Entire or Section and adjust backgrounds from 0–100% while text and icons stay solid. Reset restores 100%; each mode keeps its own values. See the [opacity behavior](DESIGN.md#window-opacity) and [settings contract](SPEC.md#settings-window).
 - **Background Gallery** - In Settings → Appearance → Choose background, choose from four [bundled photos](apps/desktop/resources/backgrounds/README.md), upload your own image, crop it, and apply Fill / Fit / Tile. Built-in photos and uploads work offline. Online Unsplash browsing requires [provider configuration](apps/website/README.md); see the [verification record](docs/qa/background-gallery.md).
-- **Auto Update** - Automatic updates via GitHub Releases
+- **App Updates** - Checks GitHub Releases automatically; click Download to fetch an update, then Restart Now to install it. Older automatic-download preferences do not bypass these actions. See the [update flow](SPEC.md#auto-update).
 
 ## Supported Agents
 
