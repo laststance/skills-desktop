@@ -186,10 +186,9 @@ const HIDDEN_AGENT_IDS_SCHEMA = z
  *   Validated against `AGENT_IDS` so a stale id from a prior version
  *   (e.g. an agent removed upstream by a Skills CLI sync) is silently
  *   dropped on parse rather than surfacing as a phantom hidden entry.
- * - `autoDownloadUpdates`: when `true`, `electron-updater` downloads a new
- *   release in the background as soon as it is detected. Default `false`
- *   preserves the app's manual confirm-via-UI flow (`src/main/updater.ts`
- *   keeps `autoUpdater.autoDownload` in sync with this field).
+ * - `autoDownloadUpdates`: legacy value retained for settings compatibility.
+ *   Updates always require explicit download and install actions, even when
+ *   an older version persisted `true` before the Auto Updates pane was removed.
  *
  * Adding a field here requires widening `IPC_ARG_SCHEMAS['settings:set']`
  * in `src/main/ipc/ipc-schemas.ts` in lockstep — that schema is `.strict()`
@@ -225,9 +224,7 @@ export const SettingsSchema = z.object({
     .enum(INSTALLED_SEARCH_COUNT_DISPLAY_OPTIONS)
     .default('tab'),
   hiddenAgentIds: HIDDEN_AGENT_IDS_SCHEMA,
-  // Legacy auto-download preference. Defaults to false so the manual
-  // confirm-via-UI download flow is preserved unless a persisted opt-in
-  // already exists from an older version.
+  // Preserve legacy data without letting it enable automatic downloads.
   autoDownloadUpdates: z.boolean().default(false),
   // Old installations start without an image; each parse receives a fresh owned-library array.
   background: BackgroundSettingsSchema.default(() => ({
