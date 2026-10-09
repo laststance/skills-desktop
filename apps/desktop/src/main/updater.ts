@@ -20,26 +20,26 @@ import { getSettings } from './services/settings'
 const UPDATE_CHECK_DELAY_MS = 3000
 
 /**
- * Push the user's persisted update preference onto the live
- * `electron-updater` singleton. Called once at init (so the boot-time
- * update check honors the saved value) and again from the `settings:set`
- * IPC handler whenever `autoDownloadUpdates` flips, so a mid-session change
- * takes effect on the next check without an app restart.
+ * Require explicit download and install actions on the live updater.
+ * Called by {@link initAutoUpdater} and the `settings:set` IPC handler.
+ * The removed Auto Updates pane could persist `autoDownloadUpdates: true`;
+ * retaining that value must never bypass the current Download button.
  *
  * Also pins `autoInstallOnAppQuit` to `false`: electron-updater defaults it
  * to `true`, which would silently install an already-downloaded update on the
  * next quit and bypass the app's explicit confirm-via-UI install flow. Pinning
  * it here (idempotently re-applied on every preference change) keeps installs
  * user-initiated regardless of the auto-download setting.
- * @param preferences - The `autoDownloadUpdates` slice of Settings.
+ * @param _preferences - Legacy settings accepted for compatibility; their automatic-download value is ignored.
  * @example
  * applyUpdaterPreferences({ autoDownloadUpdates: true })
- * // autoUpdater.autoDownload === true, autoUpdater.autoInstallOnAppQuit === false
+ * // autoUpdater.autoDownload === false, autoUpdater.autoInstallOnAppQuit === false
  */
 export function applyUpdaterPreferences(
-  preferences: Pick<Settings, 'autoDownloadUpdates'>,
+  _preferences: Pick<Settings, 'autoDownloadUpdates'>,
 ): void {
-  autoUpdater.autoDownload = preferences.autoDownloadUpdates
+  // The legacy opt-in has no visible control, so every download needs a click.
+  autoUpdater.autoDownload = false
   // Never auto-install on quit — install stays user-initiated via the UI.
   autoUpdater.autoInstallOnAppQuit = false
 }
@@ -104,8 +104,7 @@ function registerUpdaterEventHandlers(): void {
  * Replaces native dialogs with in-app toast notifications
  */
 export function initAutoUpdater(): void {
-  // Seed the updater from the persisted user preference. The default keeps
-  // autoDownload off, preserving the manual confirm-via-UI flow.
+  // Apply the manual-update policy before the startup check can find a release.
   applyUpdaterPreferences(getSettings())
 
   registerUpdaterEventHandlers()
@@ -183,9 +182,8 @@ export function initAutoUpdaterForE2E(options: E2EUpdaterOptions): void {
   // packed and dev update config is not forced" and does nothing.
   autoUpdater.forceDevUpdateConfig = true
 
-  // Detection-only: never fetch the dummy artifact. With autoDownload=false the
-  // availability check stops after the version comparison (downloadPromise is null).
-  autoUpdater.autoDownload = false
+  // Share production's consent policy so E2E cannot hide a legacy-settings regression.
+  applyUpdaterPreferences(getSettings())
 
   // Force the comparison baseline LOW so the higher feed version compares as
   // newer. `currentVersion` is declared `readonly currentVersion: SemVer` in

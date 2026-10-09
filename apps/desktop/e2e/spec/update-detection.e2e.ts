@@ -1,3 +1,4 @@
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer, type Server } from 'node:http'
 import { type AddressInfo } from 'node:net'
 import { resolve } from 'node:path'
@@ -25,17 +26,17 @@ const MAC_CHANNEL_FILE = 'latest-mac.yml'
 /**
  * Minimal valid `latest-mac.yml` advertising a version far higher than any real
  * release. Only `version` gates the availability decision; `files`/`sha512`/`size`
- * are download-time fields and are never validated during detection (the spec
- * disables auto-download, so the artifact is never fetched). The advertised
+ * are download-time fields and are never validated during detection. After a
+ * Download click the missing artifact deliberately fails with 404. The advertised
  * version is interpolated from the shared constant so the feed and the final
  * assertion can never drift.
  */
 const LATEST_MAC_YML = `version: ${UPDATE_DETECTION_ADVERTISED_VERSION}
 files:
-  - url: skills-desktop-${UPDATE_DETECTION_ADVERTISED_VERSION}-arm64-mac.zip
+  - url: skills-desktop-${UPDATE_DETECTION_ADVERTISED_VERSION}-mac.zip
     sha512: AdummyBase64Sha512ForTestOnlyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==
     size: 12345678
-path: skills-desktop-${UPDATE_DETECTION_ADVERTISED_VERSION}-arm64-mac.zip
+path: skills-desktop-${UPDATE_DETECTION_ADVERTISED_VERSION}-mac.zip
 sha512: AdummyBase64Sha512ForTestOnlyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==
 releaseDate: '2026-06-13T00:00:00.000Z'
 `
@@ -61,7 +62,12 @@ interface UpdateSliceState {
  * const { server, feedUrl } = await startUpdateFeed()
  * // GET `${feedUrl}/latest-mac.yml` -> the yml; everything else -> 404
  */
-async function startUpdateFeed(): Promise<{ server: Server; feedUrl: string }> {
+async function startUpdateFeed(): Promise<{
+  server: Server
+  feedUrl: string
+  artifactRequests: string[]
+}> {
+  const artifactRequests: string[] = []
   const server = createServer((request, response) => {
     // Match on pathname only: electron-updater appends a `?noCache=...` query,
     // so an exact `req.url === '/latest-mac.yml'` comparison would 404.
@@ -74,8 +80,8 @@ async function startUpdateFeed(): Promise<{ server: Server; feedUrl: string }> {
       response.end(LATEST_MAC_YML)
       return
     }
-    // Detection-only: the artifact zip must never be requested. A 404 here keeps
-    // the test honest if a download is ever accidentally triggered.
+    // Record artifact requests; 404 prevents this consent test from staging an update.
+    artifactRequests.push(requestUrl.pathname)
     response.writeHead(404)
     response.end()
   })
@@ -89,6 +95,7 @@ async function startUpdateFeed(): Promise<{ server: Server; feedUrl: string }> {
   return {
     server,
     feedUrl: `http://${UPDATE_DETECTION_FEED_HOST}:${port}`,
+    artifactRequests,
   }
 }
 
@@ -102,11 +109,26 @@ async function stopUpdateFeed(server: Server): Promise<void> {
   })
 }
 
-test('surfaces an available update when the release feed advertises a newer version', async () => {
+// Value: protects=legacy settings:set changes preserve manual download consent;
+// fails_when=an old client re-enables auto-download through settings IPC;
+// why_new=startup consent assertions do not exercise live preference changes;
+// seam=none
+test('waits for a Download click when startup finds a newer release with a legacy auto-download opt-in', async () => {
   // Arrange — bring up a localhost feed advertising a high version and an
   // isolated HOME so the real userData/HOME is never touched.
   const isolatedHome = createIsolatedHome()
-  const { server, feedUrl } = await startUpdateFeed()
+  const { server, feedUrl, artifactRequests } = await startUpdateFeed()
+  const userDataDir = resolve(isolatedHome, 'userData')
+  mkdirSync(userDataDir, { recursive: true })
+  const settingsPath = resolve(userDataDir, 'settings.json')
+  // Break any snapshot hardlink before writing this test's legacy preference.
+  rmSync(settingsPath, { force: true })
+  writeFileSync(settingsPath, JSON.stringify({ autoDownloadUpdates: true }))
+  // Manual downloads read cache metadata even when detection uses setFeedURL.
+  writeFileSync(
+    resolve(isolatedHome, 'dev-app-update.yml'),
+    'updaterCacheDirName: skills-desktop-e2e-updater\n',
+  )
   const repoRoot = resolve(__dirname, '..', '..')
   const mainEntry = resolve(repoRoot, 'out', 'main', 'index.mjs')
   // Declared before the try so the finally can clean up even if launch throws.
@@ -115,10 +137,14 @@ test('surfaces an available update when the release feed advertises a newer vers
   try {
     electronApp = await _electron.launch({
       args: [mainEntry],
+      recordVideo: {
+        dir: test.info().outputPath('videos'),
+        size: { width: 1200, height: 800 },
+      },
       env: {
         ...process.env,
         HOME: isolatedHome,
-        E2E_USERDATA_DIR: resolve(isolatedHome, 'userData'),
+        E2E_USERDATA_DIR: userDataDir,
         E2E_BACKGROUND_LAUNCH: '1',
         // Drives the test-only updater seam at the localhost feed. NOT setting
         // E2E_DISABLE_UPDATE: this spec WANTS the updater active.
@@ -135,6 +161,20 @@ test('surfaces an available update when the release feed advertises a newer vers
     // is a completed (non-deduped) check.
     const appWindow = await electronApp.firstWindow()
     await appWindow.waitForLoadState('domcontentloaded')
+    // Point the unpackaged adapter at isolated metadata, leaving repository files untouched.
+    await electronApp.evaluate(({ app }, updateConfigDirectory) => {
+      app.getAppPath = () => updateConfigDirectory
+    }, isolatedHome)
+
+    // Assert — prove startup loaded the persisted opt-in before any settings writes.
+    expect(
+      await appWindow.evaluate(async () => {
+        const settings = (await window.electron.settings.get()) as {
+          autoDownloadUpdates: boolean
+        }
+        return settings.autoDownloadUpdates
+      }),
+    ).toBe(true)
 
     try {
       await appWindow.waitForFunction(
@@ -184,6 +224,65 @@ test('surfaces an available update when the release feed advertises a newer vers
       finalUpdate.version,
       'the available version should match the version advertised by the feed',
     ).toBe(UPDATE_DETECTION_ADVERTISED_VERSION)
+
+    // Assert — detection and a repeated check must leave the artifact untouched.
+    const downloadButton = appWindow.getByRole('button', {
+      name: 'Download',
+      exact: true,
+    })
+    await expect(downloadButton).toBeVisible()
+    expect(artifactRequests).toEqual([])
+    await appWindow.evaluate(async () =>
+      (
+        window.electron as typeof window.electron & {
+          update: { check: () => Promise<unknown> }
+        }
+      ).update.check(),
+    )
+    await expect(downloadButton).toBeVisible()
+    expect(artifactRequests).toEqual([])
+
+    // Act — an old client can still change the retained setting during this session.
+    const savedLegacyAutoDownload = await appWindow.evaluate(async () => {
+      await window.electron.settings.set({ autoDownloadUpdates: false })
+      await window.electron.settings.set({ autoDownloadUpdates: true })
+      const settings = (await window.electron.settings.get()) as {
+        autoDownloadUpdates: boolean
+      }
+      return settings.autoDownloadUpdates
+    })
+
+    // Assert — compatibility retains the value without granting download consent.
+    expect(savedLegacyAutoDownload).toBe(true)
+    await appWindow.evaluate(async () =>
+      (
+        window.electron as typeof window.electron & {
+          update: { check: () => Promise<unknown> }
+        }
+      ).update.check(),
+    )
+    await expect(downloadButton).toBeVisible()
+    expect(artifactRequests).toEqual([])
+
+    // Observe the negative contract long enough for asynchronous artifact requests to arrive.
+    const consentObservationStartedAt = Date.now()
+    await expect
+      .poll(() => {
+        expect(artifactRequests).toEqual([])
+        return Date.now() - consentObservationStartedAt
+      })
+      .toBeGreaterThanOrEqual(1500)
+
+    // Act — only an explicit Download click may request the fake ZIP.
+    await downloadButton.click()
+
+    // Assert — the intentionally missing artifact fails safely without installing.
+    await expect
+      .poll(() => artifactRequests)
+      .toEqual(['/skills-desktop-99.0.0-mac.zip'])
+    await expect(
+      appWindow.getByText('Update Error', { exact: true }),
+    ).toBeVisible()
   } finally {
     // Independent, resilient cleanup: one failing step must not skip the
     // others, and a launch failure leaves electronApp null (nothing to close).

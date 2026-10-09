@@ -93,12 +93,15 @@ describe('applyUpdaterPreferences', () => {
     vi.clearAllMocks()
   })
 
-  test('enables background downloads on the updater when the user opts in', () => {
-    // Arrange + Act
+  test('requires a Download click even when an older version saved an automatic-download opt-in', () => {
+    // Arrange — the removed Auto Updates pane left a persisted opt-in.
+    mockAutoUpdater.autoDownload = true
+
+    // Act
     applyUpdaterPreferences({ autoDownloadUpdates: true })
 
     // Assert
-    expect(mockAutoUpdater.autoDownload).toBe(true)
+    expect(mockAutoUpdater.autoDownload).toBe(false)
   })
 
   test('restores manual downloads when the user turns the toggle back off', () => {
@@ -129,6 +132,7 @@ describe('initAutoUpdaterForE2E', () => {
   beforeEach(() => {
     // Reset every field the seam touches so state does not leak between cases.
     mockAutoUpdater.autoDownload = false
+    mockAutoUpdater.autoInstallOnAppQuit = true
     mockAutoUpdater.forceDevUpdateConfig = false
     mockAutoUpdater.currentVersion = '1.0.0'
     mockAutoUpdater.on.mockClear()
@@ -154,6 +158,17 @@ describe('initAutoUpdaterForE2E', () => {
 
     // Assert
     expect(mockAutoUpdater.autoDownload).toBe(false)
+  })
+
+  test('keeps an E2E update unstaged on app quit until the renderer confirms installation', () => {
+    // Arrange — mirror electron-updater's automatic-install default.
+    mockAutoUpdater.autoInstallOnAppQuit = true
+
+    // Act
+    initAutoUpdaterForE2E({ feedUrl: 'http://127.0.0.1:54321' })
+
+    // Assert
+    expect(mockAutoUpdater.autoInstallOnAppQuit).toBe(false)
   })
 
   test('lowers currentVersion to the passed baseline so a higher feed version compares as available', () => {
@@ -394,15 +409,16 @@ describe('initAutoUpdater (boot-time check)', () => {
     vi.clearAllMocks()
   })
 
-  test('seeds the updater from the persisted auto-download preference at startup', () => {
-    // Arrange — the user previously opted into background downloads.
+  test('keeps startup updates manual when legacy settings enable automatic downloads', () => {
+    // Arrange — an older version saved an opt-in that is no longer exposed.
     mockGetSettings.mockReturnValue({ autoDownloadUpdates: true })
 
     // Act
     initAutoUpdater()
 
     // Assert
-    expect(mockAutoUpdater.autoDownload).toBe(true)
+    expect(mockAutoUpdater.autoDownload).toBe(false)
+    expect(mockAutoUpdater.autoInstallOnAppQuit).toBe(false)
   })
 
   test('registers the lifecycle handlers at startup so events reach the renderer', () => {

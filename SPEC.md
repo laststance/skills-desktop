@@ -915,7 +915,13 @@ The message must recede (never `font-medium` or `text-foreground`) so it doesn't
 | Provider          | GitHub Releases                    |
 | Check on startup  | Yes                                |
 | User notification | In-app toast (bottom-right corner) |
+| Download timing   | After the user clicks Download     |
 | Install timing    | On user-initiated restart          |
+
+The legacy `autoDownloadUpdates` boolean remains readable and writable for settings
+compatibility, but its value does not enable automatic downloads. Startup checks,
+repeated checks and live changes to that setting still wait for Download. A downloaded
+update is not installed on ordinary app quit; Restart Now initiates installation.
 
 ### Update Toast States
 

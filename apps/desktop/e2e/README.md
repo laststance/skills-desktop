@@ -59,3 +59,9 @@ regenerated `fixtures/azure-skills-snapshot.*` pair.
 pnpm test:e2e          # build + run (uses the committed fixture, hermetic)
 pnpm test:e2e:headed   # same, headed
 ```
+
+`spec/update-detection.e2e.ts` uses a loopback update feed and isolated updater
+metadata. It seeds the legacy `autoDownloadUpdates: true` setting and verifies
+that startup, repeated checks and live settings changes request no artifact until
+Download is clicked. The fake ZIP then returns 404, so the spec observes Update
+Error without staging or installing an update. The flow records video in the test output.

@@ -53,10 +53,7 @@ export function registerSettingsHandlers(): void {
     // broadcast in that case so we don't fan out a no-op `settings:changed`
     // and trigger a redundant Redux replace in every open window.
     if (next !== before) {
-      // Push the auto-download preference onto the live updater so a
-      // mid-session toggle takes effect on the next check without an app
-      // restart. Harmless when the updater is inactive (dev / unpackaged):
-      // it only mutates config on the electron-updater singleton.
+      // Reapply manual-update consent when a legacy client changes the old setting.
       if (next.autoDownloadUpdates !== before.autoDownloadUpdates) {
         applyUpdaterPreferences(next)
       }
