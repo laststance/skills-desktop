@@ -82,6 +82,52 @@ afterEach(async () => {
 })
 
 describe('renderer preference persistence', () => {
+  test('preserves a remote acknowledgement saved while a local edit waits, before its storage event arrives', async () => {
+    // Arrange
+    values.set(
+      RENDERER_PREFERENCES_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        state: {
+          rendererPreferences: {
+            markdownPreviewMode: 'code',
+            lastSeenVersion: '0.31.0',
+          },
+        },
+      }),
+    )
+    const fixture = await bootPreferences()
+    fixture.store.dispatch(setMarkdownPreviewMode('reading'))
+    fixture.store.dispatch(markReleaseNotesSeen('0.32.0'))
+    // The remote save reaches storage before Chromium delivers its queued notification.
+    values.set(
+      RENDERER_PREFERENCES_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        state: {
+          rendererPreferences: {
+            markdownPreviewMode: 'code',
+            lastSeenVersion: '0.33.0',
+          },
+        },
+      }),
+    )
+
+    // Act
+    await vi.runAllTimersAsync()
+
+    // Assert
+    expect(fixture.store.getState().rendererPreferences).toEqual({
+      markdownPreviewMode: 'reading',
+      lastSeenVersion: '0.33.0',
+      hydrated: true,
+    })
+    expect(readPersisted().state.rendererPreferences).toEqual({
+      markdownPreviewMode: 'reading',
+      lastSeenVersion: '0.33.0',
+    })
+  })
+
   test('a delayed legacy migration preserves choices already saved by another window', async () => {
     // Arrange
     values.set(MARKDOWN_PREVIEW_MODE_KEY, 'code')

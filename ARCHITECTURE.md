@@ -68,6 +68,9 @@ Renderer (React, Redux Toolkit)  ──window.electron──▶  Preload (contex
   run a read/merge/write transaction under a shared Chromium Web Lock. Explicitly
   edited fields merge with the latest canonical values; queued migration seeds
   yield to canonical values created by another window while the lock was pending.
+  Each local edit records that field's durable baseline. A later remote change
+  supersedes the pending edit under the lock even before its notification arrives;
+  an intentional local edit made after that remote save remains eligible to persist.
   Storage events synchronize the slice even when no preview is mounted. Changed
   remote fields supersede queued local edits to the same field; independent local
   edits survive, and adopted fields do not trigger an echo write. Stale or malformed

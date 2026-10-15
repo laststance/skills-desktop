@@ -162,6 +162,13 @@ export function createRendererPreferencesPersistence<
           if (dirty.size === 0 || !storeApi) return
           const persisted = parsePreferences(storage.getItem(key))
           const latest = persisted ?? observed
+          // A remote write can finish before its storage event reaches this renderer.
+          for (const field of [
+            'markdownPreviewMode',
+            'lastSeenVersion',
+          ] as const) {
+            if (latest[field] !== observed[field]) dirty.delete(field)
+          }
           const local = storeApi.getState().rendererPreferences
           saved = {
             // A queued legacy import yields to canonical values created by another window.
@@ -213,13 +220,19 @@ export function createRendererPreferencesPersistence<
     return (next) => {
       const handle = bind(next)
       return (action) => {
-        if (setMarkdownPreviewMode.match(action)) {
-          dirty.add('markdownPreviewMode')
-          edited.add('markdownPreviewMode')
-        }
-        if (markReleaseNotesSeen.match(action)) {
-          dirty.add('lastSeenVersion')
-          edited.add('lastSeenVersion')
+        const field = setMarkdownPreviewMode.match(action)
+          ? 'markdownPreviewMode'
+          : markReleaseNotesSeen.match(action)
+            ? 'lastSeenVersion'
+            : null
+        if (field) {
+          // Remember the durable value at edit time so only later remote writes supersede this intent.
+          const persisted = parsePreferences(
+            storage.getItem(RENDERER_PREFERENCES_STORAGE_KEY),
+          )
+          if (persisted) observed = { ...observed, [field]: persisted[field] }
+          dirty.add(field)
+          edited.add(field)
         }
         return handle(action)
       }
