@@ -24,6 +24,8 @@ vi.stubGlobal('window', {
 })
 
 async function createTestStore() {
+  const { default: rendererPreferencesReducer } =
+    await import('./rendererPreferencesSlice')
   const { default: activityReducer } = await import('./activitySlice')
   const { default: agentsReducer } = await import('./agentsSlice')
   const { default: bookmarkReducer } = await import('./bookmarkSlice')
@@ -56,6 +58,7 @@ async function createTestStore() {
       // dispatch — a missing slice here makes TestState ⊉ RootState and the
       // thunk overload silently drops out (TS2769).
       activity: activityReducer,
+      rendererPreferences: rendererPreferencesReducer,
     },
   })
 }

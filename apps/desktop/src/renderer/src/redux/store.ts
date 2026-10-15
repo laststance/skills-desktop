@@ -7,6 +7,7 @@ import { PERSIST_STATE_VERSION, PERSIST_STORAGE_KEY } from '@/shared/constants'
 
 import { installThemeSubscriptions, listenerMiddleware } from './listener'
 import { migrateState } from './migrations'
+import { createRendererPreferencesPersistence } from './rendererPreferencesPersistence'
 import { createReportingLocalStorage } from './reportingLocalStorage'
 import activityReducer from './slices/activitySlice'
 import agentsReducer from './slices/agentsSlice'
@@ -14,6 +15,7 @@ import bookmarkReducer from './slices/bookmarkSlice'
 import dashboardReducer from './slices/dashboardSlice'
 import marketplaceReducer from './slices/marketplaceSlice'
 import protectReducer from './slices/protectSlice'
+import rendererPreferencesReducer from './slices/rendererPreferencesSlice'
 import settingsReducer from './slices/settingsSlice'
 import skillLockReducer from './slices/skillLockSlice'
 import skillsReducer from './slices/skillsSlice'
@@ -28,6 +30,7 @@ const rootReducer = combineReducers({
   agents: agentsReducer,
   bookmarks: bookmarkReducer,
   protect: protectReducer,
+  rendererPreferences: rendererPreferencesReducer,
   ui: uiReducer,
   update: updateReducer,
   marketplace: marketplaceReducer,
@@ -62,7 +65,9 @@ type RootReducerState = ReturnType<typeof rootReducer>
  * @returns `true` once the toast has been published, so the adapter can latch; `false` while hydration is still running and nothing would be shown
  * @example warnPersistedStateNotSaved() // => true, and a non-expiring error toast
  */
-function warnPersistedStateNotSaved(): boolean {
+function warnPersistedStateNotSaved(
+  scope: 'app' | 'renderer' = 'app',
+): boolean {
   // The one undebounced write is the persist-version migration inside
   // `rehydrate`, a microtask after this module evaluates — before React has
   // rendered the Toaster, where a published toast is dropped on the floor.
@@ -72,14 +77,21 @@ function warnPersistedStateNotSaved(): boolean {
   // save (`saveHandler` is gated on the hydrated state), so nothing goes unreported.
   if (!storageApi.hasHydrated()) return false
 
-  toast.error('Settings could not be saved', {
-    description:
-      'Locked skills, bookmarks, theme and dashboard layout will reset when the app closes — local storage rejected the write.',
-    // Non-expiring with an explicit close button: this is the one warning the
-    // user gets, and a 4-second auto-dismiss can be missed entirely.
-    duration: Infinity,
-    closeButton: true,
-  })
+  toast.error(
+    scope === 'renderer'
+      ? 'Preview preferences could not be saved'
+      : 'Settings could not be saved',
+    {
+      description:
+        scope === 'renderer'
+          ? 'Your preview choice still applies now, but may reset after restart. The update notice may appear again because preferences could not be saved.'
+          : 'Locked skills, bookmarks, theme and dashboard layout will reset when the app closes — local storage rejected the write.',
+      // Non-expiring with an explicit close button: this is the one warning the
+      // user gets, and a 4-second auto-dismiss can be missed entirely.
+      duration: Infinity,
+      closeButton: true,
+    },
+  )
   return true
 }
 
@@ -95,16 +107,30 @@ const {
   migrate: migrateState,
   // Replaces the library default, which console.errors a rejected write and
   // returns a silent no-op store when localStorage is unavailable.
-  storage: createReportingLocalStorage(warnPersistedStateNotSaved),
+  storage: createReportingLocalStorage(() => warnPersistedStateNotSaved()),
 })
 
-export const store = configureStore({
+const preferencesPersistence = createRendererPreferencesPersistence(
   reducer,
+  () => warnPersistedStateNotSaved('renderer'),
+)
+
+export const store = configureStore({
+  reducer: preferencesPersistence.reducer,
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware()
       .prepend(listenerMiddleware.middleware)
-      .concat(storageMiddleware),
+      .concat(storageMiddleware, preferencesPersistence.middleware),
 })
+
+if (
+  typeof window !== 'undefined' &&
+  typeof window.addEventListener === 'function'
+) {
+  const unsubscribePreferences =
+    preferencesPersistence.subscribeToStorage(window)
+  import.meta.hot?.dispose(unsubscribePreferences)
+}
 
 setupListeners(store.dispatch)
 

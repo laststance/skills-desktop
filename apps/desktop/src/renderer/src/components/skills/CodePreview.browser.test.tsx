@@ -4,6 +4,9 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { PreviewContent } from '@/renderer/src/hooks/useCodePreview'
+import rendererPreferencesReducer, {
+  rendererPreferencesHydrated,
+} from '@/renderer/src/redux/slices/rendererPreferencesSlice'
 import { MARKDOWN_PREVIEW_MODE_KEY } from '@/shared/constants'
 import { DEFAULT_SETTINGS, type Settings } from '@/shared/settings'
 import type { AbsolutePath, SkillFile } from '@/shared/types'
@@ -16,8 +19,6 @@ import {
   toPosixRelativePath,
 } from '@/shared/types'
 import '@/renderer/src/styles/globals.css'
-
-import { resetMarkdownPreviewModeForTests } from './FileContent'
 
 // Mock the data hook so each render deterministically drives loading / empty /
 // populated states. Hitting these through real IPC is racy because the hook's
@@ -88,9 +89,13 @@ async function renderCodePreview(overrides: Partial<Settings> = {}) {
   const { default: settingsReducer } =
     await import('@/renderer/src/redux/slices/settingsSlice')
   const store = configureStore({
-    reducer: { settings: settingsReducer },
+    reducer: {
+      settings: settingsReducer,
+      rendererPreferences: rendererPreferencesReducer,
+    },
     preloadedState: { settings: { ...DEFAULT_SETTINGS, ...overrides } },
   })
+  store.dispatch(rendererPreferencesHydrated())
   const { CodePreview } = await import('./CodePreview')
   return render(
     <Provider store={store}>
@@ -106,14 +111,12 @@ describe('CodePreview', () => {
     // mode AND the module-level session cache so a Reading Mode selection
     // can't leak into tests expecting Code.
     window.localStorage.removeItem(MARKDOWN_PREVIEW_MODE_KEY)
-    resetMarkdownPreviewModeForTests()
   })
 
   afterEach(() => {
     // A Reading-mode write in this file's last test would otherwise leak into
     // whichever browser file runs next on the shared origin.
     window.localStorage.removeItem(MARKDOWN_PREVIEW_MODE_KEY)
-    resetMarkdownPreviewModeForTests()
   })
 
   test('shows a loading placeholder while the file list is still being fetched', async () => {
@@ -254,9 +257,13 @@ describe('CodePreview', () => {
     const { default: settingsReducer } =
       await import('@/renderer/src/redux/slices/settingsSlice')
     const store = configureStore({
-      reducer: { settings: settingsReducer },
+      reducer: {
+        settings: settingsReducer,
+        rendererPreferences: rendererPreferencesReducer,
+      },
       preloadedState: { settings: DEFAULT_SETTINGS },
     })
+    store.dispatch(rendererPreferencesHydrated())
     const { CodePreview } = await import('./CodePreview')
     // The fixed-height flex wrapper bounds the preview pane so the reading
     // scroll container actually overflows; without it scrollTop clamps to 0

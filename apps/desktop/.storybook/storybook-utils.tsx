@@ -9,6 +9,7 @@ import agentsReducer from '@/renderer/src/redux/slices/agentsSlice'
 import bookmarkReducer from '@/renderer/src/redux/slices/bookmarkSlice'
 import dashboardReducer from '@/renderer/src/redux/slices/dashboardSlice'
 import marketplaceReducer from '@/renderer/src/redux/slices/marketplaceSlice'
+import rendererPreferencesReducer from '@/renderer/src/redux/slices/rendererPreferencesSlice'
 import protectReducer from '@/renderer/src/redux/slices/protectSlice'
 import settingsReducer from '@/renderer/src/redux/slices/settingsSlice'
 import skillLockReducer from '@/renderer/src/redux/slices/skillLockSlice'
@@ -62,6 +63,7 @@ const rootReducer = combineReducers({
   agents: agentsReducer,
   bookmarks: bookmarkReducer,
   protect: protectReducer,
+  rendererPreferences: rendererPreferencesReducer,
   ui: uiReducer,
   update: updateReducer,
   marketplace: marketplaceReducer,
@@ -359,6 +361,7 @@ function createDefaultStoryState(): StoryRootState {
       initialized: true,
     },
     settings: storySettings,
+    rendererPreferences: { hydrated: true },
   })
 
   return defaultState

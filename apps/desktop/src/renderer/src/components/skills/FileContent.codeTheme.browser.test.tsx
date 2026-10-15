@@ -1,12 +1,28 @@
+import type { ReactElement } from 'react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { render } from 'vitest-browser-react'
 
 import type { PreviewContent } from '@/renderer/src/hooks/useCodePreview'
-import { MARKDOWN_PREVIEW_MODE_KEY } from '@/shared/constants'
+import { createPreferencesFixture } from '@/renderer/src/test-utils/rendererPreferences'
+import {
+  MARKDOWN_PREVIEW_MODE_KEY,
+  RENDERER_PREFERENCES_STORAGE_KEY,
+} from '@/shared/constants'
 import { toFileExtension, toFileName, toLineCount } from '@/shared/types'
 import '@/renderer/src/styles/globals.css'
 
-import { resetMarkdownPreviewModeForTests } from './FileContent'
+let fixture: Awaited<ReturnType<typeof createPreferencesFixture>> | undefined
+
+async function render(element: ReactElement) {
+  // eslint-disable-next-line require-atomic-updates -- This suite owns one fixture and runs its tests sequentially.
+  fixture ??= await createPreferencesFixture()
+  return fixture.render(element)
+}
+
+async function resetPreferencesFixture(): Promise<void> {
+  const previous = fixture
+  fixture = undefined
+  await previous?.dispose()
+}
 
 // Mock the Shiki shorthand so this file can assert which theme pair FileContent
 // actually hands the highlighter — the one seam (props -> resolveCodeTheme ->
@@ -39,23 +55,25 @@ function makeCodeContent(content: string): PreviewContent {
 }
 
 describe('FileContent code theme', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     mockCodeToHtml.mockReset()
     mockCodeToHtml.mockResolvedValue(
       '<pre class="shiki"><code><span class="line">code</span></code></pre>',
     )
     // Shared Chromium origin: a leaked 'reading' mode would mount the Markdown
     // pane instead of the code view under test if a fixture ever goes .md.
-    // The module-level session cache must reset alongside storage.
+    // The Redux store must reset alongside storage.
     window.localStorage.removeItem(MARKDOWN_PREVIEW_MODE_KEY)
-    resetMarkdownPreviewModeForTests()
+    window.localStorage.removeItem(RENDERER_PREFERENCES_STORAGE_KEY)
+    await resetPreferencesFixture()
   })
 
-  afterEach(() => {
+  afterEach(async () => {
     // Symmetric cleanup: a future .md fixture that writes 'reading' must not
     // leak the mode to the next file sharing this Chromium origin.
     window.localStorage.removeItem(MARKDOWN_PREVIEW_MODE_KEY)
-    resetMarkdownPreviewModeForTests()
+    window.localStorage.removeItem(RENDERER_PREFERENCES_STORAGE_KEY)
+    await resetPreferencesFixture()
   })
 
   test('highlights the code preview using the user-selected theme pair', async () => {

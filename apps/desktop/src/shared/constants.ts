@@ -913,26 +913,19 @@ export const SKILLS_DESKTOP_REPOSITORY_URL =
   'https://github.com/laststance/skills-desktop'
 
 /**
- * localStorage key tracking the last app version the user was shown release
- * notes for. Read on mount; if it differs from the running version (and was
- * non-null), the post-update toast fires once and the key is updated.
- *
- * Why a string here rather than a Redux slice: this is a one-shot UI cue,
- * not a piece of app state — no other component reads or mutates it.
+ * Legacy standalone key, read only when migrating release-note state into Redux.
  */
 export const RELEASE_NOTES_LAST_SEEN_VERSION_KEY =
   'skills-desktop:last-seen-version'
 
 /**
- * localStorage key tracking the last-selected Markdown preview mode (Code vs
- * Reading) in the right-pane file preview. Read on mount so the preview
- * opens in whichever mode the user last picked, and written on every
- * toggle so the choice survives file switches and app restarts.
- *
- * Why a string here rather than a Redux slice: this is a single UI
- * preference with one reader/writer — a slice would just add ceremony.
+ * Legacy standalone key, retained for migration and rollback of Markdown preview choices.
  */
 export const MARKDOWN_PREVIEW_MODE_KEY = 'skills-desktop:markdown-preview-mode'
+
+/** Dedicated middleware envelope for renderer choices, isolated from shared app-state writes. */
+export const RENDERER_PREFERENCES_STORAGE_KEY =
+  'skills-desktop-renderer-preferences'
 
 /**
  * Agent IDs that use ~/.agents/skills/ directly (no symlinks needed).

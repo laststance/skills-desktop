@@ -1,8 +1,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { MARKDOWN_PREVIEW_MODE_KEY } from '@/shared/constants'
+import { RENDERER_PREFERENCES_STORAGE_KEY } from '@/shared/constants'
 
+import packageJson from '../../package.json'
 import { test, expect, launchIsolatedElectron } from '../fixtures/electron-app'
 import { waitForInitialScan } from '../helpers/redux'
 
@@ -47,6 +48,25 @@ test('keeps Reading Mode selected across a real Electron process restart', async
     const firstWindow = await firstApp.firstWindow()
     await firstWindow.waitForLoadState('domcontentloaded')
     await waitForInitialScan(firstWindow)
+    // Settle the main window's first-install acknowledgement before testing two independent edits.
+    await expect
+      .poll(async () =>
+        firstWindow.evaluate(
+          (key) =>
+            JSON.parse(window.localStorage.getItem(key) ?? '{}').state
+              ?.rendererPreferences?.lastSeenVersion,
+          RENDERER_PREFERENCES_STORAGE_KEY,
+        ),
+      )
+      .toBe(packageJson.version)
+    // Start the second renderer before the mode changes, giving it an older store snapshot.
+    const settingsPromise = firstApp.waitForEvent('window')
+    await firstWindow.getByRole('button', { name: 'Open settings' }).click()
+    const settingsWindow = await settingsPromise
+    await settingsWindow.waitForLoadState('domcontentloaded')
+    await settingsWindow
+      .getByRole('button', { name: 'Appearance', exact: true })
+      .waitFor()
     await firstWindow
       .locator(`[data-skill-name="${SKILL_NAME}"]`)
       .first()
@@ -55,16 +75,88 @@ test('keeps Reading Mode selected across a real Electron process restart', async
       name: /Show rendered Markdown/i,
     })
     await expect(readingToggle).toBeVisible()
+
+    // Hold the real cross-process lock until both renderers have queued different field edits.
+    await firstWindow.evaluate(async (key) => {
+      await new Promise<void>((acquired) => {
+        void navigator.locks.request(key, async () => {
+          acquired()
+          await new Promise<void>((release) => {
+            window.addEventListener(
+              'e2e-release-preference-lock',
+              () => release(),
+              { once: true },
+            )
+          })
+        })
+      })
+    }, RENDERER_PREFERENCES_STORAGE_KEY)
     await readingToggle.click()
+    await settingsWindow.evaluate(() => {
+      window.__store__?.dispatch({
+        type: 'rendererPreferences/markReleaseNotesSeen',
+        payload: '0.32.0',
+      })
+    })
+    // The two middleware timers must expire while their writes remain blocked on the held lock.
+    await firstWindow.waitForTimeout(400)
+    await firstWindow.evaluate(() =>
+      window.dispatchEvent(new Event('e2e-release-preference-lock')),
+    )
     await expect(readingToggle).toHaveAttribute('aria-checked', 'true')
     // Guard the restart assertion: if the write never reached localStorage,
     // a relaunched default would look identical to a persistence failure.
-    expect(
-      await firstWindow.evaluate(
-        (key) => window.localStorage.getItem(key),
-        MARKDOWN_PREVIEW_MODE_KEY,
-      ),
-    ).toBe('reading')
+    await expect
+      .poll(async () =>
+        firstWindow.evaluate(
+          (key) =>
+            JSON.parse(window.localStorage.getItem(key) ?? '{}').state
+              ?.rendererPreferences?.markdownPreviewMode,
+          RENDERER_PREFERENCES_STORAGE_KEY,
+        ),
+      )
+      .toBe('reading')
+    await expect
+      .poll(async () =>
+        firstWindow.evaluate(
+          (key) =>
+            JSON.parse(window.localStorage.getItem(key) ?? '{}').state
+              ?.rendererPreferences?.lastSeenVersion,
+          RENDERER_PREFERENCES_STORAGE_KEY,
+        ),
+      )
+      .toBe('0.32.0')
+
+    // A real settings update exercises the stale renderer's middleware without editing preferences.
+    await settingsWindow.evaluate(async () =>
+      window.electron.settings.set({ codeFontSizePx: 15 }),
+    )
+    // Cover the middleware's 300ms debounce window before checking for an accidental overwrite.
+    await settingsWindow.waitForTimeout(400)
+    await expect(readingToggle).toHaveAttribute('aria-checked', 'true')
+
+    // Write from the other process so Chromium, rather than a synthetic event, delivers the notification.
+    await settingsWindow.evaluate((key) => {
+      const envelope = JSON.parse(window.localStorage.getItem(key) ?? '{}')
+      envelope.state.rendererPreferences.markdownPreviewMode = 'code'
+      window.localStorage.setItem(key, JSON.stringify(envelope))
+    }, RENDERER_PREFERENCES_STORAGE_KEY)
+    await expect(
+      firstWindow.getByRole('radio', { name: /Show Markdown source/i }),
+    ).toHaveAttribute('aria-checked', 'true')
+
+    // Leave Reading as the durable choice for the process-restart assertion below.
+    await readingToggle.click()
+    await expect
+      .poll(async () =>
+        firstWindow.evaluate(
+          (key) =>
+            JSON.parse(window.localStorage.getItem(key) ?? '{}').state
+              ?.rendererPreferences?.markdownPreviewMode,
+          RENDERER_PREFERENCES_STORAGE_KEY,
+        ),
+      )
+      .toBe('reading')
   } finally {
     // Clean shutdown — Chromium flushes localStorage to userData here.
     await firstApp.close()

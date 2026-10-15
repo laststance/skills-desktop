@@ -3,6 +3,7 @@ import { Provider } from 'react-redux'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
+import rendererPreferencesReducer from '@/renderer/src/redux/slices/rendererPreferencesSlice'
 import { installLayoutStyles } from '@/renderer/src/test/installLayoutStyles'
 import { DEFAULT_SETTINGS } from '@/shared/settings'
 import type {
@@ -200,10 +201,16 @@ async function renderSkillDetail(
   const store = configureStore({
     reducer: {
       settings: settingsReducer,
+      rendererPreferences: rendererPreferencesReducer,
       agents: agentsReducer,
       ui: uiReducer,
     },
     preloadedState: {
+      rendererPreferences: {
+        markdownPreviewMode: 'code' as const,
+        lastSeenVersion: null,
+        hydrated: true,
+      },
       agents: {
         items: options.agents ?? [makeAgent()],
         loading: false,
