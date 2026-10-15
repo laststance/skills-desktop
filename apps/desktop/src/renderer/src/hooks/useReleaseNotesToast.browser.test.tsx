@@ -17,7 +17,9 @@ import {
 let fixture: Awaited<ReturnType<typeof createPreferencesFixture>> | undefined
 
 async function renderReleaseNotes() {
-  await fixture?.dispose()
+  const previous = fixture
+  fixture = undefined
+  await previous?.dispose()
   fixture = await createPreferencesFixture()
   const { useReleaseNotesToast } = await import('./useReleaseNotesToast')
   return renderHook(() => useReleaseNotesToast(), { wrapper: fixture.Wrapper })
