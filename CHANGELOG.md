@@ -9,6 +9,7 @@
 
 ### Changed
 
+- Markdown preview mode and release-note history now persist through Redux storage middleware, retaining existing preferences while keeping simultaneous window changes in sync.
 - Remove all-agent Sync from the source card and Dashboard Quick Actions. Per-agent "Cleanup missing skills" remains available, preserves local folders, and reports its results without conflict replacement.
 - The Markdown file preview now remembers your Code/Reading mode across file switches and app restarts instead of always reopening in Code mode.
 - A trash entry whose only content is a hand-created directory named `manifest.json` (or `.manual-recovery`) is no longer swept as empty — bookkeeping names count only on regular files.

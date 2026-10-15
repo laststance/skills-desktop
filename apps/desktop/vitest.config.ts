@@ -194,6 +194,7 @@ export default defineConfig({
             'react/jsx-runtime',
             'react-redux',
             '@reduxjs/toolkit',
+            '@reduxjs/toolkit/query',
             'react-grid-layout',
             'react-resizable-panels',
             // Radix's controllable-state hook runs `useState` against whatever

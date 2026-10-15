@@ -36,22 +36,52 @@ Renderer (React, Redux Toolkit)  ──window.electron──▶  Preload (contex
   `@laststance/redux-storage-middleware` owns renderer persistence. Theme,
   bookmarks, protection and dashboard state use `skills-desktop-state`.
   Markdown preview mode and the last-seen release version use the dedicated
-  `skills-desktop-renderer-preferences` envelope. Its adapter imports the old
-  standalone keys only when the new key is absent and retains them for rollback.
+  `skills-desktop-renderer-preferences` key. Its version 1 envelope is:
+
+  ```json
+  {
+    "version": 1,
+    "state": {
+      "rendererPreferences": {
+        "markdownPreviewMode": "code",
+        "lastSeenVersion": null
+      }
+    }
+  }
+  ```
+
+  `markdownPreviewMode` accepts `code` or `reading`; `lastSeenVersion` accepts a
+  nonempty string or `null`. The runtime `hydrated` flag is never persisted.
+  Legacy keys are `skills-desktop:markdown-preview-mode` and
+  `skills-desktop:last-seen-version`; retained values are migration seeds, not
+  dual-written copies, so older versions may restore the pre-migration choices.
+
+  | Canonical key                              | Legacy keys          | Startup result                                        |
+  | ------------------------------------------ | -------------------- | ----------------------------------------------------- |
+  | Valid version 1 envelope                   | Present or absent    | Canonical values win.                                 |
+  | Valid envelope with invalid/missing fields | Present or absent    | Keep valid fields; default others to `code` / `null`. |
+  | Invalid JSON, shape or version             | Present or absent    | Use defaults; preserve original canonical bytes.      |
+  | Absent                                     | Valid values present | Import each valid legacy field; default the others.   |
+  | Absent                                     | Absent or invalid    | Use defaults.                                         |
+
   Components dispatch Redux actions; they do not write storage. Preference saves
-  run their read/merge/write transaction under a shared Chromium Web Lock and
-  merge only locally edited fields with the latest persisted values, so unrelated
-  Settings-window actions cannot overwrite another window's choices. Storage
-  events synchronize the slice even when no preview is mounted; changed remote
-  fields supersede queued local edits to the same field, while independent local
-  edits survive. Consumers wait for hydration before displaying the Markdown
-  mode or checking release notes. The runtime hydration flag is never persisted.
-  When the canonical key exists, valid fields win and malformed fields fall back
-  individually to Code / no seen version; the retained old keys are ignored because
-  they may be stale. When the canonical key is absent, valid legacy fields seed the
-  slice. Corrupt canonical bytes are preserved until a local edit saves a new value.
-  Unsupported or rejected Web Locks keep edits in memory, report the failed save,
-  and retry on later Redux activity; the adapter never falls back to unlocked writes.
+  run a read/merge/write transaction under a shared Chromium Web Lock. Explicitly
+  edited fields merge with the latest canonical values; queued migration seeds
+  yield to canonical values created by another window while the lock was pending.
+  Storage events synchronize the slice even when no preview is mounted. Changed
+  remote fields supersede queued local edits to the same field; independent local
+  edits survive, and adopted fields do not trigger an echo write. Stale or malformed
+  notifications are ignored. Consumers wait for hydration before displaying the
+  Markdown mode or checking release notes; pre-hydration local edits survive.
+  Rejected writes or unsupported/rejected Web Locks keep edits in memory and retry
+  on later Redux activity, without falling back to unlocked writes. The save warning
+  latches only once delivered. Rejected `setItem` calls log
+  `[redux] persisting app state to localStorage failed`, the affected key and error;
+  lock errors reach the middleware's `save` error handler and the same warning.
+  For recovery, inspect that operation/key first and restore storage or lock access.
+  Retain legacy keys for rollback and corrupt canonical bytes for diagnosis until
+  an intentional preference change replaces them. Do not clear all localStorage or
+  app data: that also erases unrelated preferences and cannot repair denied access.
   Main-owned settings and activity remain in their IPC-backed files.
 
 - **Shared** (`apps/desktop/src/shared`) holds code for all three processes:
@@ -92,3 +122,9 @@ Main process      ──image bytes (fetch)──▶ Unsplash image CDN (validat
 - the Storybook build
 
 `pnpm test:e2e` then drives the built Electron app with Playwright under an isolated `HOME`. CI runs the same gates as separate required checks, plus CodeQL, Dependency Review, a production dependency audit and Socket.
+
+Run the isolated migration, retry and cross-window regression suite from the root:
+
+```bash
+pnpm --filter skills-desktop test src/renderer/src/redux/rendererPreferencesPersistence.test.ts src/renderer/src/redux/reportingLocalStorage.test.ts
+```

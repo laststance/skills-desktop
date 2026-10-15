@@ -82,6 +82,33 @@ afterEach(async () => {
 })
 
 describe('renderer preference persistence', () => {
+  test('a delayed legacy migration preserves choices already saved by another window', async () => {
+    // Arrange
+    values.set(MARKDOWN_PREVIEW_MODE_KEY, 'code')
+    values.set(RELEASE_NOTES_LAST_SEEN_VERSION_KEY, '0.32.0')
+    const first = await bootPreferences()
+    first.store.dispatch(setMarkdownPreviewMode('reading'))
+    first.store.dispatch(markReleaseNotesSeen('0.33.0'))
+    const second = await bootPreferences()
+
+    // Act
+    await vi.runAllTimersAsync()
+    const restarted = await bootPreferences()
+
+    // Assert
+    const expected = {
+      markdownPreviewMode: 'reading',
+      lastSeenVersion: '0.33.0',
+      hydrated: true,
+    }
+    expect(second.store.getState().rendererPreferences).toEqual(expected)
+    expect(restarted.store.getState().rendererPreferences).toEqual(expected)
+    expect(readPersisted().state.rendererPreferences).toEqual({
+      markdownPreviewMode: 'reading',
+      lastSeenVersion: '0.33.0',
+    })
+  })
+
   test('keeps edits in memory and warns once when the cross-window lock is rejected, then retries safely', async () => {
     // Arrange
     const fixture = await bootPreferences()
@@ -417,6 +444,7 @@ describe('renderer preference persistence', () => {
 
     // Act
     emitStorage(target, 'other-key', null)
+    values.set(RENDERER_PREFERENCES_STORAGE_KEY, 'not-json')
     emitStorage(target, RENDERER_PREFERENCES_STORAGE_KEY, 'not-json')
 
     // Assert

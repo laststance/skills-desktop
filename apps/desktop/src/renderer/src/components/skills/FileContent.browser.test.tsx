@@ -1,7 +1,14 @@
+import { configureStore } from '@reduxjs/toolkit'
 import type { ReactElement } from 'react'
+import { Provider } from 'react-redux'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { render as renderBrowser } from 'vitest-browser-react'
 
 import type { PreviewContent } from '@/renderer/src/hooks/useCodePreview'
+import rendererPreferencesReducer, {
+  rendererPreferencesHydrated,
+  syncRendererPreferences,
+} from '@/renderer/src/redux/slices/rendererPreferencesSlice'
 import { createPreferencesFixture } from '@/renderer/src/test-utils/rendererPreferences'
 import '@/renderer/src/styles/globals.css'
 import {
@@ -136,6 +143,71 @@ function makeImageContent(name: string, dataUrl: string): PreviewContent {
 }
 
 describe('FileContent Markdown modes', () => {
+  // Value: protects=the saved Reading choice is the first usable Markdown pane; fails_when=source renders before preference hydration; why_new=the persistence fixture waits for hydration before mounting; seam=none
+  test('waits for saved preferences before showing the first Markdown pane in Reading Mode', async () => {
+    // Arrange
+    const store = configureStore({
+      reducer: { rendererPreferences: rendererPreferencesReducer },
+    })
+    const { FileContent } = await import('./FileContent')
+
+    // Act
+    const screen = await renderBrowser(
+      <Provider store={store}>
+        <div className="h-[240px] flex flex-col">
+          <FileContent
+            content={makeTextContent({ content: '# Saved reading\n' })}
+          />
+        </div>
+      </Provider>,
+    )
+
+    // Assert
+    await expect
+      .element(screen.getByLabelText('Loading Markdown preview'))
+      .toBeVisible()
+    expect(
+      screen.container.querySelector('[data-file-preview-scroll]'),
+    ).toBeNull()
+    expect(
+      screen.container.querySelector('[data-markdown-reading-scroll]'),
+    ).toBeNull()
+    expect(
+      screen.getByRole('radio', { name: /Show Markdown source/i }).query(),
+    ).toBeNull()
+
+    // Act
+    store.dispatch(
+      syncRendererPreferences({
+        markdownPreviewMode: 'reading',
+        lastSeenVersion: null,
+      }),
+    )
+
+    // Assert
+    expect(
+      screen.container.querySelector('[data-file-preview-scroll]'),
+    ).toBeNull()
+    expect(
+      screen.container.querySelector('[data-markdown-reading-scroll]'),
+    ).toBeNull()
+
+    // Act
+    store.dispatch(rendererPreferencesHydrated())
+
+    // Assert
+    await expect
+      .element(screen.getByRole('heading', { name: 'Saved reading' }))
+      .toBeVisible()
+    await expect
+      .element(screen.getByRole('radio', { name: /Show rendered Markdown/i }))
+      .toHaveAttribute('aria-checked', 'true')
+    expect(
+      screen.container.querySelector('[data-file-preview-scroll]'),
+    ).toBeNull()
+    expect(screen.getByLabelText('Loading Markdown preview').query()).toBeNull()
+  })
+
   test('renders Markdown files in code mode first, then switches to Reading Mode', async () => {
     // Arrange
     const { FileContent } = await import('./FileContent')

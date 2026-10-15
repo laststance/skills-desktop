@@ -160,15 +160,21 @@ export function createRendererPreferencesPersistence<
         // Serialize the full read/merge/write transaction across Chromium renderer processes.
         await navigator.locks.request(key, () => {
           if (dirty.size === 0 || !storeApi) return
-          const latest = parsePreferences(storage.getItem(key)) ?? observed
+          const persisted = parsePreferences(storage.getItem(key))
+          const latest = persisted ?? observed
           const local = storeApi.getState().rendererPreferences
           saved = {
-            markdownPreviewMode: dirty.has('markdownPreviewMode')
-              ? local.markdownPreviewMode
-              : latest.markdownPreviewMode,
-            lastSeenVersion: dirty.has('lastSeenVersion')
-              ? local.lastSeenVersion
-              : latest.lastSeenVersion,
+            // A queued legacy import yields to canonical values created by another window.
+            markdownPreviewMode:
+              dirty.has('markdownPreviewMode') &&
+              (edited.has('markdownPreviewMode') || persisted === null)
+                ? local.markdownPreviewMode
+                : latest.markdownPreviewMode,
+            lastSeenVersion:
+              dirty.has('lastSeenVersion') &&
+              (edited.has('lastSeenVersion') || persisted === null)
+                ? local.lastSeenVersion
+                : latest.lastSeenVersion,
           }
           storage.setItem(key, serializePreferences(saved))
         })
