@@ -16,10 +16,17 @@ import {
 
 let fixture: Awaited<ReturnType<typeof createPreferencesFixture>> | undefined
 
-async function renderReleaseNotes() {
+/** Releases the previous test's storage listener before replacement or teardown.
+ * @example await disposeReleaseNotesFixture()
+ */
+async function disposeReleaseNotesFixture(): Promise<void> {
   const previous = fixture
   fixture = undefined
   await previous?.dispose()
+}
+
+async function renderReleaseNotes() {
+  await disposeReleaseNotesFixture()
   fixture = await createPreferencesFixture()
   const { useReleaseNotesToast } = await import('./useReleaseNotesToast')
   return renderHook(() => useReleaseNotesToast(), { wrapper: fixture.Wrapper })
@@ -41,9 +48,7 @@ beforeEach(() => {
 })
 
 afterEach(async () => {
-  const previous = fixture
-  fixture = undefined
-  await previous?.dispose()
+  await disposeReleaseNotesFixture()
   vi.unstubAllGlobals()
   window.localStorage.clear()
 })
