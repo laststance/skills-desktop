@@ -58,6 +58,11 @@ let incrementalCache: IncrementalCache
 describe('Unsplash proxy through the public oRPC transport', () => {
   beforeEach(async () => {
     cacheDirectory = await mkdtemp(join(tmpdir(), 'skills-unsplash-cache-'))
+    const previewProps = {
+      previewModeId: 'test-preview',
+      previewModeEncryptionKey: 'test-encryption',
+      previewModeSigningKey: 'test-signing',
+    }
     // Exercise Next's real Data Cache rather than a fake memoization implementation.
     incrementalCache = new IncrementalCache({
       dev: false,
@@ -74,17 +79,15 @@ describe('Unsplash proxy through the public oRPC transport', () => {
         mkdir: (directory) => mkdir(directory, { recursive: true }),
         stat,
       },
-      getPrerenderManifest: () => ({
+      // Next 16.4 receives preview props and the prerender manifest directly.
+      previewProps,
+      prerenderManifest: {
         version: 4,
         routes: {},
         dynamicRoutes: {},
         notFoundRoutes: [],
-        preview: {
-          previewModeId: 'test-preview',
-          previewModeEncryptionKey: 'test-encryption',
-          previewModeSigningKey: 'test-signing',
-        },
-      }),
+        preview: previewProps,
+      },
     })
     vi.stubGlobal('__incrementalCache', incrementalCache)
     vi.stubGlobal('fetch', fetchProvider)
