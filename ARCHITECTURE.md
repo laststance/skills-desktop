@@ -100,7 +100,7 @@ Renderer (React, Redux Toolkit)  ──window.electron──▶  Preload (contex
   - `constants.ts` holds `AGENT_DEFINITIONS`, which mirrors the pinned [skills CLI](https://github.com/vercel-labs/skills) agent list.
   - Domain types.
 
-The build uses electron-vite, which writes `out/main`, `out/preload` and `out/renderer`, and electron-builder, which writes a signed, notarized DMG and ZIP to `apps/desktop/dist`. electron-vite externalizes runtime `dependencies`, so the workspace contract package is a desktop **devDependency** and gets bundled into `out/main`. `pnpm check:bundled-workspace` fails CI if a bundle still imports it by name.
+The build uses electron-vite, which writes `out/main`, `out/preload` and `out/renderer`, and electron-builder, which writes a signed, notarized DMG and ZIP to `apps/desktop/dist`. Main and preload explicitly disable `build.externalizeDeps` to preserve bundled CommonJS interop under electron-vite 6; Electron and Sharp remain explicit main-process externals. The main build uses `rolldownOptions` to retain the ESM `out/main/index.mjs` entry and `.mjs` chunks, while preload stays CommonJS. The workspace contract package remains a desktop **devDependency** and is bundled into `out/main`. `pnpm check:bundled-workspace` fails CI if a bundle still imports it by name.
 
 ## Background gallery flow
 

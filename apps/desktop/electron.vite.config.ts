@@ -15,12 +15,20 @@ export default defineConfig({
   main: {
     resolve: { alias: srcAlias },
     build: {
-      rollupOptions: {
+      // Preserve bundled CommonJS interop; native dependencies remain explicitly external below.
+      externalizeDeps: false,
+      rolldownOptions: {
         input: {
           index: resolve(__dirname, 'src/main/index.ts'),
         },
         // Sharp resolves native @img packages from its own installed directory; bundling moves that lookup into out/main.
         external: ['electron', 'sharp'],
+        // Keep package.json and native launches pointed at the existing ESM entry.
+        output: {
+          format: 'es',
+          entryFileNames: '[name].mjs',
+          chunkFileNames: 'chunks/[name]-[hash].mjs',
+        },
       },
     },
   },
@@ -30,7 +38,9 @@ export default defineConfig({
       __E2E_BUILD__: JSON.stringify(process.env.E2E_BUILD === '1'),
     },
     build: {
-      rollupOptions: {
+      // Sandboxed preload keeps its dependencies bundled and exposes only the Electron bridge.
+      externalizeDeps: false,
+      rolldownOptions: {
         input: {
           index: resolve(__dirname, 'src/preload/index.ts'),
         },
@@ -50,7 +60,7 @@ export default defineConfig({
       __E2E_BUILD__: JSON.stringify(process.env.E2E_BUILD === '1'),
     },
     build: {
-      rollupOptions: {
+      rolldownOptions: {
         input: {
           index: resolve(__dirname, 'src/renderer/index.html'),
           settings: resolve(__dirname, 'src/renderer/settings/index.html'),
