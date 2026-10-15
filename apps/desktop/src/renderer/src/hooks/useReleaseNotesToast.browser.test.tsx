@@ -160,3 +160,72 @@ test('waits for hydrated preferences and shows the update cue once across Strict
   expect(toastMock).toHaveBeenCalledTimes(1)
   expect(store.getState().rendererPreferences.lastSeenVersion).toBe('0.21.1')
 })
+
+// Value: protects=an unreadable startup history cannot erase the next launch's update cue; fails_when=a silent session claim overwrites the durable acknowledgement after a failed initial read; why_new=normal first-install coverage has no previously seen version to preserve; seam=none,no_claim=visual-toast-rendering
+test('preserves the update cue for the next launch when the initial preference read fails', async () => {
+  // Arrange
+  const previousAcknowledgement = JSON.stringify({
+    version: 1,
+    state: {
+      rendererPreferences: {
+        markdownPreviewMode: 'code',
+        lastSeenVersion: '0.21.0',
+      },
+    },
+  })
+  window.localStorage.setItem(
+    RENDERER_PREFERENCES_STORAGE_KEY,
+    previousAcknowledgement,
+  )
+  const read = Storage.prototype.getItem
+  let initialReadDenied = false
+  const getItem = vi
+    .spyOn(Storage.prototype, 'getItem')
+    .mockImplementation(function (this: Storage, key) {
+      if (key === RENDERER_PREFERENCES_STORAGE_KEY && !initialReadDenied) {
+        initialReadDenied = true
+        throw new DOMException(
+          'storage temporarily unavailable',
+          'SecurityError',
+        )
+      }
+      return read.call(this, key)
+    })
+
+  try {
+    // Act
+    const firstLaunch = await renderReleaseNotes()
+    await firstLaunch.unmount()
+    await disposeReleaseNotesFixture()
+
+    // Assert
+    expect(initialReadDenied).toBe(true)
+    expect(toastMock).not.toHaveBeenCalled()
+    expect(window.localStorage.getItem(RENDERER_PREFERENCES_STORAGE_KEY)).toBe(
+      previousAcknowledgement,
+    )
+
+    // Act
+    await renderReleaseNotes()
+
+    // Assert
+    await expect.poll(() => toastMock.mock.calls.length).toBe(1)
+    expect(toastMock.mock.calls[0]?.[0]).toBe('Updated to v0.21.1')
+    expect(fixture?.store.getState().rendererPreferences.lastSeenVersion).toBe(
+      '0.21.1',
+    )
+
+    // Act
+    await disposeReleaseNotesFixture()
+
+    // Assert
+    expect(toastMock).toHaveBeenCalledTimes(1)
+    expect(
+      JSON.parse(
+        window.localStorage.getItem(RENDERER_PREFERENCES_STORAGE_KEY) ?? '{}',
+      ).state?.rendererPreferences?.lastSeenVersion,
+    ).toBe('0.21.1')
+  } finally {
+    getItem.mockRestore()
+  }
+})

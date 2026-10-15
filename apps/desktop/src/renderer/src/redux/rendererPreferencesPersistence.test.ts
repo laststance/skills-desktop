@@ -82,6 +82,64 @@ afterEach(async () => {
 })
 
 describe('renderer preference persistence', () => {
+  test('an unreadable startup history remains available for the next update check after storage recovers', async () => {
+    // Arrange
+    const original = JSON.stringify({
+      version: 1,
+      state: {
+        rendererPreferences: {
+          markdownPreviewMode: 'reading',
+          lastSeenVersion: '0.31.0',
+        },
+      },
+    })
+    values.set(RENDERER_PREFERENCES_STORAGE_KEY, original)
+    localStorageMock.getItem.mockImplementationOnce(() => {
+      throw new Error('SecurityError')
+    })
+    const fixture = await bootPreferences()
+
+    // Act
+    fixture.store.dispatch(markReleaseNotesSeen('0.34.0'))
+    await vi.runAllTimersAsync()
+    const restarted = await bootPreferences()
+
+    // Assert
+    expect(values.get(RENDERER_PREFERENCES_STORAGE_KEY)).toBe(original)
+    expect(restarted.store.getState().rendererPreferences.lastSeenVersion).toBe(
+      '0.31.0',
+    )
+    expect(fixture.store.getState().rendererPreferences.lastSeenVersion).toBe(
+      '0.34.0',
+    )
+  })
+
+  test('a recovered legacy history survives the first preview save after its startup read was denied', async () => {
+    // Arrange
+    values.set(MARKDOWN_PREVIEW_MODE_KEY, 'reading')
+    values.set(RELEASE_NOTES_LAST_SEEN_VERSION_KEY, '0.31.0')
+    localStorageMock.getItem.mockImplementation((key) => {
+      if (key === RELEASE_NOTES_LAST_SEEN_VERSION_KEY)
+        throw new Error('SecurityError')
+      return values.get(key) ?? null
+    })
+    const fixture = await bootPreferences()
+    localStorageMock.getItem.mockImplementation(
+      (key) => values.get(key) ?? null,
+    )
+
+    // Act
+    fixture.store.dispatch(markReleaseNotesSeen('0.34.0'))
+    fixture.store.dispatch(setMarkdownPreviewMode('code'))
+    await vi.runAllTimersAsync()
+
+    // Assert
+    expect(readPersisted().state.rendererPreferences).toEqual({
+      markdownPreviewMode: 'code',
+      lastSeenVersion: '0.31.0',
+    })
+  })
+
   test.each([
     {},
     { markdownPreviewMode: 'reading' },

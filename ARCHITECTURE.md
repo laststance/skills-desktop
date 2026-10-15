@@ -78,6 +78,9 @@ Renderer (React, Redux Toolkit)  ──window.electron──▶  Preload (contex
   edits survive, and adopted fields do not trigger an echo write. Stale or malformed
   notifications are ignored. Consumers wait for hydration before displaying the
   Markdown mode or checking release notes; pre-hydration local edits survive.
+  If startup history could not be read, a silent release claim stays in memory
+  instead of overwriting an unknown prior version. Later writes recover a current
+  canonical or legacy baseline so a future update check retains that history.
   Rejected writes or unsupported/rejected Web Locks keep edits in memory and retry
   on later Redux activity, without falling back to unlocked writes. The save warning
   also covers reads rejected during a locked save; an unreadable key is never

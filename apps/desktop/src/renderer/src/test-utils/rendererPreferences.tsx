@@ -6,6 +6,7 @@ import { render as renderBrowser } from 'vitest-browser-react'
 import { createRendererPreferencesPersistence } from '@/renderer/src/redux/rendererPreferencesPersistence'
 import rendererPreferencesReducer from '@/renderer/src/redux/slices/rendererPreferencesSlice'
 import settingsReducer from '@/renderer/src/redux/slices/settingsSlice'
+import { RENDERER_PREFERENCES_STORAGE_KEY } from '@/shared/constants'
 
 /** Builds an isolated provider with the real middleware so component tests exercise loading and durable writes.
  * @example const fixture = await createPreferencesFixture()
@@ -40,8 +41,9 @@ export async function createPreferencesFixture() {
       renderBrowser(element, { wrapper: Wrapper }),
     dispose: async (): Promise<void> => {
       unsubscribe()
-      // Let the middleware's 300ms save settle before the next test clears storage.
+      // Let the middleware enqueue its 300ms save before waiting behind its native lock request.
       await new Promise((resolve) => setTimeout(resolve, 350))
+      await navigator.locks.request(RENDERER_PREFERENCES_STORAGE_KEY, () => {})
     },
   }
 }

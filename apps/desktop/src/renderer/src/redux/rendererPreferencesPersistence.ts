@@ -120,6 +120,8 @@ export function createRendererPreferencesPersistence<
   let observed = normalizePreferences(null)
   let canonicalPresent = false
   let readFailed = false
+  let hydrationComplete = false
+  let startupReadFailed = false
   let failureReported = false
   const reportFailure = (error: unknown): boolean => {
     if (!failureReported) failureReported = reportWriteFailure(error)
@@ -132,6 +134,7 @@ export function createRendererPreferencesPersistence<
       dirty.clear()
       edited.clear()
       if (saved) {
+        startupReadFailed = false
         canonicalPresent = true
         observed = saved
         storeApi?.dispatch(syncRendererPreferences(saved))
@@ -139,8 +142,29 @@ export function createRendererPreferencesPersistence<
     },
     () => {
       readFailed = true
+      if (!hydrationComplete) startupReadFailed = true
     },
   )
+
+  /** Reads rollback seeds for hydration or recovery after an uncertain startup read.
+   * Called only by the persistence adapter; components never read storage directly.
+   * @example const legacy = readLegacyPreferences()
+   */
+  function readLegacyPreferences() {
+    return {
+      markdownPreviewMode: storage.getItem(MARKDOWN_PREVIEW_MODE_KEY),
+      lastSeenVersion: storage.getItem(RELEASE_NOTES_LAST_SEEN_VERSION_KEY),
+    }
+  }
+
+  /** Recovers an authoritative baseline before an edit or locked save after startup denial.
+   * @example const baseline = readBaseline(raw)
+   */
+  function readBaseline(raw: string | null): Preferences | null {
+    const persisted = parsePreferences(raw)
+    if (persisted || raw !== null || !startupReadFailed) return persisted
+    return normalizePreferences(readLegacyPreferences())
+  }
 
   /** Discards pre-clear intent when a previously present key disappears before its event arrives.
    * Called during local edits or locked saves; first-time legacy migration remains eligible.
@@ -150,6 +174,7 @@ export function createRendererPreferencesPersistence<
     dirty.clear()
     edited.clear()
     canonicalPresent = false
+    startupReadFailed = false
     observed = normalizePreferences(null)
     storeApi?.dispatch(syncRendererPreferences(observed))
   }
@@ -161,18 +186,24 @@ export function createRendererPreferencesPersistence<
     version: 1,
     storage: {
       getItem: (key) => {
+        readFailed = false
         const raw = storage.getItem(key)
+        // Denial is not proof of absence, so retained legacy values cannot replace an unreadable canonical key.
+        if (readFailed) {
+          observed = normalizePreferences(null)
+          return serializePreferences(observed)
+        }
         if (raw !== null) {
+          startupReadFailed = false
           canonicalPresent = true
           const preferences = parsePreferences(raw)
           observed = normalizePreferences(preferences)
           // Invalid dedicated storage uses defaults without deleting the original bytes.
           return serializePreferences(observed)
         }
-        const legacyMode = storage.getItem(MARKDOWN_PREVIEW_MODE_KEY)
-        const legacyVersion = storage.getItem(
-          RELEASE_NOTES_LAST_SEEN_VERSION_KEY,
-        )
+        const legacy = readLegacyPreferences()
+        const legacyMode = legacy.markdownPreviewMode
+        const legacyVersion = legacy.lastSeenVersion
         if (legacyMode === 'code' || legacyMode === 'reading')
           dirty.add('markdownPreviewMode')
         if (legacyVersion) dirty.add('lastSeenVersion')
@@ -198,7 +229,9 @@ export function createRendererPreferencesPersistence<
             adoptRemoteClear()
             return
           }
-          const persisted = parsePreferences(raw)
+          const persisted = readBaseline(raw)
+          if (readFailed)
+            throw new Error('Cannot read legacy preferences before saving')
           const latest = persisted ?? observed
           // A remote write can finish before its storage event reaches this renderer.
           for (const field of [
@@ -244,6 +277,7 @@ export function createRendererPreferencesPersistence<
       },
     }),
     onHydrationComplete: () => {
+      hydrationComplete = true
       storeApi?.dispatch(rendererPreferencesHydrated())
     },
     onError: (error, operation) => {
@@ -264,16 +298,22 @@ export function createRendererPreferencesPersistence<
             ? 'lastSeenVersion'
             : null
         if (field) {
+          const unknownReleaseHistory =
+            field === 'lastSeenVersion' &&
+            startupReadFailed &&
+            api.getState().rendererPreferences.lastSeenVersion === null
           // Remember the durable value at edit time so only later remote writes supersede this intent.
           readFailed = false
           const raw = storage.getItem(RENDERER_PREFERENCES_STORAGE_KEY)
           if (!readFailed) {
             if (raw === null && canonicalPresent) adoptRemoteClear()
             canonicalPresent = raw !== null
-            const persisted = parsePreferences(raw)
-            if (persisted) observed = { ...observed, [field]: persisted[field] }
+            const persisted = readBaseline(raw)
+            if (!readFailed && persisted)
+              observed = { ...observed, [field]: persisted[field] }
           }
-          dirty.add(field)
+          // A silent first-install claim cannot replace history that was never successfully read.
+          if (!unknownReleaseHistory) dirty.add(field)
           edited.add(field)
         }
         return handle(action)
@@ -302,6 +342,7 @@ export function createRendererPreferencesPersistence<
           ? normalizePreferences(null)
           : parsePreferences(event.newValue, true)
       if (!preferences) return
+      startupReadFailed = false
       const canonicalWasPresent = canonicalPresent
       canonicalPresent = event.newValue !== null
       // Remote changes win for that field; unrelated unsaved local edits must survive.
