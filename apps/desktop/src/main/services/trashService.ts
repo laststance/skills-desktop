@@ -132,7 +132,7 @@ async function restorePathNoOverwrite(
  * Record of a symlink that existed before delete, used to rebuild the agent's
  * skills directory on undo.
  */
-export interface RecordedSymlink {
+interface RecordedSymlink {
   agentId: AgentId
   linkPath: AbsolutePath
   // `target` is whatever string was passed to `fs.symlink` when the link was
@@ -148,7 +148,7 @@ export interface RecordedSymlink {
  * moved into the trash. Used for local-only skills (no `~/.agents/skills/<name>`
  * source exists; the skill lives directly in one or more agent directories).
  */
-export interface RecordedLocalCopy {
+interface RecordedLocalCopy {
   agentId: AgentId
   linkPath: AbsolutePath
   /** Scan-time directory identity, used to reject same-path replacements. */

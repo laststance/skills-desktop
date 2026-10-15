@@ -8,37 +8,35 @@ catalogMode: strict
 catalog:
   '@typescript/native': npm:typescript@7.0.2
   '@eslint/js': ^10.0.1
-  '@orpc/client': 1.15.4
-  '@orpc/contract': 1.15.4
-  '@orpc/server': 1.15.4
-  '@orpc/tanstack-query': 1.15.4
-  '@types/node': ^26.6.4
+  '@orpc/client': 1.15.7
+  '@orpc/contract': 1.15.7
+  '@orpc/server': 1.15.7
+  '@orpc/tanstack-query': 1.15.7
+  '@types/node': ^26.6.5
   '@types/react': ^19.3.0
   '@types/react-dom': ^19.3.0
-  '@vitest/browser-playwright': ^5.0.3
-  '@vitest/coverage-v8': ^5.0.3
-  eslint: ^10.11.0
+  '@vitest/browser-playwright': ^5.0.4
+  '@vitest/coverage-v8': ^5.0.4
+  eslint: ^10.12.0
   eslint-plugin-react-hooks: ^7.1.1
-  lucide-react: ^1.50.0
-  prettier: ^3.9.9
-  react: ^19.3.0
-  react-dom: ^19.3.0
+  lucide-react: ^1.57.0
+  prettier: ^3.9.10
+  react: ^19.3.1
+  react-dom: ^19.3.1
   tailwindcss: ^4.3.3
   # Keep the TypeScript 6 JS API at the `typescript` import for ESLint and other tools.
   # @typescript/native provides TypeScript 7's `tsc` binary without a bin conflict.
   typescript: npm:@typescript/typescript6@6.0.2
-  typescript-eslint: ^8.71.0
-  vitest: ^5.0.3
-  zod: 4.6.5
+  typescript-eslint: ^8.71.2
+  vitest: ^5.0.4
+  zod: 4.6.7
 
 # The TypeScript 6 compatibility wrapper reports package version 6.0.2 while
-# its JS API and `tsc6` binary are 6.0.3. Electron's Vite 8 build is covered
-# by the repository's build and E2E gates until electron-vite widens its peer.
+# its JS API and `tsc6` binary are 6.0.3.
 peerDependencyRules:
   allowedVersions:
     '@laststance/react-next-eslint-plugin>typescript': 6.0.2
     'eslint-config-ts-prefixer>typescript': 6.0.2
-    'electron-vite>vite': ^8.3.2
 
 allowBuilds:
   # Click-to-source does not use Code Inspector's optional terminal probe.
@@ -126,9 +124,33 @@ minimumReleaseAgeExclude:
   - '@rolldown/binding-win32-x64-msvc@1.2.9'
   - react-draggable@4.7.2
   - rolldown@1.2.9
-  # Keep the cooldown for future versions while allowing this 2026-09-26 refresh.
-  - '@tanstack/query-core@5.104.0 || 5.104.1'
+  # Keep future releases on cooldown; exact versions selected by the 2026-09-26 and 2026-10-15 refreshes.
+  - '@tanstack/query-core@5.104.0 || 5.104.1 || 5.104.3'
   # Allow the exact newest releases selected by the 2026-10-02 upgrade.
   - '@types/node@24.19.1 || 26.6.4'
   - baseline-browser-mapping@2.11.27
   - electron-to-chromium@1.5.444
+  - '@next/env@16.4.1'
+  - '@next/eslint-plugin-next@16.4.1'
+  - '@next/swc-darwin-arm64@16.4.1'
+  - '@next/swc-darwin-x64@16.4.1'
+  - '@next/swc-linux-arm64-gnu@16.4.1'
+  - '@next/swc-linux-arm64-musl@16.4.1'
+  - '@next/swc-linux-x64-gnu@16.4.1'
+  - '@next/swc-linux-x64-musl@16.4.1'
+  - '@next/swc-win32-arm64-msvc@16.4.1'
+  - '@next/swc-win32-x64-msvc@16.4.1'
+  - '@orpc/client@1.15.7'
+  - '@orpc/contract@1.15.7'
+  - '@orpc/interop@1.15.7'
+  - '@orpc/server@1.15.7'
+  - '@orpc/shared@1.15.7'
+  - '@orpc/standard-server-aws-lambda@1.15.7'
+  - '@orpc/standard-server-fastify@1.15.7'
+  - '@orpc/standard-server-fetch@1.15.7'
+  - '@orpc/standard-server-node@1.15.7'
+  - '@orpc/standard-server-peer@1.15.7'
+  - '@orpc/standard-server@1.15.7'
+  - '@orpc/tanstack-query@1.15.7'
+  - electron-vite@6.0.0
+  - node-releases@2.0.59
