@@ -3,6 +3,7 @@ import { join } from 'node:path'
 
 import { RENDERER_PREFERENCES_STORAGE_KEY } from '@/shared/constants'
 
+import packageJson from '../../package.json'
 import { test, expect, launchIsolatedElectron } from '../fixtures/electron-app'
 import { waitForInitialScan } from '../helpers/redux'
 
@@ -47,9 +48,6 @@ test('keeps Reading Mode selected across a real Electron process restart', async
     const firstWindow = await firstApp.firstWindow()
     await firstWindow.waitForLoadState('domcontentloaded')
     await waitForInitialScan(firstWindow)
-    const currentVersion = await firstApp.evaluate(({ app }) =>
-      app.getVersion(),
-    )
     // Settle the main window's first-install acknowledgement before testing two independent edits.
     await expect
       .poll(async () =>
@@ -60,7 +58,7 @@ test('keeps Reading Mode selected across a real Electron process restart', async
           RENDERER_PREFERENCES_STORAGE_KEY,
         ),
       )
-      .toBe(currentVersion)
+      .toBe(packageJson.version)
     // Start the second renderer before the mode changes, giving it an older store snapshot.
     const settingsPromise = firstApp.waitForEvent('window')
     await firstWindow.getByRole('button', { name: 'Open settings' }).click()

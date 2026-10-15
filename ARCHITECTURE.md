@@ -71,6 +71,8 @@ Renderer (React, Redux Toolkit)  ──window.electron──▶  Preload (contex
   Each local edit records that field's durable baseline. A later remote change
   supersedes the pending edit under the lock even before its notification arrives;
   an intentional local edit made after that remote save remains eligible to persist.
+  Deleting an existing canonical key cancels older pending writes; a new local
+  action after that deletion can persist without reviving pre-deletion choices.
   Storage events synchronize the slice even when no preview is mounted. Changed
   remote fields supersede queued local edits to the same field; independent local
   edits survive, and adopted fields do not trigger an echo write. Stale or malformed
@@ -78,12 +80,15 @@ Renderer (React, Redux Toolkit)  ──window.electron──▶  Preload (contex
   Markdown mode or checking release notes; pre-hydration local edits survive.
   Rejected writes or unsupported/rejected Web Locks keep edits in memory and retry
   on later Redux activity, without falling back to unlocked writes. The save warning
+  also covers reads rejected during a locked save; an unreadable key is never
+  treated as a verified deletion, and queued edits remain retryable. The warning
   latches only once delivered. Rejected `setItem` calls log
   `[redux] persisting app state to localStorage failed`, the affected key and error;
   lock errors reach the middleware's `save` error handler and the same warning.
   For recovery, inspect that operation/key first and restore storage or lock access.
   Retain legacy keys for rollback and corrupt canonical bytes for diagnosis until
-  an intentional preference change replaces them. Do not clear all localStorage or
+  a local preference action saves successfully, including an automatic release
+  acknowledgement. Do not clear all localStorage or
   app data: that also erases unrelated preferences and cannot repair denied access.
   Main-owned settings and activity remain in their IPC-backed files.
 

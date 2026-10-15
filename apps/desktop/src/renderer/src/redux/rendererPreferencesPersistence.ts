@@ -112,20 +112,41 @@ export function createRendererPreferencesPersistence<
   let storeApi: Parameters<Middleware<object, S>>[0] | undefined
   let saved: Preferences | undefined
   let observed = normalizePreferences(null)
+  let canonicalPresent = false
+  let readFailed = false
   let failureReported = false
   const reportFailure = (error: unknown): boolean => {
     if (!failureReported) failureReported = reportWriteFailure(error)
     return failureReported
   }
-  const storage = createReportingLocalStorage(reportFailure, () => {
-    // Clear only after a successful durable write; a quota failure must remain retryable.
+  const storage = createReportingLocalStorage(
+    reportFailure,
+    () => {
+      // Clear only after a successful durable write; a quota failure must remain retryable.
+      dirty.clear()
+      edited.clear()
+      if (saved) {
+        canonicalPresent = true
+        observed = saved
+        storeApi?.dispatch(syncRendererPreferences(saved))
+      }
+    },
+    () => {
+      readFailed = true
+    },
+  )
+
+  /** Discards pre-clear intent when a previously present key disappears before its event arrives.
+   * Called during local edits or locked saves; first-time legacy migration remains eligible.
+   * @example adoptRemoteClear()
+   */
+  function adoptRemoteClear(): void {
     dirty.clear()
     edited.clear()
-    if (saved) {
-      observed = saved
-      storeApi?.dispatch(syncRendererPreferences(saved))
-    }
-  })
+    canonicalPresent = false
+    observed = normalizePreferences(null)
+    storeApi?.dispatch(syncRendererPreferences(observed))
+  }
 
   const persistence = createStorageMiddleware<S>({
     rootReducer,
@@ -136,6 +157,7 @@ export function createRendererPreferencesPersistence<
       getItem: (key) => {
         const raw = storage.getItem(key)
         if (raw !== null) {
+          canonicalPresent = true
           const preferences = parsePreferences(raw)
           observed = normalizePreferences(preferences)
           // Invalid dedicated storage uses defaults without deleting the original bytes.
@@ -160,7 +182,17 @@ export function createRendererPreferencesPersistence<
         // Serialize the full read/merge/write transaction across Chromium renderer processes.
         await navigator.locks.request(key, () => {
           if (dirty.size === 0 || !storeApi) return
-          const persisted = parsePreferences(storage.getItem(key))
+          readFailed = false
+          const raw = storage.getItem(key)
+          // An unreadable key is not a remote deletion; retry without risking sibling fields.
+          if (readFailed)
+            throw new Error('Cannot read renderer preferences before saving')
+          // Initial legacy absence is a migration seed; a later deletion cancels pending saves.
+          if (raw === null && canonicalPresent) {
+            adoptRemoteClear()
+            return
+          }
+          const persisted = parsePreferences(raw)
           const latest = persisted ?? observed
           // A remote write can finish before its storage event reaches this renderer.
           for (const field of [
@@ -227,10 +259,14 @@ export function createRendererPreferencesPersistence<
             : null
         if (field) {
           // Remember the durable value at edit time so only later remote writes supersede this intent.
-          const persisted = parsePreferences(
-            storage.getItem(RENDERER_PREFERENCES_STORAGE_KEY),
-          )
-          if (persisted) observed = { ...observed, [field]: persisted[field] }
+          readFailed = false
+          const raw = storage.getItem(RENDERER_PREFERENCES_STORAGE_KEY)
+          if (!readFailed) {
+            if (raw === null && canonicalPresent) adoptRemoteClear()
+            canonicalPresent = raw !== null
+            const persisted = parsePreferences(raw)
+            if (persisted) observed = { ...observed, [field]: persisted[field] }
+          }
           dirty.add(field)
           edited.add(field)
         }
@@ -252,16 +288,24 @@ export function createRendererPreferencesPersistence<
       )
         return
       // Notifications are queued across processes: an older event must not undo a newer durable save.
-      if (storage.getItem(RENDERER_PREFERENCES_STORAGE_KEY) !== event.newValue)
-        return
+      readFailed = false
+      const current = storage.getItem(RENDERER_PREFERENCES_STORAGE_KEY)
+      if (readFailed || current !== event.newValue) return
       const preferences =
         event.newValue === null
           ? normalizePreferences(null)
           : parsePreferences(event.newValue, true)
       if (!preferences) return
+      const canonicalWasPresent = canonicalPresent
+      canonicalPresent = event.newValue !== null
       // Remote changes win for that field; unrelated unsaved local edits must survive.
       for (const field of ['markdownPreviewMode', 'lastSeenVersion'] as const) {
-        if (event.newValue === null || preferences[field] !== observed[field])
+        // A clear already observed by a new local action cannot cancel that newer intent.
+        if (
+          !edited.has(field) ||
+          (event.newValue === null && canonicalWasPresent) ||
+          preferences[field] !== observed[field]
+        )
           dirty.delete(field)
         edited.add(field)
       }

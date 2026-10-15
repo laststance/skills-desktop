@@ -82,6 +82,209 @@ afterEach(async () => {
 })
 
 describe('renderer preference persistence', () => {
+  // Value: protects=read rejection cannot turn an unverified deletion notification into a reset; fails_when=the event guard mistakes inaccessible storage for a missing key; why_new=stale-event tests use successful storage reads; seam=none; no_claim=browser permission behavior (mocked storage)
+  test('keeps the live choice when a deletion notification cannot be verified against storage', async () => {
+    // Arrange
+    values.set(
+      RENDERER_PREFERENCES_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        state: {
+          rendererPreferences: {
+            markdownPreviewMode: 'reading',
+            lastSeenVersion: '0.33.0',
+          },
+        },
+      }),
+    )
+    const fixture = await bootPreferences()
+    const target = new EventTarget()
+    const dispose = fixture.persistence.subscribeToStorage(target as Window)
+    localStorageMock.getItem.mockImplementationOnce(() => {
+      throw new Error('SecurityError')
+    })
+
+    // Act
+    emitStorage(target, RENDERER_PREFERENCES_STORAGE_KEY, null)
+    dispose()
+
+    // Assert
+    expect(fixture.store.getState().rendererPreferences).toEqual({
+      markdownPreviewMode: 'reading',
+      lastSeenVersion: '0.33.0',
+      hydrated: true,
+    })
+    expect(readPersisted().state.rendererPreferences).toEqual({
+      markdownPreviewMode: 'reading',
+      lastSeenVersion: '0.33.0',
+    })
+  })
+
+  // Value: protects=transient read rejection cannot erase a local choice or its sibling; fails_when=denied reads are treated as remote deletion; why_new=denied startup reads do not cover a previously hydrated store; seam=none; no_claim=browser permission behavior (mocked storage)
+  test('keeps a new choice and the saved release history when its edit-time read is temporarily denied', async () => {
+    // Arrange
+    values.set(
+      RENDERER_PREFERENCES_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        state: {
+          rendererPreferences: {
+            markdownPreviewMode: 'reading',
+            lastSeenVersion: '0.33.0',
+          },
+        },
+      }),
+    )
+    const fixture = await bootPreferences()
+    localStorageMock.getItem.mockImplementationOnce(() => {
+      throw new Error('SecurityError')
+    })
+
+    // Act
+    fixture.store.dispatch(setMarkdownPreviewMode('code'))
+
+    // Assert
+    expect(fixture.store.getState().rendererPreferences).toEqual({
+      markdownPreviewMode: 'code',
+      lastSeenVersion: '0.33.0',
+      hydrated: true,
+    })
+
+    // Act
+    await vi.runAllTimersAsync()
+
+    // Assert
+    expect(readPersisted().state.rendererPreferences).toEqual({
+      markdownPreviewMode: 'code',
+      lastSeenVersion: '0.33.0',
+    })
+  })
+
+  // Value: protects=failed locked reads preserve pending edits and durable siblings until retry; fails_when=read rejection cancels dirty state as a remote clear; why_new=quota rejection occurs after the locked read and cannot cover this path; seam=none; no_claim=browser permission behavior (mocked storage)
+  test('retains pending choices after a locked read failure and saves them on the next retry', async () => {
+    // Arrange
+    // Execute the lock callback deterministically; the native multi-window lock is covered by Electron E2E.
+    vi.spyOn(navigator.locks, 'request').mockImplementation(
+      async (_name, options, callback) =>
+        (typeof options === 'function' ? options : callback)(null),
+    )
+    values.set(
+      RENDERER_PREFERENCES_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        state: {
+          rendererPreferences: {
+            markdownPreviewMode: 'reading',
+            lastSeenVersion: '0.33.0',
+          },
+        },
+      }),
+    )
+    const fixture = await bootPreferences()
+    fixture.store.dispatch(setMarkdownPreviewMode('code'))
+    localStorageMock.getItem.mockImplementationOnce(() => {
+      throw new Error('SecurityError')
+    })
+
+    // Act
+    await vi.runAllTimersAsync()
+
+    // Assert
+    expect(fixture.store.getState().rendererPreferences).toEqual({
+      markdownPreviewMode: 'code',
+      lastSeenVersion: '0.33.0',
+      hydrated: true,
+    })
+    expect(readPersisted().state.rendererPreferences).toEqual({
+      markdownPreviewMode: 'reading',
+      lastSeenVersion: '0.33.0',
+    })
+    expect(localStorageMock.setItem).not.toHaveBeenCalled()
+    expect(fixture.onFailure).toHaveBeenCalledTimes(1)
+
+    // Act
+    fixture.store.dispatch({ type: 'settings/retry' })
+    await vi.runAllTimersAsync()
+
+    // Assert
+    expect(readPersisted().state.rendererPreferences).toEqual({
+      markdownPreviewMode: 'code',
+      lastSeenVersion: '0.33.0',
+    })
+  })
+
+  test('a remote clear before a queued save prevents old choices from being recreated', async () => {
+    // Arrange
+    const fixture = await bootPreferences()
+    fixture.store.dispatch(setMarkdownPreviewMode('reading'))
+    fixture.store.dispatch(markReleaseNotesSeen('0.31.0'))
+    await vi.runAllTimersAsync()
+    fixture.store.dispatch(markReleaseNotesSeen('0.32.0'))
+    values.delete(RENDERER_PREFERENCES_STORAGE_KEY)
+
+    // Act
+    await vi.runAllTimersAsync()
+
+    // Assert
+    expect(values.has(RENDERER_PREFERENCES_STORAGE_KEY)).toBe(false)
+    expect(fixture.store.getState().rendererPreferences).toEqual({
+      markdownPreviewMode: 'code',
+      lastSeenVersion: null,
+      hydrated: true,
+    })
+  })
+
+  test.each([
+    {
+      action: setMarkdownPreviewMode('reading'),
+      expected: { markdownPreviewMode: 'reading', lastSeenVersion: null },
+    },
+    {
+      action: markReleaseNotesSeen('0.34.0'),
+      expected: { markdownPreviewMode: 'code', lastSeenVersion: '0.34.0' },
+    },
+  ])(
+    'a new local choice after a remote clear preserves only the new intent: $expected',
+    async ({ action, expected }) => {
+      // Arrange
+      const fixture = await bootPreferences()
+      fixture.store.dispatch(setMarkdownPreviewMode('reading'))
+      fixture.store.dispatch(markReleaseNotesSeen('0.31.0'))
+      await vi.runAllTimersAsync()
+      fixture.store.dispatch(markReleaseNotesSeen('0.32.0'))
+      values.delete(RENDERER_PREFERENCES_STORAGE_KEY)
+
+      // Act
+      fixture.store.dispatch(action)
+      await vi.runAllTimersAsync()
+
+      // Assert
+      expect(readPersisted().state.rendererPreferences).toEqual(expected)
+    },
+  )
+
+  test('a delayed clear notification preserves a choice made after that clear', async () => {
+    // Arrange
+    const fixture = await bootPreferences()
+    fixture.store.dispatch(markReleaseNotesSeen('0.31.0'))
+    await vi.runAllTimersAsync()
+    const target = new EventTarget()
+    const dispose = fixture.persistence.subscribeToStorage(target as Window)
+    values.delete(RENDERER_PREFERENCES_STORAGE_KEY)
+    fixture.store.dispatch(setMarkdownPreviewMode('reading'))
+
+    // Act
+    emitStorage(target, RENDERER_PREFERENCES_STORAGE_KEY, null)
+    await vi.runAllTimersAsync()
+    dispose()
+
+    // Assert
+    expect(readPersisted().state.rendererPreferences).toEqual({
+      markdownPreviewMode: 'reading',
+      lastSeenVersion: null,
+    })
+  })
+
   test('preserves a remote acknowledgement saved while a local edit waits, before its storage event arrives', async () => {
     // Arrange
     values.set(
