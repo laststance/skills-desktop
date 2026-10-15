@@ -82,6 +82,41 @@ afterEach(async () => {
 })
 
 describe('renderer preference persistence', () => {
+  test.each([
+    {},
+    { markdownPreviewMode: 'reading' },
+    { markdownPreviewMode: 'reading', lastSeenVersion: '' },
+    { markdownPreviewMode: 'invalid', lastSeenVersion: null },
+  ])(
+    'malformed remote preference fields cannot reset live choices: $0',
+    async (preferences) => {
+      // Arrange
+      const fixture = await bootPreferences()
+      fixture.store.dispatch(setMarkdownPreviewMode('reading'))
+      fixture.store.dispatch(markReleaseNotesSeen('0.31.0'))
+      await vi.runAllTimersAsync()
+      const target = new EventTarget()
+      const dispose = fixture.persistence.subscribeToStorage(target as Window)
+      const malformed = JSON.stringify({
+        version: 1,
+        state: { rendererPreferences: preferences },
+      })
+      values.set(RENDERER_PREFERENCES_STORAGE_KEY, malformed)
+
+      // Act
+      emitStorage(target, RENDERER_PREFERENCES_STORAGE_KEY, malformed)
+      dispose()
+
+      // Assert
+      expect(fixture.store.getState().rendererPreferences).toEqual({
+        markdownPreviewMode: 'reading',
+        lastSeenVersion: '0.31.0',
+        hydrated: true,
+      })
+      expect(values.get(RENDERER_PREFERENCES_STORAGE_KEY)).toBe(malformed)
+    },
+  )
+
   // Value: protects=read rejection cannot turn an unverified deletion notification into a reset; fails_when=the event guard mistakes inaccessible storage for a missing key; why_new=stale-event tests use successful storage reads; seam=none; no_claim=browser permission behavior (mocked storage)
   test('keeps the live choice when a deletion notification cannot be verified against storage', async () => {
     // Arrange

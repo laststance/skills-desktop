@@ -71,12 +71,13 @@ function parsePreferences(
     // Hydration rescues valid sibling fields; malformed notifications cannot reset a live choice.
     if (
       strictFields &&
-      (('markdownPreviewMode' in preferences &&
-        preferences.markdownPreviewMode !== 'code' &&
-        preferences.markdownPreviewMode !== 'reading') ||
-        ('lastSeenVersion' in preferences &&
-          preferences.lastSeenVersion !== null &&
-          typeof preferences.lastSeenVersion !== 'string'))
+      (!('markdownPreviewMode' in preferences) ||
+        (preferences.markdownPreviewMode !== 'code' &&
+          preferences.markdownPreviewMode !== 'reading') ||
+        !('lastSeenVersion' in preferences) ||
+        (preferences.lastSeenVersion !== null &&
+          (typeof preferences.lastSeenVersion !== 'string' ||
+            preferences.lastSeenVersion.length === 0)))
     )
       return null
     return normalizePreferences(preferences)
