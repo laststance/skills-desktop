@@ -18,6 +18,21 @@ import {
 
 type Preferences = Omit<RendererPreferencesState, 'hydrated'>
 
+/** Checks the complete schema before {@link parsePreferences} adopts a remote notification.
+ * @example isCompletePreferences({ markdownPreviewMode: 'reading', lastSeenVersion: null })
+ */
+function isCompletePreferences(value: object): value is Preferences {
+  return (
+    'markdownPreviewMode' in value &&
+    (value.markdownPreviewMode === 'code' ||
+      value.markdownPreviewMode === 'reading') &&
+    'lastSeenVersion' in value &&
+    (value.lastSeenVersion === null ||
+      (typeof value.lastSeenVersion === 'string' &&
+        value.lastSeenVersion.length > 0))
+  )
+}
+
 /** Validates untrusted storage before middleware hydration or a cross-window adoption.
  * @example normalizePreferences({ markdownPreviewMode: 'reading' })
  */
@@ -69,17 +84,7 @@ function parsePreferences(
     )
       return null
     // Hydration rescues valid sibling fields; malformed notifications cannot reset a live choice.
-    if (
-      strictFields &&
-      (!('markdownPreviewMode' in preferences) ||
-        (preferences.markdownPreviewMode !== 'code' &&
-          preferences.markdownPreviewMode !== 'reading') ||
-        !('lastSeenVersion' in preferences) ||
-        (preferences.lastSeenVersion !== null &&
-          (typeof preferences.lastSeenVersion !== 'string' ||
-            preferences.lastSeenVersion.length === 0)))
-    )
-      return null
+    if (strictFields && !isCompletePreferences(preferences)) return null
     return normalizePreferences(preferences)
   } catch {
     return null
