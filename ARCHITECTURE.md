@@ -33,6 +33,26 @@ Renderer (React, Redux Toolkit)  ──window.electron──▶  Preload (contex
   - `settings/index.html` is the Settings window, which includes the background gallery.
 
   Both are React apps. State lives in Redux Toolkit slices, and some of it is persisted.
+  `@laststance/redux-storage-middleware` owns renderer persistence. Theme,
+  bookmarks, protection and dashboard state use `skills-desktop-state`.
+  Markdown preview mode and the last-seen release version use the dedicated
+  `skills-desktop-renderer-preferences` envelope. Its adapter imports the old
+  standalone keys only when the new key is absent and retains them for rollback.
+  Components dispatch Redux actions; they do not write storage. Preference saves
+  run their read/merge/write transaction under a shared Chromium Web Lock and
+  merge only locally edited fields with the latest persisted values, so unrelated
+  Settings-window actions cannot overwrite another window's choices. Storage
+  events synchronize the slice even when no preview is mounted; changed remote
+  fields supersede queued local edits to the same field, while independent local
+  edits survive. Consumers wait for hydration before displaying the Markdown
+  mode or checking release notes. The runtime hydration flag is never persisted.
+  When the canonical key exists, valid fields win and malformed fields fall back
+  individually to Code / no seen version; the retained old keys are ignored because
+  they may be stale. When the canonical key is absent, valid legacy fields seed the
+  slice. Corrupt canonical bytes are preserved until a local edit saves a new value.
+  Unsupported or rejected Web Locks keep edits in memory, report the failed save,
+  and retry on later Redux activity; the adapter never falls back to unlocked writes.
+  Main-owned settings and activity remain in their IPC-backed files.
 
 - **Shared** (`apps/desktop/src/shared`) holds code for all three processes:
   - `ipc-contract.ts` is the channel-to-arguments/result map that keeps main, preload and renderer types in lockstep.

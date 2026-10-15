@@ -1,9 +1,13 @@
+import type { ReactElement } from 'react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { render } from 'vitest-browser-react'
 
 import type { PreviewContent } from '@/renderer/src/hooks/useCodePreview'
+import { createPreferencesFixture } from '@/renderer/src/test-utils/rendererPreferences'
 import '@/renderer/src/styles/globals.css'
-import { MARKDOWN_PREVIEW_MODE_KEY } from '@/shared/constants'
+import {
+  MARKDOWN_PREVIEW_MODE_KEY,
+  RENDERER_PREFERENCES_STORAGE_KEY,
+} from '@/shared/constants'
 import {
   toDataUrl,
   toFileExtension,
@@ -13,15 +17,29 @@ import {
   toMimeType,
 } from '@/shared/types'
 
-import { resetMarkdownPreviewModeForTests } from './FileContent'
 import * as shikiPreview from './shikiPreview'
 
-// The Markdown preview mode toggle persists to real localStorage AND a
-// module-level session cache; reset both so one test's selection can't leak
+let fixture: Awaited<ReturnType<typeof createPreferencesFixture>> | undefined
+
+async function render(element: ReactElement) {
+  // eslint-disable-next-line require-atomic-updates -- This suite owns one fixture and runs its tests sequentially.
+  fixture ??= await createPreferencesFixture()
+  return fixture.render(element)
+}
+
+async function resetPreferencesFixture(): Promise<void> {
+  const previous = fixture
+  fixture = undefined
+  await previous?.dispose()
+}
+
+// The Markdown preview mode toggle persists to real localStorage through its
+// Redux store; reset both so one test's selection can't leak
 // into the next test's default-mode assertions.
-beforeEach(() => {
+beforeEach(async () => {
+  await resetPreferencesFixture()
   window.localStorage.removeItem(MARKDOWN_PREVIEW_MODE_KEY)
-  resetMarkdownPreviewModeForTests()
+  window.localStorage.removeItem(RENDERER_PREFERENCES_STORAGE_KEY)
 })
 
 // A Storage spy left in place by a failed assertion (before its mockRestore()
@@ -32,13 +50,14 @@ beforeEach(() => {
 // mockReset (not mockClear) is required: mockClear only empties call history —
 // the once-queue survives it — while reset also drains it and restores the
 // passthrough implementation for a `vi.fn(impl)` mock.
-afterEach(() => {
+afterEach(async () => {
   vi.restoreAllMocks()
   vi.mocked(shikiPreview.codeToHtml).mockReset()
   // Exit storage-clean too: browser-mode files share one Chromium origin, so a
   // persisted mode left by the last test would leak into the next file.
+  await resetPreferencesFixture()
   window.localStorage.removeItem(MARKDOWN_PREVIEW_MODE_KEY)
-  resetMarkdownPreviewModeForTests()
+  window.localStorage.removeItem(RENDERER_PREFERENCES_STORAGE_KEY)
 })
 
 // Passthrough spy over the real Shiki highlighter: every test keeps genuine
@@ -250,7 +269,6 @@ describe('FileContent Markdown modes', () => {
       .toHaveAttribute('aria-checked', 'true')
   })
 
-  // Value: protects=switching to a differently-named Markdown file in Reading Mode starts at the top; fails_when=the content-identity key is removed or the scroll container stops remounting on file change; why_new=mode persistence removed the mode-reset remount that used to mask this; seam=none
   test('resets Reading Mode scroll position when switching to another Markdown file', async () => {
     // Arrange — the fixed-height flex wrapper bounds the preview pane so the
     // reading scroll container actually overflows; without it the page grows
@@ -304,7 +322,6 @@ describe('FileContent Markdown modes', () => {
     expect(secondScrollContainer?.scrollTop).toBe(0)
   })
 
-  // Value: protects=Reading Mode starts every switched-to Markdown file scrolled to top; fails_when=the reading pane stops remounting on content change — same-basename nested files would keep stale scroll; why_new=the Alpha/Omega fixtures share lineCount AND content.length, so only the document's actual bytes discriminate them — the identical-shape corner a path+shape key could not close; seam=none
   test('resets Reading Mode scroll position when switching between Markdown files that share a name', async () => {
     // Arrange — a skill's nested directories can hold different Markdown files
     // with the same basename; both load with file.name === 'README.md'. The
@@ -362,7 +379,6 @@ describe('FileContent Markdown modes', () => {
     expect(secondScrollContainer?.scrollTop).toBe(0)
   })
 
-  // Value: protects=a file switch during a slow content read still opens the new file at top; fails_when=the reading pane remounts at selection-commit (old doc scroll-jumps + re-parses for nothing) OR stops remounting at content arrival (scroll accrued on the stale doc leaks in); why_new=useCodePreview commits the new path one IPC read before content lands — only a content-identity key stays stable through the window AND resets at arrival; seam=none
   test('keeps the stale document painted during the content read, then opens the new file at top', async () => {
     // Arrange — mimic useCodePreview's two-step commit: selection flips first,
     // then the IPC read resolves the new content. Between them the pane still
@@ -423,7 +439,6 @@ describe('FileContent Markdown modes', () => {
     expect(freshPane?.scrollTop).toBe(0)
   })
 
-  // Value: protects=a reloaded file that keeps line count AND length still reopens at top; fails_when=scroll identity ever keys on shape metrics again — identically-shaped different content would skip the remount and leak scroll; why_new=the identical-shape corner: shape keys alone can never tell these documents apart, only their bytes can; seam=none
   test('resets Reading Mode scroll when a same-shape reload lands different content', async () => {
     // Arrange — both documents are 83 lines AND the same byte length, so only
     // content itself discriminates them. Long repeated units keep BOTH
@@ -470,7 +485,6 @@ describe('FileContent Markdown modes', () => {
     expect(secondPane?.scrollTop).toBe(0)
   })
 
-  // Value: protects=scroll position survives same-file rerenders so Reading Mode never jumps mid-read; fails_when=the key gains an unstable segment (fontSizePx, a counter, Math.random) that remounts on every prop change; why_new=the scroll-reset tests only pin the remount half of the key contract — an always-remounting key would pass them while making reading unusable; seam=none
   test('keeps Reading Mode scroll position when the same file re-renders with a new font size', async () => {
     // Arrange
     const { FileContent } = await import('./FileContent')
@@ -514,7 +528,6 @@ describe('FileContent Markdown modes', () => {
     expect(samePane?.scrollTop).toBeGreaterThan(0)
   })
 
-  // Value: protects=Code Mode keeps scroll on same-file prop changes (e.g. font-size slider ticks) — an unstable key segment would wipe scroll AND force a full Shiki re-highlight flash on every change; fails_when=the code key gains an unstable segment; why_new=the reading pane has this guard; the code pane's remount half is pinned but its stability half is not; seam=none
   test('keeps Code Mode scroll position when the same file re-renders with a new font size', async () => {
     // Arrange — non-Markdown so the code pane shows without a mode toggle.
     const { FileContent } = await import('./FileContent')
@@ -559,7 +572,6 @@ describe('FileContent Markdown modes', () => {
     expect(samePane?.scrollTop).toBeGreaterThan(0)
   })
 
-  // Value: protects=Code Mode starts every switched-to file at top instead of clamping the previous file's offset into a shorter document; fails_when=the code pane loses its content-identity remount; why_new=code scroll kept the old file's position across switches — the worst of the two consistent choices; seam=none
   test('resets Code Mode scroll position when switching to another file', async () => {
     // Arrange — both sources stay longer than the 220px pane on the x-free
     // code view so a stale scrollTop would remain clamped-valid and only a
@@ -606,7 +618,6 @@ describe('FileContent Markdown modes', () => {
     expect(secondPane?.scrollTop).toBe(0)
   })
 
-  // Value: protects=a failed storage write cannot silently revert the user's mode mid-session when a non-text detour remounts the preview; fails_when=the session-level cache is dropped, or the read order stops preferring it (including inside the getItem-throws catch branch); why_new=the read order used to be storage-only, so an unmount + remount under a broken write resurrected the stale value; seam=none
   test('keeps the selected mode across a non-Markdown detour even when storage writes fail', async () => {
     // Arrange — storage accepts the initial read but rejects every write.
     const { FileContent } = await import('./FileContent')
@@ -627,7 +638,7 @@ describe('FileContent Markdown modes', () => {
         .toBeVisible()
 
       // Break reads too: the remount must land in the catch branch, where the
-      // session cache is the ONLY surviving record of the choice.
+      // Redux state is the ONLY surviving record of the choice.
       const getItemSpy = vi
         .spyOn(Storage.prototype, 'getItem')
         .mockImplementation(() => {
@@ -636,7 +647,7 @@ describe('FileContent Markdown modes', () => {
       try {
         // Act — detour through an image preview: TextPreview unmounts, so the
         // remount re-reads the mode — with storage fully broken, only the
-        // session cache can preserve the choice.
+        // Redux state can preserve the choice.
         await screen.rerender(
           <FileContent
             content={makeImageContent('detour.png', TRANSPARENT_PNG_DATA_URL)}
@@ -661,7 +672,6 @@ describe('FileContent Markdown modes', () => {
     }
   })
 
-  // Value: protects=a second window's mode change reaching this surface via the shared origin is honored instead of diverging silently, while unrelated cross-window writes are ignored and removals reset to default; fails_when=the storage listener is removed, stops validating newValue, or drops its event.key filter (redux persists other slices to this origin, so an unfiltered listener would revert the mode on every unrelated write); why_new=storage events are the only channel that reaches THIS document for writes it did not make; seam=none
   test('adopts a preview mode written by another window through the storage event', async () => {
     // Arrange
     const { FileContent } = await import('./FileContent')
@@ -686,15 +696,35 @@ describe('FileContent Markdown modes', () => {
       .toHaveAttribute('aria-checked', 'true')
 
     // Act — simulate the cross-window write the `storage` event carries.
+    window.localStorage.setItem(
+      RENDERER_PREFERENCES_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        state: {
+          rendererPreferences: {
+            markdownPreviewMode: 'reading',
+            lastSeenVersion: null,
+          },
+        },
+      }),
+    )
     window.dispatchEvent(
       new StorageEvent('storage', {
-        key: MARKDOWN_PREVIEW_MODE_KEY,
-        newValue: 'reading',
+        key: RENDERER_PREFERENCES_STORAGE_KEY,
+        newValue: JSON.stringify({
+          version: 1,
+          state: {
+            rendererPreferences: {
+              markdownPreviewMode: 'reading',
+              lastSeenVersion: null,
+            },
+          },
+        }),
       }),
     )
 
-    // Assert — this surface adopts the new mode (and the session cache is
-    // updated, so a remount can't revert to a stale session value).
+    // Assert — this surface adopts the new mode (and the Redux state is
+    // updated, so a remount can't revert to a stale Redux state).
     await expect
       .element(screen.getByRole('radio', { name: /Show rendered Markdown/i }))
       .toHaveAttribute('aria-checked', 'true')
@@ -703,7 +733,7 @@ describe('FileContent Markdown modes', () => {
       .toBeVisible()
 
     // Act — a non-Markdown detour remounts the preview WITHOUT any storage
-    // write having occurred: only the session cache could carry the adopted
+    // write having occurred: only the Redux state could carry the adopted
     // 'reading' value, so this pins adoptMode's session write.
     await screen.rerender(
       <FileContent
@@ -718,9 +748,10 @@ describe('FileContent Markdown modes', () => {
       .toHaveAttribute('aria-checked', 'true')
 
     // Act — the key is REMOVED in the other window (newValue === null).
+    window.localStorage.removeItem(RENDERER_PREFERENCES_STORAGE_KEY)
     window.dispatchEvent(
       new StorageEvent('storage', {
-        key: MARKDOWN_PREVIEW_MODE_KEY,
+        key: RENDERER_PREFERENCES_STORAGE_KEY,
         newValue: null,
       }),
     )
@@ -730,7 +761,7 @@ describe('FileContent Markdown modes', () => {
       .element(screen.getByRole('radio', { name: /Show Markdown source/i }))
       .toHaveAttribute('aria-checked', 'true')
 
-    // Act — detour once more: a stale session entry would resurrect
+    // Act — detour once more: a stale Redux state would resurrect
     // 'reading' on remount, so this pins adoptMode(null)'s session clear.
     await screen.rerender(
       <FileContent
@@ -745,7 +776,6 @@ describe('FileContent Markdown modes', () => {
       .toHaveAttribute('aria-checked', 'true')
   })
 
-  // Value: protects=two FileContent surfaces mounted in the same window agree on the mode instead of diverging after a toggle; fails_when=the same-window listener set is removed — storage events never reach the document that wrote, so this is the only channel for same-window surfaces; why_new=a future second preview surface would diverge silently without it; seam=none
   test('keeps a second mounted Markdown preview surface in sync when one toggles', async () => {
     // Arrange — two surfaces side by side, as a future marketplace preview
     // could mount alongside the detail pane.
@@ -787,11 +817,11 @@ describe('FileContent Markdown modes', () => {
       .getByRole('radio', { name: /Show rendered Markdown/i })
       .click()
     await firstScreen.unmount()
-    // Simulate a REAL restart: module state dies with the process while
-    // localStorage persists. Without this reset the session cache would
+    // Simulate a REAL restart: Redux state dies with the process while
+    // localStorage persists. Without this reset the Redux state would
     // carry 'reading' into the next mount and the storage hydration arm
     // under test would never run.
-    resetMarkdownPreviewModeForTests()
+    await resetPreferencesFixture()
 
     // Act
     const screen = await render(
@@ -799,9 +829,15 @@ describe('FileContent Markdown modes', () => {
     )
 
     // Assert
-    expect(window.localStorage.getItem(MARKDOWN_PREVIEW_MODE_KEY)).toBe(
-      'reading',
-    )
+    await expect
+      .poll(
+        () =>
+          JSON.parse(
+            window.localStorage.getItem(RENDERER_PREFERENCES_STORAGE_KEY) ??
+              '{}',
+          ).state?.rendererPreferences?.markdownPreviewMode,
+      )
+      .toBe('reading')
     await expect
       .element(screen.getByRole('heading', { name: 'Restored' }))
       .toBeVisible()
@@ -820,8 +856,8 @@ describe('FileContent Markdown modes', () => {
       .getByRole('radio', { name: /Show Markdown source/i })
       .click()
     await firstScreen.unmount()
-    // Simulate a REAL restart: module state dies, localStorage persists.
-    resetMarkdownPreviewModeForTests()
+    // Simulate a REAL restart: Redux state dies, localStorage persists.
+    await resetPreferencesFixture()
 
     // Act
     const screen = await render(
@@ -829,7 +865,15 @@ describe('FileContent Markdown modes', () => {
     )
 
     // Assert
-    expect(window.localStorage.getItem(MARKDOWN_PREVIEW_MODE_KEY)).toBe('code')
+    await expect
+      .poll(
+        () =>
+          JSON.parse(
+            window.localStorage.getItem(RENDERER_PREFERENCES_STORAGE_KEY) ??
+              '{}',
+          ).state?.rendererPreferences?.markdownPreviewMode,
+      )
+      .toBe('code')
     await expect
       .element(screen.getByRole('radio', { name: /Show Markdown source/i }))
       .toHaveAttribute('aria-checked', 'true')
@@ -878,8 +922,6 @@ describe('FileContent Markdown modes', () => {
     const consoleErrorSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => {})
-    const { toast } = await import('sonner')
-    const toastErrorSpy = vi.spyOn(toast, 'error')
     const { FileContent } = await import('./FileContent')
     const screen = await render(
       <FileContent content={makeTextContent({ content: '# Install\n' })} />,
@@ -889,19 +931,14 @@ describe('FileContent Markdown modes', () => {
     await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
 
     // Assert — the toggle still applies immediately, the failure is logged,
-    // and the user gets a deduplicated toast explaining the real consequence
-    // (choice applies now but resets on app close).
+    // while the shared persistence adapter reports the rejected write.
+    await expect
+      .poll(() => consoleErrorSpy.mock.calls.length)
+      .toBeGreaterThan(0)
     expect(consoleErrorSpy).toHaveBeenCalledWith(
-      '[FileContent] persisting markdown preview mode failed',
+      '[redux] persisting app state to localStorage failed',
+      RENDERER_PREFERENCES_STORAGE_KEY,
       expect.any(Error),
-    )
-    expect(toastErrorSpy).toHaveBeenCalledWith(
-      'Preview mode could not be saved',
-      expect.objectContaining({
-        id: 'markdown-preview-mode-save-error',
-        description:
-          'Your choice still applies now but resets when the app closes.',
-      }),
     )
     await expect
       .element(screen.getByRole('heading', { name: 'Install' }))

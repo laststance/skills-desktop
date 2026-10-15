@@ -1,70 +1,53 @@
 import { useEffect } from 'react'
 import { toast } from 'sonner'
 
+import {
+  useAppDispatch,
+  useAppSelector,
+  useAppStore,
+} from '@/renderer/src/redux/hooks'
+import { markReleaseNotesSeen } from '@/renderer/src/redux/slices/rendererPreferencesSlice'
 import { getReleaseNotesUrl } from '@/renderer/src/utils/getReleaseNotesUrl'
-import { RELEASE_NOTES_LAST_SEEN_VERSION_KEY } from '@/shared/constants'
 
 /**
- * Show a one-shot "What's new" toast after the app has been updated to a
- * version the user hasn't seen yet.
- *
- * Detection strategy:
- * - Read the last-seen version from localStorage on mount.
- * - If absent → first install, silently store the current version (no toast).
- * - If present and equal → user already saw notes for this version, no-op.
- * - If present and different → fire the toast once, then store the current
- *   version so the next launch is silent.
- *
- * Why localStorage instead of Redux: this is a transient first-launch cue,
- * not app state. Nothing else reads or writes the value, so a slice would
- * just add ceremony.
- *
- * @example
- * // Inside <App /> root:
- * useReleaseNotesToast()
+ * Publishes the update cue after Redux preferences hydrate, then records it through storage middleware.
+ * Called by {@link App}; first installs stay silent and remounts cannot repeat a claimed version.
+ * @example useReleaseNotesToast()
  */
 // eslint-disable-next-line @laststance/react-next/no-single-use-hook-file -- Dedicated release cue module has direct browser tests and an App mock seam.
 export function useReleaseNotesToast(): void {
+  const dispatch = useAppDispatch()
+  const store = useAppStore()
+  const hydrated = useAppSelector((state) => state.rendererPreferences.hydrated)
+
   useEffect(() => {
+    if (!hydrated) return
     const currentVersion = __APP_VERSION__
+    // Read live state because StrictMode can replay this effect before another render.
+    const lastSeenVersion = store.getState().rendererPreferences.lastSeenVersion
+    if (lastSeenVersion === currentVersion) return
+    dispatch(markReleaseNotesSeen(currentVersion))
 
-    // localStorage can throw in restricted-storage environments (quota
-    // exhausted, sandbox lockdown, future Electron security tightening).
-    // A failing release-notes cue must never block app startup, so swallow
-    // the error and skip the toast — the cue is best-effort.
-    try {
-      const lastSeenVersion = window.localStorage.getItem(
-        RELEASE_NOTES_LAST_SEEN_VERSION_KEY,
-      )
+    const shouldShowToast =
+      lastSeenVersion !== null && lastSeenVersion !== currentVersion
 
-      const shouldShowToast =
-        lastSeenVersion !== null && lastSeenVersion !== currentVersion
-
-      if (shouldShowToast) {
-        const releaseNotesUrl = getReleaseNotesUrl(currentVersion)
-        toast(`Updated to v${currentVersion}`, {
-          description: 'See what changed in this release.',
-          duration: 8000,
-          closeButton: true,
-          classNames: {
-            // Sonner seats the 20px × at 8px from the left; pl-7 reserves that 28px on the 4px grid.
-            title: 'text-popover-foreground pl-7',
+    if (shouldShowToast) {
+      const releaseNotesUrl = getReleaseNotesUrl(currentVersion)
+      toast(`Updated to v${currentVersion}`, {
+        description: 'See what changed in this release.',
+        duration: 8000,
+        closeButton: true,
+        classNames: {
+          // Sonner seats the 20px × at 8px from the left; pl-7 reserves that 28px on the 4px grid.
+          title: 'text-popover-foreground pl-7',
+        },
+        action: {
+          label: 'View',
+          onClick: () => {
+            window.open(releaseNotesUrl, '_blank', 'noopener,noreferrer')
           },
-          action: {
-            label: 'View',
-            onClick: () => {
-              window.open(releaseNotesUrl, '_blank', 'noopener,noreferrer')
-            },
-          },
-        })
-      }
-
-      window.localStorage.setItem(
-        RELEASE_NOTES_LAST_SEEN_VERSION_KEY,
-        currentVersion,
-      )
-    } catch {
-      // ignored — keep startup resilient
+        },
+      })
     }
-  }, [])
+  }, [dispatch, hydrated, store])
 }

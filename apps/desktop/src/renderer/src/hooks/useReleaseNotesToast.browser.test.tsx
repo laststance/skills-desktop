@@ -1,7 +1,26 @@
+import { configureStore } from '@reduxjs/toolkit'
+import { StrictMode, type ReactNode } from 'react'
+import { Provider } from 'react-redux'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { renderHook } from 'vitest-browser-react'
 
-import { RELEASE_NOTES_LAST_SEEN_VERSION_KEY } from '@/shared/constants'
+import rendererPreferencesReducer, {
+  syncRendererPreferences,
+  rendererPreferencesHydrated,
+} from '@/renderer/src/redux/slices/rendererPreferencesSlice'
+import { createPreferencesFixture } from '@/renderer/src/test-utils/rendererPreferences'
+import {
+  RELEASE_NOTES_LAST_SEEN_VERSION_KEY,
+  RENDERER_PREFERENCES_STORAGE_KEY,
+} from '@/shared/constants'
+
+let fixture: Awaited<ReturnType<typeof createPreferencesFixture>> | undefined
+
+async function renderReleaseNotes() {
+  fixture = await createPreferencesFixture()
+  const { useReleaseNotesToast } = await import('./useReleaseNotesToast')
+  return renderHook(() => useReleaseNotesToast(), { wrapper: fixture.Wrapper })
+}
 
 const toastMock = vi.fn()
 const windowOpenMock = vi.fn()
@@ -18,7 +37,10 @@ beforeEach(() => {
   vi.stubGlobal('open', windowOpenMock)
 })
 
-afterEach(() => {
+afterEach(async () => {
+  const previous = fixture
+  fixture = undefined
+  await previous?.dispose()
   vi.unstubAllGlobals()
   window.localStorage.clear()
 })
@@ -26,15 +48,18 @@ afterEach(() => {
 describe('useReleaseNotesToast', () => {
   test('does not show the release notes toast on first install', async () => {
     // Arrange
-    const { useReleaseNotesToast } = await import('./useReleaseNotesToast')
 
     // Act
-    await renderHook(() => useReleaseNotesToast())
+    await renderReleaseNotes()
 
     // Assert
     await expect
-      .poll(() =>
-        window.localStorage.getItem(RELEASE_NOTES_LAST_SEEN_VERSION_KEY),
+      .poll(
+        () =>
+          JSON.parse(
+            window.localStorage.getItem(RENDERER_PREFERENCES_STORAGE_KEY) ??
+              '{}',
+          ).state?.rendererPreferences?.lastSeenVersion,
       )
       .toBe('0.21.1')
     expect(toastMock).not.toHaveBeenCalled()
@@ -43,10 +68,9 @@ describe('useReleaseNotesToast', () => {
   test('does not show the release notes toast when the current version was already seen', async () => {
     // Arrange
     window.localStorage.setItem(RELEASE_NOTES_LAST_SEEN_VERSION_KEY, '0.21.1')
-    const { useReleaseNotesToast } = await import('./useReleaseNotesToast')
 
     // Act
-    await renderHook(() => useReleaseNotesToast())
+    await renderReleaseNotes()
 
     // Assert
     expect(toastMock).not.toHaveBeenCalled()
@@ -55,10 +79,9 @@ describe('useReleaseNotesToast', () => {
   test('shows a dismissible post-update release notes toast with the View action', async () => {
     // Arrange
     window.localStorage.setItem(RELEASE_NOTES_LAST_SEEN_VERSION_KEY, '0.21.0')
-    const { useReleaseNotesToast } = await import('./useReleaseNotesToast')
 
     // Act
-    await renderHook(() => useReleaseNotesToast())
+    await renderReleaseNotes()
 
     // Assert
     await expect.poll(() => toastMock.mock.calls.length).toBe(1)
@@ -92,4 +115,40 @@ describe('useReleaseNotesToast', () => {
       'noopener,noreferrer',
     )
   })
+})
+
+test('waits for hydrated preferences and shows the update cue once across StrictMode and remounts', async () => {
+  // Arrange
+  const store = configureStore({
+    reducer: { rendererPreferences: rendererPreferencesReducer },
+  })
+  const { useReleaseNotesToast } = await import('./useReleaseNotesToast')
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <StrictMode>
+      <Provider store={store}>{children}</Provider>
+    </StrictMode>
+  )
+
+  // Act
+  const first = await renderHook(() => useReleaseNotesToast(), { wrapper })
+
+  // Assert
+  expect(toastMock).not.toHaveBeenCalled()
+  expect(store.getState().rendererPreferences.lastSeenVersion).toBe(null)
+
+  // Act
+  store.dispatch(
+    syncRendererPreferences({
+      markdownPreviewMode: 'reading',
+      lastSeenVersion: '0.21.0',
+    }),
+  )
+  store.dispatch(rendererPreferencesHydrated())
+  await expect.poll(() => toastMock.mock.calls.length).toBe(1)
+  await first.unmount()
+  await renderHook(() => useReleaseNotesToast(), { wrapper })
+
+  // Assert
+  expect(toastMock).toHaveBeenCalledTimes(1)
+  expect(store.getState().rendererPreferences.lastSeenVersion).toBe('0.21.1')
 })

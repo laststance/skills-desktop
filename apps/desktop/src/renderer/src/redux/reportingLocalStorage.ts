@@ -8,12 +8,14 @@ import type { SyncStorage } from '@laststance/redux-storage-middleware'
  * and theme have stopped persisting learns about it only after a restart.
  * Built once by the store and handed to `createStorageMiddleware`.
  * @param reportWriteFailure - Called on every rejected write until it returns `true`, i.e. until the warning actually reached the user.
+ * @param onWriteSuccess - Acknowledges a durable write so preference persistence can release pending edits.
  * @returns A {@link SyncStorage} adapter that reads and removes exactly as leniently as the default one.
  * @example
  * createReportingLocalStorage(() => { toast.error('Settings could not be saved'); return true })
  */
 export function createReportingLocalStorage(
   reportWriteFailure: (error: unknown) => boolean,
+  onWriteSuccess?: () => void,
 ): SyncStorage {
   // Latched on DELIVERY, not on failure, and deliberately not persisted. Saves
   // are debounced (300ms by default) and repeat on every state change, so a
@@ -38,6 +40,7 @@ export function createReportingLocalStorage(
     setItem: (key, value): void => {
       try {
         globalThis.localStorage.setItem(key, value)
+        onWriteSuccess?.()
       } catch (error) {
         // Private mode, a disabled storage partition and a quota overflow all
         // surface here — either as a throwing `setItem` or as a `localStorage`
@@ -50,6 +53,7 @@ export function createReportingLocalStorage(
         // own adapter does today.
         console.error(
           '[redux] persisting app state to localStorage failed',
+          key,
           error,
         )
         if (reported) return
