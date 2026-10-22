@@ -20,7 +20,7 @@ docs refreshed, and the gates re-run. This skill encodes that procedure.
   shape + home-dir helpers) in `vercel-labs/skills`.
 - **This app:** the JSDoc on `AGENT_DEFINITIONS`, `UNIVERSAL_AGENT_IDS`, and
   `SKILLS_CLI_VERSION` in `apps/desktop/src/shared/constants.ts` is authoritative — read it
-  before editing. `CLAUDE.md` → **Domain Concepts → Skills CLI** lists the same
+  before editing. `AGENTS.md` → **Domain Concepts → Skills CLI** lists the same
   pointers. Don't duplicate those rules here; this skill is the _procedure_.
 
 ## Phase 1 — Fetch the upstream agent list (no local clone)
@@ -109,7 +109,7 @@ Skip an upstream agent when:
 
 ## Phase 6 — Update the docs
 
-- **CLAUDE.md** — `SKILLS_CLI_VERSION` in the _Domain Concepts → Skills CLI_ table.
+- **AGENTS.md** — `SKILLS_CLI_VERSION` in the _Domain Concepts → Skills CLI_ table.
 - **README.md** — the "N AI Agents Supported" count, any renamed display name,
   and the "…and X more" tail.
 - **SPEC.md** — the agent table (add new rows, fix renames), every agent-count
@@ -120,7 +120,7 @@ Skip an upstream agent when:
 
 ```bash
 node .claude/skills/skills-cli-sync/reconcile-agents.mjs   # constants ↔ SPEC drift gate
-npx prettier --check README.md SPEC.md CLAUDE.md
+npx prettier --check README.md SPEC.md AGENTS.md
 pnpm validate                                              # lint + test + typecheck + dead-code
 pnpm test:e2e                                              # only after validate is green
 ```
