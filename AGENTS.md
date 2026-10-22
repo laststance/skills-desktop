@@ -1,1 +1,211 @@
-CLAUDE.md
+# Skills Desktop
+
+Electron desktop app (macOS) for visualizing Skills symlink status across AI agents.
+
+- Never use direct `fs` access in the renderer when Context Isolation is enabled; use preload IPC instead.
+- Build macOS `APPLE_KEYCHAIN_PROFILE=skills-desktop pnpm build:mac`
+- For UI, visual polish, layout, motion, and design-token changes, read `DESIGN.md` first and follow it as the design source of truth.
+
+## Workspace
+
+pnpm workspace, one root lockfile. Run scripts from the repo root (they delegate via `pnpm --filter`). See `ARCHITECTURE.md` / `CONTRIBUTING.md`.
+
+| Package                             | Path                         | Notes                                                                                                   |
+| ----------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `skills-desktop`                    | `apps/desktop`               | Electron app. **Owns the app version.** Never rename the package: it derives `app.getName()` / userData |
+| `skills-desktop-website`            | `apps/website`               | Next.js site + `/api/rpc` Unsplash proxy. Vercel Root Directory = `apps/website`                        |
+| `@skills-desktop/unsplash-contract` | `packages/unsplash-contract` | Shared oRPC contract/limits. TS source export; relative imports need explicit `.ts`                     |
+
+- Shared deps go in `pnpm-workspace.yaml` `catalog:` and are referenced as `"catalog:"` (`catalogMode: strict`); `pnpm sherif` enforces consistency
+- Workspace packages must stay **devDependencies** of `apps/desktop` so electron-vite bundles them; `pnpm check:bundled-workspace` (CI `build` job) fails otherwise
+- Website-only commands: `pnpm --filter skills-desktop-website <script>`
+
+### 🔴 Releases — Use `/electron-release` ONLY
+
+`/electron-release` is the single source of truth for the entire release pipeline:
+
+**version bump → notarized build → ZIP rename → GitHub release → website URL update → artifacts upload**
+
+**Forbidden:**
+
+- `/ship` MUST NOT bump the app version in `apps/desktop/package.json`. Version bumps are owned exclusively by `/electron-release`. The root `package.json` has no version.
+- Manual `gh release create` outside `/electron-release` (skips notarization check, ZIP rename, website update — auto-update breaks)
+- Manual edit of the `apps/desktop/package.json` `"version"` field
+
+For local production build verification (no release):
+
+```bash
+APPLE_KEYCHAIN_PROFILE=skills-desktop pnpm build:mac
+```
+
+Without `APPLE_KEYCHAIN_PROFILE`: signing succeeds but notarization fails → Gatekeeper blocks the app. Artifacts land in `apps/desktop/dist/`.
+
+`/electron-release` runs the release scripts in order: `pnpm release:prepare-assets` (notarize + staple DMGs, rewrite their `latest-mac.yml` hashes, hyphenate ZIPs) → `gh release create` → `pnpm release:bump-website` → `pnpm release:verify` (must print `LIVE_VERIFY_ALL_OK`).
+
+## Skill Execution Contract
+
+When a user explicitly invokes a skill, treat the skill document as the
+controlling workflow for that turn. Do not narrow the task to only the literal
+wording after the skill reference when the skill defines a broader end-to-end
+procedure. Execute the skill's required phases unless the user explicitly limits
+scope, a step is impossible, or continuing would be unsafe. If stopping early,
+state which skill step is being skipped and why.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on `laststance/skills-desktop` via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Five canonical roles, default label strings. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+## Gotchas
+
+- **`*.browser.test.tsx`** runs in the Chromium lane via vitest browser mode. Vitest 4 projects need `dedupe + optimizeDeps` duplicated inline or React context breaks across files
+- **`npx skills remove <name>` defaults to local scope** while `npx skills add` defaults to global. Always pass `--global` for uninstall hints surfaced to users — see `SkillRowMarketplace.tsx` installed badge `aria-label`
+- **Port 9222 sticks** if `pnpm dev` died unclean. `kill-port 9222` (or `pkill -f electron`) before relaunching
+- **`@laststance/redux-storage-middleware` is pinned to 0.4.0** — 0.4.1 skips `saveHandler` when persisted slice refs are unchanged, so a retry after a failed write (lock/quota rejection) never fires. The app relies on save-on-every-action plus its own `dirty` guard. Unpin only after upstream fixes failed-write retry (laststance/redux-storage-middleware#14)
+- **`ELECTRON_RUN_AS_NODE` breaks `pnpm test:e2e`** when the host is itself an Electron app (e.g. Devin Desktop): Playwright's `--remote-debugging-port` is rejected as a Node "bad option" and every launch fails. Run `env -u ELECTRON_RUN_AS_NODE pnpm test:e2e`
+
+## Quality Gate
+
+Before opening or merging a PR, run the fast gates first:
+
+```bash
+pnpm validate
+```
+
+Runs thirteen gates in one flat `run-p`: `sherif`, `lint`, `lint:contract`, `test`, `test:contract`, `typecheck`, `typecheck:e2e`, `typecheck:contract`, `validate:website`, `fallow:dead-code`, `fallow:dupes`, `fallow:health`, and `storybook:build`. Website validation includes its tests, lint, build and typecheck. Fallow runs from the root over all three packages. Hosted macOS CI runs `VITEST_MAX_WORKERS=1 pnpm validate --max-parallel 1` to bound concurrency. `pnpm format:check` runs as its own CI job.
+
+Only after it passes, run the Electron e2e suite:
+
+```bash
+pnpm test:e2e
+```
+
+PRs are ready to ship only when `validate` and e2e both pass in that order.
+
+## Domain Concepts
+
+| Entity    | Location             | Description                                                                                           |
+| --------- | -------------------- | ----------------------------------------------------------------------------------------------------- |
+| Skill     | `~/.agents/skills/`  | Directory with SKILL.md                                                                               |
+| Agent     | `~/.<agent>/skills/` | AI agents (count = `AGENT_DEFINITIONS.length` in `apps/desktop/src/shared/constants.ts`)              |
+| Symlink   | Agent→Skill          | `valid` / `broken` / `inaccessible` / `missing`                                                       |
+| Universal | `~/.agents/skills/`  | 19 agents share this source dir (see `UNIVERSAL_AGENT_IDS` in `apps/desktop/src/shared/constants.ts`) |
+
+### Skills CLI
+
+| Resource       | Location                                                                                                                                                      |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Repository     | https://github.com/vercel-labs/skills (paths below are inside that repo)                                                                                      |
+| CLI agent list | `src/agents.ts`                                                                                                                                               |
+| CLI types      | `src/types.ts`                                                                                                                                                |
+| Pinned version | `SKILLS_CLI_VERSION` in `apps/desktop/src/shared/constants.ts` (currently `1.7.0`) — bump when re-syncing `AGENT_DEFINITIONS` against the upstream skills CLI |
+
+`AGENT_DEFINITIONS` in `apps/desktop/src/shared/constants.ts` mirrors the CLI's agent
+list. Each entry: `id` (app state), `cliId` (`--agent` flag), `name`
+(display), `installDir` (home subpath where the CLI installs skills
+globally, like `.claude`), `scanDir` (home subpath this app scans for the
+agent's own symlinks; equals `installDir` except for universal-source agents
+where it diverges, e.g. Cline's `.cline`).
+
+## UI Verification
+
+Drive the running app via **`playwright-cli`** (CDP attach to Electron's
+`:9222` debug port). The full workflow (phases, triage, report template)
+lives in the `/qa-electron` skill — invoke it for systematic QA runs.
+Quick ad-hoc verification commands:
+
+```bash
+# 1. Start dev server (exposes CDP on :9222)
+pnpm dev
+
+# 2. Attach once per session
+playwright-cli attach --cdp=http://localhost:9222
+
+# 3. Inspect + interact (use --s=default for the attached session)
+playwright-cli --s=default snapshot                  # a11y tree with eN element refs
+playwright-cli --s=default screenshot --filename=/tmp/shot.png
+playwright-cli --s=default click e5                  # interact by ref from snapshot
+playwright-cli --s=default fill e3 "text"
+playwright-cli --s=default press Escape
+playwright-cli --s=default eval 'document.title'     # run JS in renderer
+
+# 4. Detach when done (does NOT close the app — pnpm dev still owns it)
+playwright-cli --s=default detach
+```
+
+Re-snapshot after any action that mutates the DOM — `eN` refs are valid
+only for the most recent snapshot.
+
+## QA Safety
+
+During QA runs, **do NOT delete skills under `~/.claude/skills/` or `~/.cursor/skills/`** — those are the user's live Claude Code and Cursor working sets. Skills under any other agent directory are safe to delete: they can be reinstalled instantly via the Marketplace tab or per-agent Cleanup.
+
+| Path                 | Deletable in QA? | Reason                                             |
+| -------------------- | ---------------- | -------------------------------------------------- |
+| `~/.claude/skills/`  | ❌               | User's live Claude Code working set                |
+| `~/.cursor/skills/`  | ❌               | User's live Cursor working set                     |
+| `~/.<other>/skills/` | ✅               | Reinstallable via Marketplace or per-agent Cleanup |
+
+### Adding a test skill for QA (global install)
+
+When a verification run needs a fresh, throwaway skill (e.g. to exercise the
+delete + UndoToast flow without touching anything the user actually relies on),
+install one globally in non-interactive mode:
+
+```bash
+npx skills add --yes --global https://github.com/microsoft/azure-skills --skill azure-ai
+```
+
+`--yes` skips the skills CLI's confirmation prompts (scope, etc.); `--global`
+forces the install into `~/.agents/skills/` regardless of CWD (without it,
+running from inside a project with a local `.agents/` directory installs
+project-local instead). The new skill is symlinked into every installed agent
+immediately and is safe to delete in the same run. Use this in preference to
+deleting an existing user skill.
+
+## Design Source
+
+`DESIGN.md` owns the app's visual system: product context, color roles,
+typography, spacing, radius, elevation, motion, component styling,
+accessibility, responsive behavior, and visual-polish guardrails. Keep design
+guidance there so agents and design tools have one place to read before
+changing UI.
+
+## Design Review Principles
+
+When running `/design-review` (or any visual critique), apply two standing
+principles **in addition to** DESIGN.md compliance:
+
+### 1. Benchmark against top-tier apps
+
+Don't grade UI only by "does it match DESIGN.md" — grade it against the bar set
+by best-in-class products: **Linear, Notion, Dia (The Browser Company), the
+Codex desktop app**, and peers (Warp, Raycast, VS Code). For every finding ask:
+_how would Linear / Notion / Dia / Codex handle this?_ Surface where the app
+falls short of that bar, not just where it breaks a written rule. The goal is
+parity with top-tier craft, not mere rule-compliance.
+
+### 2. DESIGN.md is a living document — refine it, don't just obey it
+
+Using "DESIGN.md compliance" as the quality baseline only works if DESIGN.md
+actually encodes the rules needed for excellent UI/UX. It is almost certainly
+still incomplete. So a design review is **also an audit of DESIGN.md itself**:
+
+- When the top-tier benchmark (principle 1) surfaces a quality gap that DESIGN.md
+  has no rule for, that gap is a **DESIGN.md deficiency**, not just a one-off fix.
+- Propose the missing rule and fold it into DESIGN.md so the next review inherits
+  it.
+- Expanding/refining DESIGN.md is an expected, recurring part of the
+  design-review workflow — not a separate task.
+
+DESIGN.md stays the binding visual source of truth; these two principles are how
+it earns and keeps that authority.
