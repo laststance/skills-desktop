@@ -8,18 +8,18 @@ catalogMode: strict
 catalog:
   '@typescript/native': npm:typescript@7.0.2
   '@eslint/js': ^10.0.1
-  '@orpc/client': 1.15.7
-  '@orpc/contract': 1.15.7
-  '@orpc/server': 1.15.7
-  '@orpc/tanstack-query': 1.15.7
+  '@orpc/client': 1.16.0
+  '@orpc/contract': 1.16.0
+  '@orpc/server': 1.16.0
+  '@orpc/tanstack-query': 1.16.0
   '@types/node': ^26.6.5
   '@types/react': ^19.3.0
   '@types/react-dom': ^19.3.0
-  '@vitest/browser-playwright': ^5.0.4
-  '@vitest/coverage-v8': ^5.0.4
-  eslint: ^10.12.0
+  '@vitest/browser-playwright': ^5.0.5
+  '@vitest/coverage-v8': ^5.0.5
+  eslint: ^10.13.0
   eslint-plugin-react-hooks: ^7.1.1
-  lucide-react: ^1.57.0
+  lucide-react: ^1.61.0
   prettier: ^3.9.10
   react: ^19.3.1
   react-dom: ^19.3.1
@@ -27,8 +27,8 @@ catalog:
   # Keep the TypeScript 6 JS API at the `typescript` import for ESLint and other tools.
   # @typescript/native provides TypeScript 7's `tsc` binary without a bin conflict.
   typescript: npm:@typescript/typescript6@6.0.2
-  typescript-eslint: ^8.71.2
-  vitest: ^5.0.4
+  typescript-eslint: ^8.72.0
+  vitest: ^5.0.5
   zod: 4.6.7
 
 # The TypeScript 6 compatibility wrapper reports package version 6.0.2 while

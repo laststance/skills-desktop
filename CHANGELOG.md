@@ -9,7 +9,7 @@
 
 ### Changed
 
-- Refresh desktop, website, and test/build dependencies, including Electron 44.7.2, electron-vite 6, Next.js 16.4.1, React 19.3.1, and Happy DOM 21.
+- Refresh desktop, website, and test/build dependencies, including Electron 45, electron-vite 6, Next.js 16.4.2, React 19.3.1, and Happy DOM 21. The renderer-preferences middleware stays on 0.4.0 because 0.4.1 skips retry saves after a failed write (upstream issue filed).
 - Markdown preview mode and release-note history now persist through Redux storage middleware, retaining existing preferences while keeping simultaneous window changes in sync.
 - Remove all-agent Sync from the source card and Dashboard Quick Actions. Per-agent "Cleanup missing skills" remains available, preserves local folders, and reports its results without conflict replacement.
 - The Markdown file preview now remembers your Code/Reading mode across file switches and app restarts instead of always reopening in Code mode.
