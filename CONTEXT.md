@@ -3,7 +3,7 @@
 Desktop app for viewing and managing which Skills each AI agent has available.
 
 The core entities the app displays — Skill, Agent, Symlink, Universal — are
-defined in the Domain Concepts table in `CLAUDE.md`. This glossary covers the
+defined in the Domain Concepts table in `AGENTS.md`. This glossary covers the
 vocabulary those entities are not enough to express.
 
 ## Language

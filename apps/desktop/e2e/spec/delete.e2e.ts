@@ -374,7 +374,7 @@ interface LocalOnlyManifest {
  *   4. Manifest is written with `kind: 'local-only'` (not `'source-backed'`).
  *
  * Codex is chosen over claude/cursor because the QA Safety contract in
- * CLAUDE.md flags those two as the user's live working sets — even though
+ * AGENTS.md flags those two as the user's live working sets — even though
  * this test runs under an isolated tempdir HOME, picking codex keeps the
  * pattern consistent with the spirit of the rule for manual audit.
  *
