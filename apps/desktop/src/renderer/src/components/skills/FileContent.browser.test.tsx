@@ -179,6 +179,7 @@ describe('FileContent Markdown modes', () => {
     // Act
     store.dispatch(
       syncRendererPreferences({
+        skillsViewMode: 'list',
         markdownPreviewMode: 'reading',
         lastSeenVersion: null,
       }),

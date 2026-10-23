@@ -12,17 +12,21 @@ import {
   markReleaseNotesSeen,
   rendererPreferencesHydrated,
   setMarkdownPreviewMode,
+  setSkillsViewMode,
   syncRendererPreferences,
   type RendererPreferencesState,
 } from './slices/rendererPreferencesSlice'
 
 type Preferences = Omit<RendererPreferencesState, 'hydrated'>
 
-/** Checks the complete schema before {@link parsePreferences} adopts a remote notification.
+/** Validates current or legacy fields before {@link parsePreferences} normalizes a remote notification.
  * @example isCompletePreferences({ markdownPreviewMode: 'reading', lastSeenVersion: null })
  */
-function isCompletePreferences(value: object): value is Preferences {
+function isCompletePreferences(value: object): boolean {
   return (
+    (!('skillsViewMode' in value) ||
+      value.skillsViewMode === 'list' ||
+      value.skillsViewMode === 'tree') &&
     'markdownPreviewMode' in value &&
     (value.markdownPreviewMode === 'code' ||
       value.markdownPreviewMode === 'reading') &&
@@ -39,6 +43,10 @@ function isCompletePreferences(value: object): value is Preferences {
 function normalizePreferences(value: unknown): Preferences {
   const candidate = typeof value === 'object' && value !== null ? value : {}
   return {
+    skillsViewMode:
+      'skillsViewMode' in candidate && candidate.skillsViewMode === 'tree'
+        ? 'tree'
+        : 'list',
     markdownPreviewMode:
       'markdownPreviewMode' in candidate &&
       candidate.markdownPreviewMode === 'reading'
@@ -235,6 +243,7 @@ export function createRendererPreferencesPersistence<
           const latest = persisted ?? observed
           // A remote write can finish before its storage event reaches this renderer.
           for (const field of [
+            'skillsViewMode',
             'markdownPreviewMode',
             'lastSeenVersion',
           ] as const) {
@@ -242,6 +251,10 @@ export function createRendererPreferencesPersistence<
           }
           const local = storeApi.getState().rendererPreferences
           saved = {
+            skillsViewMode:
+              dirty.has('skillsViewMode') && edited.has('skillsViewMode')
+                ? local.skillsViewMode
+                : latest.skillsViewMode,
             // A queued legacy import yields to canonical values created by another window.
             markdownPreviewMode:
               dirty.has('markdownPreviewMode') &&
@@ -263,6 +276,9 @@ export function createRendererPreferencesPersistence<
       ...current,
       rendererPreferences: {
         ...normalizePreferences(persisted.rendererPreferences),
+        ...(edited.has('skillsViewMode')
+          ? { skillsViewMode: current.rendererPreferences.skillsViewMode }
+          : {}),
         // Preserve any action made before asynchronous hydration settles.
         ...(edited.has('markdownPreviewMode')
           ? {
@@ -292,11 +308,13 @@ export function createRendererPreferencesPersistence<
     return (next) => {
       const handle = bind(next)
       return (action) => {
-        const field = setMarkdownPreviewMode.match(action)
-          ? 'markdownPreviewMode'
-          : markReleaseNotesSeen.match(action)
-            ? 'lastSeenVersion'
-            : null
+        const field = setSkillsViewMode.match(action)
+          ? 'skillsViewMode'
+          : setMarkdownPreviewMode.match(action)
+            ? 'markdownPreviewMode'
+            : markReleaseNotesSeen.match(action)
+              ? 'lastSeenVersion'
+              : null
         if (field) {
           const unknownReleaseHistory =
             field === 'lastSeenVersion' &&
@@ -346,7 +364,11 @@ export function createRendererPreferencesPersistence<
       const canonicalWasPresent = canonicalPresent
       canonicalPresent = event.newValue !== null
       // Remote changes win for that field; unrelated unsaved local edits must survive.
-      for (const field of ['markdownPreviewMode', 'lastSeenVersion'] as const) {
+      for (const field of [
+        'skillsViewMode',
+        'markdownPreviewMode',
+        'lastSeenVersion',
+      ] as const) {
         // A clear already observed by a new local action cannot cancel that newer intent.
         if (
           !edited.has(field) ||
@@ -360,6 +382,10 @@ export function createRendererPreferencesPersistence<
       const local = storeApi?.getState().rendererPreferences
       storeApi?.dispatch(
         syncRendererPreferences({
+          skillsViewMode:
+            dirty.has('skillsViewMode') && local
+              ? local.skillsViewMode
+              : preferences.skillsViewMode,
           markdownPreviewMode:
             dirty.has('markdownPreviewMode') && local
               ? local.markdownPreviewMode

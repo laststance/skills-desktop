@@ -35,7 +35,7 @@ Renderer (React, Redux Toolkit)  ──window.electron──▶  Preload (contex
   Both are React apps. State lives in Redux Toolkit slices, and some of it is persisted.
   `@laststance/redux-storage-middleware` owns renderer persistence. Theme,
   bookmarks, protection and dashboard state use `skills-desktop-state`.
-  Markdown preview mode and the last-seen release version use the dedicated
+  Installed List/Tree mode, Markdown preview mode and the last-seen release version use the dedicated
   `skills-desktop-renderer-preferences` key. Its version 1 envelope is:
 
   ```json
@@ -43,6 +43,7 @@ Renderer (React, Redux Toolkit)  ──window.electron──▶  Preload (contex
     "version": 1,
     "state": {
       "rendererPreferences": {
+        "skillsViewMode": "list",
         "markdownPreviewMode": "code",
         "lastSeenVersion": null
       }
@@ -50,19 +51,20 @@ Renderer (React, Redux Toolkit)  ──window.electron──▶  Preload (contex
   }
   ```
 
+  `skillsViewMode` accepts `list` or `tree` and defaults to `list` in older envelopes.
   `markdownPreviewMode` accepts `code` or `reading`; `lastSeenVersion` accepts a
   nonempty string or `null`. The runtime `hydrated` flag is never persisted.
   Legacy keys are `skills-desktop:markdown-preview-mode` and
   `skills-desktop:last-seen-version`; retained values are migration seeds, not
   dual-written copies, so older versions may restore the pre-migration choices.
 
-  | Canonical key                              | Legacy keys          | Startup result                                        |
-  | ------------------------------------------ | -------------------- | ----------------------------------------------------- |
-  | Valid version 1 envelope                   | Present or absent    | Canonical values win.                                 |
-  | Valid envelope with invalid/missing fields | Present or absent    | Keep valid fields; default others to `code` / `null`. |
-  | Invalid JSON, shape or version             | Present or absent    | Use defaults; preserve original canonical bytes.      |
-  | Absent                                     | Valid values present | Import each valid legacy field; default the others.   |
-  | Absent                                     | Absent or invalid    | Use defaults.                                         |
+  | Canonical key                              | Legacy keys          | Startup result                                                 |
+  | ------------------------------------------ | -------------------- | -------------------------------------------------------------- |
+  | Valid version 1 envelope                   | Present or absent    | Canonical values win.                                          |
+  | Valid envelope with invalid/missing fields | Present or absent    | Keep valid fields; default others to `list` / `code` / `null`. |
+  | Invalid JSON, shape or version             | Present or absent    | Use defaults; preserve original canonical bytes.               |
+  | Absent                                     | Valid values present | Import each valid legacy field; default the others.            |
+  | Absent                                     | Absent or invalid    | Use defaults.                                                  |
 
   Components dispatch Redux actions; they do not write storage. Preference saves
   run a read/merge/write transaction under a shared Chromium Web Lock. Explicitly
@@ -139,3 +141,13 @@ Run the isolated migration, retry and cross-window regression suite from the roo
 ```bash
 pnpm --filter skills-desktop test src/renderer/src/redux/rendererPreferencesPersistence.test.ts src/renderer/src/redux/reportingLocalStorage.test.ts
 ```
+
+## Installed Tree and file discovery
+
+The optional Tree uses `@pierre/trees` 1.0.0-beta.6 public model hooks with app-owned React rows and the existing `react-window` virtualizer. Skill rows are 44px and descendants 36px. Pierre owns hierarchy, expansion and focus; Redux owns inspected skill/file, temporary Inspector tab intent and bulk selection. A file activation never changes the persisted default Inspector tab.
+
+`SkillFilesProvider` lives above both panels and the Tree-only error boundary. Its external store publishes immutable snapshots for React Compiler compatibility. Tree and `useCodePreview` share one listing request per root/generation; only the latter reads contents. Refresh and filesystem mutation starts invalidate the generation. The cache retains up to 64 roots, 20,000 files and 32 MiB, evicting collapsed, inactive roots first. Saturation is explicit and retryable after collapse.
+
+`files:listDetailed`, `files:cancelList` and `files:readDetailed` are typed, schema-validated preload calls. Listing permits two active roots and 64 queued requests process-wide, with sequential IO inside each root (at most two outstanding listing operations). Discovery stops at 10,000 observed directory entries, 2,000 preview files, 4 MiB serialized data or depth four. Up to 100 relative omission markers accompany partial results. Ten-second timeouts settle the UI response; an uncancellable OS operation retains its slot until completion and handle cleanup. Cancellation is scoped to sender/frame, request ID and generation.
+
+Main validates allowed roots, ignores nested symlinks, rechecks root identities and caps text/image reads at 512 KiB / 5 MiB while reading. These checks reduce replacement races; they are not an atomic OS filesystem sandbox. Presentation IDs encode actual relative path segments and map back to discovered files explicitly. They are never decoded into filesystem paths. See [ADR 0002](docs/adr/0002-installed-skill-tree.md).

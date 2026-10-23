@@ -2,6 +2,30 @@
 
 Deferred items captured during planning. Pick up when scope and bandwidth allow.
 
+## Tree view follow-ups (2026-10-24)
+
+### Full filename and file-content search
+
+**What:** Evaluate opt-in filename/content search after the optional Tree view ships.
+**Why:** Help developers find a nested file when they do not remember its skill.
+**Context:** Autoplan C5 deferred this expansion. Tree initially retains the existing skill-metadata filter; child names do not bypass a filtered parent. Start with measured task failures and a safe indexing budget before changing search scope.
+**Pros:** Direct file discovery across skills.
+**Cons:** Adds filesystem work, invalidation, privacy boundaries and potentially misleading incomplete results.
+**Effort:** L
+**Priority:** P3
+**Depends on:** Tree adoption evidence; explicit search-scope and bounded-index design.
+
+### Optional repository grouping for Tree view
+
+**What:** Evaluate repository groups above skill roots as an optional presentation.
+**Why:** Help users navigate large collections by source when skill names are insufficient.
+**Context:** Autoplan C6 deferred this expansion. The proposed initial hierarchy is skill -> relative directory -> previewable file. Preserve agent/source filters, stable root identity and existing bulk target rules if a later grouping mode is justified.
+**Pros:** Source-oriented navigation for large collections.
+**Cons:** Extra hierarchy and ungrouped-source cases can make common skill lookup slower.
+**Effort:** M
+**Priority:** P3
+**Depends on:** Tree adoption evidence; owner approval of source-group semantics.
+
 ## Opacity design review follow-ups (2026-09-05)
 
 ### P2. Open Settings should follow theme changes in the main window

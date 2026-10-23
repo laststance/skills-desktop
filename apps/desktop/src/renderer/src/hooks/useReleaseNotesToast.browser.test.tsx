@@ -147,6 +147,7 @@ test('waits for hydrated preferences and shows the update cue once across Strict
   // Act
   store.dispatch(
     syncRendererPreferences({
+      skillsViewMode: 'list',
       markdownPreviewMode: 'reading',
       lastSeenVersion: '0.21.0',
     }),

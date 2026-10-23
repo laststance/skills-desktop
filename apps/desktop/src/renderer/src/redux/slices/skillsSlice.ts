@@ -1,5 +1,5 @@
 import type { PayloadAction } from '@reduxjs/toolkit'
-import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
+import { createAsyncThunk, createSlice, isPending } from '@reduxjs/toolkit'
 
 import type { RootState } from '@/renderer/src/redux/store'
 import type {
@@ -21,6 +21,8 @@ import type {
 } from '@/shared/types'
 import { toAgentCount } from '@/shared/types'
 
+import { installSkill } from './marketplaceSlice'
+
 /**
  * Redux state for the Installed Skills feature area.
  * Pairs 'currently selected' entities with per-operation in-flight flags
@@ -38,6 +40,15 @@ import { toAgentCount } from '@/shared/types'
 interface SkillsState {
   /** All skills discovered under ~/.agents/skills/. */
   items: Skill[]
+  /** Invalidates shared file discovery as soon as a scan starts. */
+  filesGeneration: number
+  /** Transient file navigation; never written to default tab preferences. */
+  inspectedFile: {
+    root: AbsolutePath
+    path: AbsolutePath
+    sequence: number
+  } | null
+  inspectorTabOverride: 'files' | 'info' | null
   /** Skill highlighted in the list (null = no selection). */
   selectedSkill: Skill | null
   /** true while the initial `fetchSkills` is in flight. */
@@ -83,6 +94,9 @@ interface SkillsState {
 
 const initialState: SkillsState = {
   items: [],
+  filesGeneration: 0,
+  inspectedFile: null,
+  inspectorTabOverride: null,
   selectedSkill: null,
   loading: false,
   error: null,
@@ -622,7 +636,44 @@ const skillsSlice = createSlice({
   initialState,
   reducers: {
     selectSkill: (state, action: PayloadAction<Skill | null>) => {
+      if (state.selectedSkill?.path !== action.payload?.path) {
+        state.inspectedFile = null
+        state.inspectorTabOverride = null
+      }
       state.selectedSkill = action.payload
+    },
+    /** Tree file activation atomically selects the root and opens its Files tab.
+     * @example dispatch(inspectSkillFile({ skill, path: file.path }))
+     */
+    inspectSkillFile: (
+      state,
+      action: PayloadAction<{ skill: Skill; path: AbsolutePath }>,
+    ) => {
+      state.selectedSkill = action.payload.skill
+      state.inspectedFile = {
+        root: action.payload.skill.path,
+        path: action.payload.path,
+        sequence: (state.inspectedFile?.sequence ?? 0) + 1,
+      }
+      state.inspectorTabOverride = 'files'
+    },
+    /** Files-tab clicks synchronize the Tree highlight without reopening branches.
+     * @example dispatch(selectPreviewFile({ root: skill.path, path: file.path }))
+     */
+    selectPreviewFile: (
+      state,
+      action: PayloadAction<{ root: AbsolutePath; path: AbsolutePath }>,
+    ) => {
+      state.inspectedFile = {
+        ...action.payload,
+        sequence: (state.inspectedFile?.sequence ?? 0) + 1,
+      }
+    },
+    setInspectorTabOverride: (
+      state,
+      action: PayloadAction<'files' | 'info' | null>,
+    ) => {
+      state.inspectorTabOverride = action.payload
     },
     setSkillToUnlink: (
       state,
@@ -777,12 +828,24 @@ const skillsSlice = createSlice({
   extraReducers: (builder) => {
     builder
       .addCase(fetchSkills.pending, (state) => {
+        state.filesGeneration += 1
         state.loading = true
         state.error = null
       })
       .addCase(fetchSkills.fulfilled, (state, action) => {
         state.items = action.payload
         state.loading = false
+        // Refresh the inspected root identity or clear navigation after its removal.
+        if (state.selectedSkill) {
+          state.selectedSkill =
+            state.items.find(
+              (skill) => skill.path === state.selectedSkill?.path,
+            ) ?? null
+          if (!state.selectedSkill) {
+            state.inspectedFile = null
+            state.inspectorTabOverride = null
+          }
+        }
         // A skill removed outside the app drops out on this refresh. Drop its
         // tick and anchor too, or the list header keeps counting it as hidden
         // by a filter. Reassign only on a change, so the selection keeps its
@@ -974,11 +1037,31 @@ const skillsSlice = createSlice({
         /* v8 ignore next -- redux serializes thrown Errors with a message; the ?? fallback only fires for a hand-crafted rejected action lacking error.message */
         state.error = action.error.message ?? 'Undo failed'
       })
+      .addMatcher(
+        isPending(
+          deleteSelectedSkills,
+          clearSelectedOrphanSymlinks,
+          clearSelectedBrokenSymlinkSlots,
+          unlinkSelectedFromAgent,
+          unlinkSkillFromAgent,
+          createSymlinks,
+          copyToAgents,
+          bulkCopyToAgents,
+          undoLastBulkDelete,
+          installSkill,
+        ),
+        (state) => {
+          state.filesGeneration += 1
+        },
+      )
   },
 })
 
 export const {
   selectSkill,
+  inspectSkillFile,
+  selectPreviewFile,
+  setInspectorTabOverride,
   setSkillToUnlink,
   setSkillToAddSymlinks,
   setSkillToCopy,

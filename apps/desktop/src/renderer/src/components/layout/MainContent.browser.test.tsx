@@ -16,6 +16,7 @@ import { render } from 'vitest-browser-react'
 
 import { partitionGlobalDeleteTargets } from '@/renderer/src/components/skills/reviewedDestructiveTargets'
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
+import rendererPreferencesReducer from '@/renderer/src/redux/slices/rendererPreferencesSlice'
 import { BULK_ITEM_FAILED_EVENT } from '@/renderer/src/utils/bulkOpVisuals'
 import { DEFAULT_SETTINGS } from '@/shared/settings'
 import type {
@@ -232,6 +233,7 @@ async function createStore() {
     await import('@/renderer/src/redux/slices/protectSlice')
   return configureStore({
     reducer: {
+      rendererPreferences: rendererPreferencesReducer,
       ui: uiReducer,
       skills: skillsReducer,
       skillLock: skillLockReducer,

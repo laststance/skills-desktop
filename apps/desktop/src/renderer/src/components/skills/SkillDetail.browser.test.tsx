@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import rendererPreferencesReducer from '@/renderer/src/redux/slices/rendererPreferencesSlice'
+import skillsReducer from '@/renderer/src/redux/slices/skillsSlice'
 import { installLayoutStyles } from '@/renderer/src/test/installLayoutStyles'
 import { DEFAULT_SETTINGS } from '@/shared/settings'
 import type {
@@ -200,6 +201,7 @@ async function renderSkillDetail(
 
   const store = configureStore({
     reducer: {
+      skills: skillsReducer,
       settings: settingsReducer,
       rendererPreferences: rendererPreferencesReducer,
       agents: agentsReducer,
@@ -207,6 +209,7 @@ async function renderSkillDetail(
     },
     preloadedState: {
       rendererPreferences: {
+        skillsViewMode: 'list' as const,
         markdownPreviewMode: 'code' as const,
         lastSeenVersion: null,
         hydrated: true,

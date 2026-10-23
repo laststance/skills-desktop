@@ -10,6 +10,7 @@ import type {
 import { IPC_CHANNELS } from '@/shared/ipc-channels'
 import type { BackgroundsApi, IpcEventContract } from '@/shared/ipc-contract'
 import type { Settings, SettingsPatch } from '@/shared/settings'
+import type { SkillFilesRequest } from '@/shared/skillFiles'
 import type { ThemeState } from '@/shared/theme'
 import type {
   AbsolutePath,
@@ -110,6 +111,12 @@ contextBridge.exposeInMainWorld('electron', {
   },
   // Files API
   files: {
+    listDetailed: async (request: SkillFilesRequest) =>
+      typedInvoke('files:listDetailed', request),
+    cancelList: async (request: SkillFilesRequest) =>
+      typedInvoke('files:cancelList', request),
+    readDetailed: async (root: AbsolutePath, path: AbsolutePath) =>
+      typedInvoke('files:readDetailed', root, path),
     list: async (skillPath: AbsolutePath) =>
       typedInvoke('files:list', skillPath),
     read: async (filePath: AbsolutePath) => typedInvoke('files:read', filePath),

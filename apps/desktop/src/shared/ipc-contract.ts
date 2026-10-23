@@ -10,6 +10,11 @@ import type {
   BackgroundUploadDraft,
 } from './backgrounds'
 import type { Settings, SettingsPatch } from './settings'
+import type {
+  SkillFileRead,
+  SkillFilesListing,
+  SkillFilesRequest,
+} from './skillFiles'
 import type { ThemeState } from './theme'
 import type {
   AbsolutePath,
@@ -129,6 +134,12 @@ export interface IpcInvokeContract {
     result: RemoveEmptyAgentFolderResult
   }
   'source:getStats': { args: []; result: SourceStats }
+  'files:listDetailed': { args: [SkillFilesRequest]; result: SkillFilesListing }
+  'files:cancelList': { args: [SkillFilesRequest]; result: void }
+  'files:readDetailed': {
+    args: [AbsolutePath, AbsolutePath]
+    result: SkillFileRead
+  }
   'files:list': { args: [AbsolutePath]; result: SkillFile[] }
   'files:read': { args: [AbsolutePath]; result: SkillFileContent | null }
   'files:readBinary': {

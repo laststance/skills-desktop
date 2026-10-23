@@ -75,6 +75,10 @@ CodeQL, dependency review, production dependency audit, Socket dependency
 scanning, OpenSSF Scorecard, GitHub secret scanning, Dependabot security
 updates, SHA-pinned least-privilege Actions, and branch protection.
 
+## Browse installed skill files
+
+Use **List / Tree** above Installed skills to choose cards or an expandable hierarchy. Tree opens skill folders on demand. Select a file to preview it on the right, or use arrow keys to navigate and Enter to open. Space selects an eligible skill for bulk actions; files and folders never become delete targets. **Collapse all** closes the hierarchy without reloading it. Search and agent/source filters work in either view, and the view choice survives restart.
+
 ## Development
 
 ### Prerequisites

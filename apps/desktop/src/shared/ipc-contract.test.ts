@@ -22,6 +22,9 @@ describe('IPC contract alignment', () => {
       [IPC_CHANNELS.AGENTS_GET_ALL]: true,
       [IPC_CHANNELS.AGENTS_REMOVE_EMPTY_FOLDER]: true,
       [IPC_CHANNELS.SOURCE_GET_STATS]: true,
+      [IPC_CHANNELS.FILES_LIST_DETAILED]: true,
+      [IPC_CHANNELS.FILES_CANCEL_LIST]: true,
+      [IPC_CHANNELS.FILES_READ_DETAILED]: true,
       [IPC_CHANNELS.FILES_LIST]: true,
       [IPC_CHANNELS.FILES_READ]: true,
       [IPC_CHANNELS.FILES_READ_BINARY]: true,
@@ -69,7 +72,8 @@ describe('IPC contract alignment', () => {
     // The `satisfies` clause above is a structural guard; this length check is
     // the trip-wire that forces a human PR diff when a channel is added.
     // Assert
-    expect(invokeChannelKeys).toHaveLength(50)
+    // Detailed listing/read are allowlist-validated; cancellation is sender/frame and generation scoped.
+    expect(invokeChannelKeys).toHaveLength(53)
   })
 
   test('forces a review by tripping when a push-event channel is added or removed', () => {

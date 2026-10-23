@@ -65,3 +65,5 @@ metadata. It seeds the legacy `autoDownloadUpdates: true` setting and verifies
 that startup, repeated checks and live settings changes request no artifact until
 Download is clicked. The fake ZIP then returns 404, so the spec observes Update
 Error without staging or installing an update. The flow records video in the test output.
+
+`spec/skills-tree.e2e.ts` adds two throwaway skills with three nested files under the isolated HOME. It verifies Tree-to-Inspector navigation, List/Tree continuity, temporary Files-tab intent and view preference persistence across a real Electron restart. New fixture files never overwrite hardlinked snapshot content. Manual visual QA additionally attaches `playwright-cli` to the isolated Electron CDP port and records the expand/preview/collapse flow; screenshots alone are not motion evidence.

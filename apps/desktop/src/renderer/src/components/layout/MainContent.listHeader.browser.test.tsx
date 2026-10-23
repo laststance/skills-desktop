@@ -5,6 +5,7 @@ import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
+import rendererPreferencesReducer from '@/renderer/src/redux/slices/rendererPreferencesSlice'
 import { DEFAULT_SETTINGS } from '@/shared/settings'
 import type {
   Agent,
@@ -140,6 +141,7 @@ async function renderMainContentWithListHeader() {
   ])
   const store = configureStore({
     reducer: {
+      rendererPreferences: rendererPreferencesReducer,
       ui: uiReducer,
       skills: skillsReducer,
       skillLock: skillLockReducer,

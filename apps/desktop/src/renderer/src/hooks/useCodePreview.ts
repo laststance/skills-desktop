@@ -1,217 +1,121 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import {
+  fetchSkills,
+  selectPreviewFile,
+} from '@/renderer/src/redux/slices/skillsSlice'
+import type { SkillFilesCode } from '@/shared/skillFiles'
 import type {
   AbsolutePath,
   FileName,
   FileSizeBytes,
   SkillBinaryContent,
-  SkillFile,
   SkillFileContent,
 } from '@/shared/types'
 
-/**
- * Discriminated union for the preview pane's content state.
- * The renderer picks the correct component branch off `kind`.
- */
+import { useSkillFilesCache } from './SkillFilesProvider'
+
 export type PreviewContent =
   | { kind: 'text'; data: SkillFileContent }
   | { kind: 'image'; data: SkillBinaryContent }
   | { kind: 'binary'; fileName: FileName; size: FileSizeBytes }
   | { kind: 'empty' }
+  | { kind: 'error'; code: SkillFilesCode }
 
-interface UseCodePreviewReturn {
-  files: SkillFile[]
-  activeFile: AbsolutePath | null
-  setActiveFile: (path: AbsolutePath | null) => Promise<void>
-  content: PreviewContent
-  loading: boolean
-  loadFailed: boolean
-}
-
-/**
- * Hook for managing skill file preview state.
- * Routes text/image/binary files to the correct IPC read path and exposes a
- * discriminated union so the renderer can switch on `content.kind` without
- * re-deriving the file's shape from extensions.
- * @param skillPath - Absolute path to the skill directory.
- * @returns
- * - files: all previewable files discovered under the skill (text + image + placeholder)
- * - activeFile: currently selected file's absolute path
- * - setActiveFile: change the active file and load its content
- * - content: discriminated union describing how the renderer should display the file
- * - loading: true until the initial file list has been fetched for the current skill
- * - loadFailed: true when that fetch rejected, so the pane can explain instead of spinning
- * @example
- * const { files, content, setActiveFile } = useCodePreview('/skills/tdd')
- * // content.kind === 'text' | 'image' | 'binary' | 'empty'
+/** Loads content only for the current mapped file; Tree and Files tabs share Redux navigation.
+ * Each effect owns one read, so late results from a previous skill, file or refresh cannot paint.
+ * @example const { files, content, setActiveFile } = useCodePreview(skill.path)
  */
-// eslint-disable-next-line @laststance/react-next/no-single-use-hook-file -- Dedicated file-loading module has direct browser regression tests and a component mock seam.
-export function useCodePreview(skillPath: AbsolutePath): UseCodePreviewReturn {
-  const [files, setFiles] = useState<SkillFile[]>([])
-  const [loadedPath, setLoadedPath] = useState<AbsolutePath | null>(null)
-  const [userSelectedFile, setUserSelectedFile] = useState<AbsolutePath | null>(
-    null,
-  )
-  const [content, setContent] = useState<PreviewContent>({ kind: 'empty' })
-  const [loadFailed, setLoadFailed] = useState(false)
-  const prevSkillPathRef = useRef(skillPath)
-  // Mirror of userSelectedFile readable synchronously from the initial-load
-  // effect. The effect must check the *current* selection when its async IPC
-  // resolves; reading state via closure would see a stale null snapshot.
-  const userSelectedFileRef = useRef<AbsolutePath | null>(null)
-
-  if (prevSkillPathRef.current !== skillPath) {
-    prevSkillPathRef.current = skillPath
-    userSelectedFileRef.current = null
-    setUserSelectedFile(null)
-    setContent({ kind: 'empty' })
-    // Without this, `loading` is a lie on the way BACK to a skill: A -> B -> A
-    // leaves `loadedPath` at A across the detour, so the return switch computes
-    // `loading === false` while A is still re-listing -- and the reset above has
-    // just blanked `content`, so a file that has text renders as having none for
-    // one IPC round-trip. Nulling it keeps the spinner up until the new list
-    // lands, which is what `loading` claims to mean.
-    setLoadedPath(null)
-    setLoadFailed(false)
-  }
-
-  const loading = loadedPath !== skillPath
-  const activeFile = userSelectedFile ?? files[0]?.path ?? null
+// eslint-disable-next-line @laststance/react-next/no-single-use-hook-file -- Dedicated content loader has browser regression tests; Tree and Inspector share its listing provider.
+export function useCodePreview(skillPath: AbsolutePath) {
+  const { cache, snapshot } = useSkillFilesCache()
+  const dispatch = useAppDispatch()
+  const intent = useAppSelector((state) => state.skills.inspectedFile)
+  const generation = useAppSelector((state) => state.skills.filesGeneration)
+  const [read, setRead] = useState<{
+    path: AbsolutePath
+    generation: number
+    sequence: number
+    content: PreviewContent
+  } | null>(null)
+  const [retrySequence, setRetrySequence] = useState(0)
+  const entry = snapshot.entries.get(skillPath)
+  const files = entry?.result?.files ?? []
+  const requestedFile = intent?.root === skillPath ? intent.path : null
+  const activeFile = requestedFile ?? files[0]?.path ?? null
+  const file = files.find((candidate) => candidate.path === activeFile)
+  const loading = !entry?.result
+  const loadFailed = entry?.result?.status === 'error'
 
   useEffect(() => {
+    void cache.ensure(skillPath)
+  }, [cache, skillPath, generation, cache.generation])
+  useEffect(() => {
+    if (!file) return
     let cancelled = false
-    // Distinguishes the two failures the catch below can see. A rejected list
-    // leaves the pane with nothing to show; a rejected content read leaves a
-    // perfectly good tab bar that must stay on screen.
-    let listSucceeded = false
-    // Stronger than `cancelled`, and needed because it closes a window
-    // `cancelled` cannot: the ref is reassigned during the RENDER of the next
-    // skill, while `cancelled` is only set at commit, when React runs this
-    // effect's cleanup. A rejection landing between those two points would see
-    // `cancelled === false` and write this skill's failure over the next one's
-    // state. That matters for `loadFailed` specifically: every other value here
-    // is overwritten by the next skill's own load, but `loadFailed` is cleared
-    // only by the render-phase reset, which has already run by then -- so a
-    // stale `true` would strand a readable skill on the unavailable pane.
-    const isStaleSkill = (): boolean => prevSkillPathRef.current !== skillPath
-    async function loadFiles(): Promise<void> {
-      const fileList = await window.electron.files.list(skillPath)
+    const load = async (): Promise<void> => {
+      const result =
+        file.previewable === 'binary'
+          ? null
+          : await window.electron.files
+              .readDetailed(skillPath, file.path)
+              .catch(() => ({
+                status: 'error' as const,
+                code: 'unavailable' as const,
+              }))
       if (cancelled) return
-      /* v8 ignore next -- unreachable under test for the same reason it exists: the window it closes opens between React's render phase (where prevSkillPathRef is reassigned) and its commit phase (where this effect's cleanup sets `cancelled`), and `rerender` runs both synchronously, so `cancelled` always wins in the harness */
-      if (isStaleSkill()) return
-      listSucceeded = true
-      setFiles(fileList)
-      setLoadedPath(skillPath)
-      const first = fileList[0]
-      if (!first) {
-        setContent({ kind: 'empty' })
-        return
-      }
-      const initial = await loadContentForFile(first)
-      if (cancelled || userSelectedFileRef.current !== null) return
-      // The sibling guard above cannot stand in for this one: the render-phase
-      // reset nulls `userSelectedFileRef`, so it catches a stale CLICK but never
-      // a stale SKILL. Without this, the previous skill's file text lands under
-      // the next skill's tab bar -- misattributed content, which is worse than
-      // the blank pane the reset would otherwise leave.
-      /* v8 ignore next -- unreachable under test for the same reason it exists: the window it closes opens between React's render phase (where prevSkillPathRef is reassigned) and its commit phase (where this effect's cleanup sets `cancelled`), and `rerender` runs both synchronously, so `cancelled` always wins in the harness */
-      if (isStaleSkill()) return
-      setContent(initial)
+      const content: PreviewContent =
+        result === null
+          ? { kind: 'binary', fileName: file.name, size: file.size }
+          : result.status === 'ready'
+            ? ({ kind: result.kind, data: result.data } as PreviewContent)
+            : { kind: 'error', code: result.code }
+      setRead({ path: file.path, generation, sequence: retrySequence, content })
     }
-    // `files.list` rejects when the main process refuses the path: `validatePath`
-    // runs OUTSIDE `listSkillFiles`' own swallow, and a skill reached through an
-    // agent symlink that points off-tree resolves outside `getAllowedBases()`.
-    // Without this catch the rejection floats, `loadedPath` never advances, and
-    // `loading` stays true forever -- a spinner with no error and no retry.
-    // The catch stays broad rather than wrapping only the list await: narrowing
-    // it would leave every later rejection floating again, which is the bug.
-    loadFiles().catch((error: unknown) => {
-      // The UI states the cause in plain language; DevTools gets the real one.
-      console.warn('[preview] failed to load skill files:', error)
-      if (cancelled) return
-      /* v8 ignore next -- unreachable under test for the same reason it exists: the window it closes opens between React's render phase (where prevSkillPathRef is reassigned) and its commit phase (where this effect's cleanup sets `cancelled`), and `rerender` runs both synchronously, so `cancelled` always wins in the harness */
-      if (isStaleSkill()) return
-      setLoadedPath(skillPath)
-      if (!listSucceeded) {
-        // Drop the PREVIOUS skill's list: `files` survives a skill switch, so
-        // without this the hook keeps returning tabs -- and an `activeFile`
-        // derived from `files[0]` -- belonging to a different skill than the
-        // one it just failed to read. The unavailable pane hides that today,
-        // but the returned state has to be honest on its own, and the arm
-        // below reasons about `files` being empty here.
-        setFiles([])
-        setLoadFailed(true)
-        return
-      }
-      // The list landed, so `files` is valid and its tabs must keep rendering;
-      // only this one file's content is missing. Same stale-click guard the
-      // success path uses: a click during the initial read already committed
-      // `userSelectedFile` and painted that file, so blanking here would wipe
-      // the tab the user is looking at. (The `!listSucceeded` arm above needs
-      // no guard -- `files` is empty there, so `setActiveFile` rejects every
-      // path and the ref is provably still null.)
-      if (userSelectedFileRef.current !== null) return
-      setContent({ kind: 'empty' })
-    })
+    void load()
     return (): void => {
       cancelled = true
     }
-  }, [skillPath])
+  }, [file, skillPath, generation, retrySequence])
 
   const setActiveFile = async (path: AbsolutePath | null): Promise<void> => {
-    if (path === activeFile) return
-    // Resolve before committing. A path absent from `files` must never reach
-    // `userSelectedFile`: `activeFile` would then name a tab that has no
-    // Trigger, so the bar shows nothing highlighted over stale content, and
-    // `files.length === 0` would stop implying `!activeFile` -- the
-    // equivalence {@link CodePreview} guards its empty state on.
-    const file = path ? files.find((f) => f.path === path) : undefined
-    if (path && !file) return
-    userSelectedFileRef.current = path
-    setUserSelectedFile(path)
-    if (!file) {
-      setContent({ kind: 'empty' })
-      return
-    }
-    // react-doctor-disable-next-line react-doctor/async-defer-await -- the post-await guards (below) deliberately re-read refs AFTER the async gap to drop a stale click or a skill switch that happened DURING the load; they cannot move before the await.
-    const next = await loadContentForFile(file).catch(
-      (error: unknown): PreviewContent => {
-        // The UI falls back to the empty pane; DevTools gets the real cause.
-        console.warn('[preview] failed to read selected file:', error)
-        // Degrade to empty, don't rethrow. The selection committed above, so
-        // this tab is already highlighted: leaving `content` alone would
-        // caption the PREVIOUS file's text with THIS file's tab. An empty pane
-        // is honest, misattributed text is not. Rethrowing is not an option
-        // either -- `handleValueChange` drops the promise, so it would float.
-        return { kind: 'empty' }
-      },
-    )
-    // After the await, two things may have happened out of order:
-    // (a) the user picked a different file (stale click loses)
-    // (b) the skill itself switched (whole state already reset)
-    // Both guards read refs so they see the *current* value, not the
-    // closure snapshot from when this fetch started.
-    if (userSelectedFileRef.current !== path) return
-    /* v8 ignore next -- redundant double-guard: a skill switch runs the render-phase reset that nulls userSelectedFileRef.current, so any stale load after a switch already returns at the line-above guard (null !== path); reaching here with the skill changed would need the same absolute path re-selected on a different skill, which is impossible since paths are skill-specific */
-    if (prevSkillPathRef.current !== skillPath) return
-    setContent(next)
+    // The UI can activate only entries actually admitted by the shared listing.
+    if (path && files.some((candidate) => candidate.path === path))
+      dispatch(selectPreviewFile({ root: skillPath, path }))
   }
-
-  return { files, activeFile, setActiveFile, content, loading, loadFailed }
-}
-
-/**
- * Dispatch the right IPC call based on `file.previewable`.
- * Pure at the module level so it can be unit-tested without React.
- */
-async function loadContentForFile(file: SkillFile): Promise<PreviewContent> {
-  if (file.previewable === 'text') {
-    const data = await window.electron.files.read(file.path)
-    return data ? { kind: 'text', data } : { kind: 'empty' }
+  const content: PreviewContent =
+    read?.path === activeFile &&
+    read.generation === generation &&
+    read.sequence === retrySequence
+      ? read.content
+      : requestedFile && !file && !loading
+        ? { kind: 'error', code: 'missing' }
+        : { kind: 'empty' }
+  return {
+    files,
+    activeFile,
+    setActiveFile,
+    content,
+    loading,
+    loadFailed,
+    reading:
+      Boolean(file) &&
+      (read?.path !== activeFile ||
+        read.generation !== generation ||
+        read.sequence !== retrySequence),
+    listing: entry?.result,
+    retry: (): void => {
+      // Missing paths need a scanner refresh to reconcile the selected domain object.
+      if (
+        (content.kind === 'error' && content.code === 'missing') ||
+        entry?.result?.code === 'missing'
+      ) {
+        void dispatch(fetchSkills())
+        return
+      }
+      void cache.ensure(skillPath, true)
+      setRetrySequence((value) => value + 1)
+    },
   }
-  if (file.previewable === 'image') {
-    const data = await window.electron.files.readBinary(file.path)
-    return data ? { kind: 'image', data } : { kind: 'empty' }
-  }
-  return { kind: 'binary', fileName: file.name, size: file.size }
 }

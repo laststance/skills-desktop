@@ -9,6 +9,7 @@ import rendererPreferencesReducer, {
 } from '@/renderer/src/redux/slices/rendererPreferencesSlice'
 import { MARKDOWN_PREVIEW_MODE_KEY } from '@/shared/constants'
 import { DEFAULT_SETTINGS, type Settings } from '@/shared/settings'
+import type { SkillFilesCode } from '@/shared/skillFiles'
 import type { AbsolutePath, SkillFile } from '@/shared/types'
 import {
   toAbsolutePath,
@@ -354,4 +355,62 @@ describe('CodePreview', () => {
       )
       .toBe('16px')
   })
+})
+
+test.each<SkillFilesCode>(['missing', 'unavailable', 'denied', 'limit'])(
+  'offers appropriate recovery for a %s content failure while keeping file tabs',
+  async (code) => {
+    // Arrange
+    const file = makeFile()
+    const retry = vi.fn()
+    mockUseCodePreview.mockReturnValue({
+      ...makeHookReturn({
+        files: [file],
+        activeFile: file.path,
+        content: { kind: 'error', code },
+      }),
+      retry,
+    })
+    // Act
+    const screen = await renderCodePreview()
+    // Assert
+    await expect
+      .element(screen.getByRole('tab', { name: 'SKILL.md', exact: true }))
+      .toBeVisible()
+    await expect.element(screen.getByRole('alert')).toBeVisible()
+    if (code === 'missing' || code === 'unavailable') {
+      await screen
+        .getByRole('button', {
+          name: code === 'missing' ? 'Rescan skills' : 'Retry',
+          exact: true,
+        })
+        .click()
+      expect(retry).toHaveBeenCalledTimes(1)
+    } else {
+      expect(screen.container.querySelector('[role="alert"] button')).toBeNull()
+    }
+  },
+)
+
+test('keeps readable tabs with a retryable partial listing and shows pending content explicitly', async () => {
+  // Arrange
+  const file = makeFile()
+  const retry = vi.fn()
+  mockUseCodePreview.mockReturnValue({
+    ...makeHookReturn({ files: [file], activeFile: file.path }),
+    reading: true,
+    retry,
+    listing: {
+      status: 'partial',
+      files: [file],
+      issues: [{ relativePath: 'private', code: 'unavailable' }],
+      observedEntries: 2,
+    },
+  })
+  // Act
+  const screen = await renderCodePreview()
+  await screen.getByRole('button', { name: 'Retry', exact: true }).click()
+  // Assert
+  await expect.element(screen.getByText('Loading preview…')).toBeVisible()
+  expect(retry).toHaveBeenCalledTimes(1)
 })

@@ -1037,3 +1037,13 @@ Internal IDs map to CLI identifiers via `AGENT_DEFINITIONS`:
 - **Skills Spec**: https://agentskills.io
 - **Skills CLI**: https://github.com/vercel-labs/skills
 - **Skills Registry**: https://skills.sh
+
+## Optional Installed Tree
+
+- List remains the default. The separate 36px view strip retains its position in either mode; the existing filters and bulk header keep their semantics.
+- Tree hierarchy is skill → relative directory → previewable file. Search remains skill-metadata search: children never bypass a hidden root. Filename/content search and repository grouping are deferred.
+- Root label/Enter inspects the skill. Disclosure/Right expands; Left collapses or moves to the parent. Up/Down/Home/End move keyboard focus only. Directories toggle with Enter/Space; files open in the Inspector's temporary Files tab.
+- Root Space, checkbox and Command-click toggle eligible bulk selection; Shift extends the range across filtered eligible roots. Command-A/Escape retain the existing Installed shortcuts. Descendants are never bulk mutation targets. Shift-F10 opens the root actions menu; Tab leaves the tree.
+- List/Tree switching preserves search, filters, inspected file and bulk selection. First Tree entry reveals the current visible file without moving keyboard focus. Collapse all cancels a pending reveal and performs no filesystem work.
+- Loading, empty, partial, missing, denied, size/depth limits and transient failure states are distinct. Retry is manual and keeps a readable subset. Missing roots require Rescan; fixed limits do not invite ineffective retries.
+- The view choice persists in renderer preferences with per-field cross-window merge and failed-write retry. Tree rendering failures offer Try again or Use List while leaving the Inspector usable.

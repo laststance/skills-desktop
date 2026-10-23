@@ -1,3 +1,4 @@
+import { SkillFilesProvider } from '@/renderer/src/hooks/SkillFilesProvider'
 import React, { useEffect } from 'react'
 import { Provider } from 'react-redux'
 import type { Decorator } from '@storybook/react-vite'
@@ -575,6 +576,18 @@ export function installStorybookElectronMock(): void {
       getStats: async () => storySourceStats,
     },
     files: {
+      listDetailed: async () => ({
+        status: 'complete',
+        files: storySkillFiles,
+        issues: [],
+        observedEntries: storySkillFiles.length,
+      }),
+      cancelList: async () => undefined,
+      readDetailed: async () => ({
+        status: 'ready',
+        kind: 'text',
+        data: storySkillFileContent,
+      }),
       list: async () => storySkillFiles,
       read: async () => storySkillFileContent,
       readBinary: async () => ({
@@ -689,19 +702,21 @@ const SkillsDesktopStoryProvider = function SkillsDesktopStoryProvider({
 
   return (
     <Provider store={store}>
-      <TooltipProvider delayDuration={120}>
-        <div className="skills-story-surface">
-          <div
-            className={
-              centered
-                ? 'skills-story-frame skills-story-frame--center'
-                : 'skills-story-frame'
-            }
-          >
-            <div style={frameStyle}>{children}</div>
+      <SkillFilesProvider>
+        <TooltipProvider delayDuration={120}>
+          <div className="skills-story-surface">
+            <div
+              className={
+                centered
+                  ? 'skills-story-frame skills-story-frame--center'
+                  : 'skills-story-frame'
+              }
+            >
+              <div style={frameStyle}>{children}</div>
+            </div>
           </div>
-        </div>
-      </TooltipProvider>
+        </TooltipProvider>
+      </SkillFilesProvider>
     </Provider>
   )
 }

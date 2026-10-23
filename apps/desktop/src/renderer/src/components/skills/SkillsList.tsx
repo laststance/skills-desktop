@@ -79,7 +79,11 @@ function getSkillRowKey(index: number, { data }: SkillRowProps): Skill['name'] {
  * List of all skills with search, agent filtering, and virtual scrolling.
  * Uses react-window v2 for O(visible) DOM nodes instead of O(n).
  */
-export const SkillsList = function SkillsList(): React.ReactElement {
+export const SkillsList = function SkillsList({
+  children,
+}: {
+  children?: React.ReactNode
+}): React.ReactElement {
   const dispatch = useAppDispatch()
   const skills = useAppSelector(selectSkillsItems)
   const loading = useAppSelector(selectSkillsLoading)
@@ -184,6 +188,8 @@ export const SkillsList = function SkillsList(): React.ReactElement {
       </div>
     )
   }
+
+  if (children) return <>{children}</>
 
   return (
     <List<SkillRowProps>

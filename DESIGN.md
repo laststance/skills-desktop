@@ -1000,3 +1000,11 @@ avoid decorative effects.
 - Material Design duration and easing: https://m1.material.io/motion/duration-easing.html
 - Material Design elevation and shadows: https://m1.material.io/material-design/elevation-shadows.html
 - Apple HIG buttons: https://developer.apple.com/design/human-interface-guidelines/buttons
+
+### Installed Tree presentation
+
+Use a separate 36px view strip above the existing 36px bulk header. Place the compact connected List/Tree segmented control at the trailing edge; reserve a 24px Collapse all target at the leading edge in both modes. List is the default. The strip does not displace or duplicate the filter controls.
+
+Tree roots are flat 44px rows; directories, files and status rows are 36px. Use 13px system-font labels, 12px supporting text, 12px indentation per level and a 28px checkbox gutter with at least a 24px pointer target. Preserve the 264px pane floor with truncation and no horizontal scrolling.
+
+Keep inspected-root accent, checked-root background/checkbox, current-file highlight and keyboard-focus ring independent. The tree has one keyboard tab stop; the active descendant must scroll into view. Root actions are available through a 24px overflow button and Shift-F10. Descendants expose navigation and preview only. Status copy must distinguish loading, successful empty discovery and failures without implying a complete file count for limited listings.

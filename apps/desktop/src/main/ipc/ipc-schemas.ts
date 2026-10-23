@@ -189,8 +189,17 @@ export const manifestSchema = z.union([
   manifestV1Schema,
 ])
 
+const skillFilesRequestSchema = z.strictObject({
+  root: absolutePathArg,
+  requestId: z.string().min(1).max(100),
+  generation: z.number().int().nonnegative(),
+})
+
 export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
   // File operations — require non-empty path strings
+  'files:listDetailed': z.tuple([skillFilesRequestSchema]),
+  'files:cancelList': z.tuple([skillFilesRequestSchema]),
+  'files:readDetailed': z.tuple([absolutePathArg, absolutePathArg]),
   'files:list': z.tuple([nonEmptyString]),
   'files:read': z.tuple([nonEmptyString]),
 

@@ -537,3 +537,9 @@
     animation: none;
   }
 }
+
+/* Tree uses one tab stop; the active descendant gets the visible keyboard ring. */
+.skills-tree:focus-visible .tree-row-focused {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}

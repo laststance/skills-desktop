@@ -121,6 +121,7 @@ async function renderMarketplace(preloadedState: {
         searchQuery: toSearchQuery(''),
         searchResults: [],
         selectedSkill: null,
+
         previewSkill: null,
         installProgress: null,
         error: null,
@@ -130,6 +131,9 @@ async function renderMarketplace(preloadedState: {
       skills: {
         items: [],
         selectedSkill: null,
+        filesGeneration: 0,
+        inspectedFile: null,
+        inspectorTabOverride: null,
         loading: false,
         error: null,
         skillToUnlink: null,

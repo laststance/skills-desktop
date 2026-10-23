@@ -10,6 +10,7 @@ import { MainContent } from './components/layout/MainContent'
 import { Sidebar } from './components/layout/Sidebar'
 import { TooltipProvider } from './components/ui/tooltip'
 import { UpdateToast } from './components/UpdateToast'
+import { SkillFilesProvider } from './hooks/SkillFilesProvider'
 import { useActivitySync } from './hooks/useActivitySync'
 import { useReleaseNotesToast } from './hooks/useReleaseNotesToast'
 import { useSettingsSync } from './hooks/useSettingsSync'
@@ -58,56 +59,62 @@ const App = function App(): React.ReactElement {
   )
 
   return (
-    <TooltipProvider delayDuration={200}>
-      <div
-        data-testid="window-background-surface"
-        data-opacity-mode={opacityMode}
-        className="window-background-surface relative isolate flex h-screen bg-transparent text-foreground window-glow"
-      >
-        <BackgroundCanvas />
-        {/* Each pane inherits background alpha; foreground opacity and floating UI stay independent. */}
+    <SkillFilesProvider>
+      <TooltipProvider delayDuration={200}>
         <div
-          data-window-section="left"
-          className="window-surface flex h-full shrink-0"
-          style={getWindowSurfaceStyle(opacityMode, leftOpacity, entireOpacity)}
+          data-testid="window-background-surface"
+          data-opacity-mode={opacityMode}
+          className="window-background-surface relative isolate flex h-screen bg-transparent text-foreground window-glow"
         >
-          <Sidebar />
+          <BackgroundCanvas />
+          {/* Each pane inherits background alpha; foreground opacity and floating UI stay independent. */}
+          <div
+            data-window-section="left"
+            className="window-surface flex h-full shrink-0"
+            style={getWindowSurfaceStyle(
+              opacityMode,
+              leftOpacity,
+              entireOpacity,
+            )}
+          >
+            <Sidebar />
+          </div>
+          <Group orientation="horizontal" className="flex-1 h-full">
+            <Panel defaultSize="50%" minSize={PANEL_MIN_WIDTH_PX}>
+              <div
+                data-window-section="center"
+                className="window-surface h-full bg-background"
+                style={getWindowSurfaceStyle(
+                  opacityMode,
+                  centerOpacity,
+                  entireOpacity,
+                )}
+              >
+                <MainContent />
+              </div>
+            </Panel>
+            <Separator className={separatorClass} />
+            <Panel defaultSize="50%" minSize={PANEL_MIN_WIDTH_PX}>
+              <div
+                data-window-section="right"
+                className="window-surface h-full"
+                style={getWindowSurfaceStyle(
+                  opacityMode,
+                  rightOpacity,
+                  entireOpacity,
+                )}
+              >
+                <DetailPanel />
+              </div>
+            </Panel>
+          </Group>
         </div>
-        <Group orientation="horizontal" className="flex-1 h-full">
-          <Panel defaultSize="50%" minSize={PANEL_MIN_WIDTH_PX}>
-            <div
-              data-window-section="center"
-              className="window-surface h-full bg-background"
-              style={getWindowSurfaceStyle(
-                opacityMode,
-                centerOpacity,
-                entireOpacity,
-              )}
-            >
-              <MainContent />
-            </div>
-          </Panel>
-          <Separator className={separatorClass} />
-          <Panel defaultSize="50%" minSize={PANEL_MIN_WIDTH_PX}>
-            <div
-              data-window-section="right"
-              className="window-surface h-full"
-              style={getWindowSurfaceStyle(
-                opacityMode,
-                rightOpacity,
-                entireOpacity,
-              )}
-            >
-              <DetailPanel />
-            </div>
-          </Panel>
-        </Group>
-      </div>
-      {/* Auto-update toast notification */}
-      <UpdateToast />
-      {/* Sonner toast notifications */}
-      <AppToaster />
-    </TooltipProvider>
+        {/* Auto-update toast notification */}
+        <UpdateToast />
+        {/* Sonner toast notifications */}
+        <AppToaster />
+      </TooltipProvider>
+    </SkillFilesProvider>
   )
 }
 
