@@ -58,13 +58,13 @@ Renderer (React, Redux Toolkit)  ──window.electron──▶  Preload (contex
   `skills-desktop:last-seen-version`; retained values are migration seeds, not
   dual-written copies, so older versions may restore the pre-migration choices.
 
-  | Canonical key                              | Legacy keys          | Startup result                                        |
-  | ------------------------------------------ | -------------------- | ----------------------------------------------------- |
-  | Valid version 1 envelope                   | Present or absent    | Canonical values win.                                 |
-  | Valid envelope with invalid/missing fields | Present or absent    | Keep valid fields; default others to `code` / `null`. |
-  | Invalid JSON, shape or version             | Present or absent    | Use defaults; preserve original canonical bytes.      |
-  | Absent                                     | Valid values present | Import each valid legacy field; default the others.   |
-  | Absent                                     | Absent or invalid    | Use defaults.                                         |
+  | Canonical key                              | Legacy keys          | Startup result                                                 |
+  | ------------------------------------------ | -------------------- | -------------------------------------------------------------- |
+  | Valid version 1 envelope                   | Present or absent    | Canonical values win.                                          |
+  | Valid envelope with invalid/missing fields | Present or absent    | Keep valid fields; default others to `list` / `code` / `null`. |
+  | Invalid JSON, shape or version             | Present or absent    | Use defaults; preserve original canonical bytes.               |
+  | Absent                                     | Valid values present | Import each valid legacy field; default the others.            |
+  | Absent                                     | Absent or invalid    | Use defaults.                                                  |
 
   Components dispatch Redux actions; they do not write storage. Preference saves
   run a read/merge/write transaction under a shared Chromium Web Lock. Explicitly

@@ -13,7 +13,6 @@ import { join } from 'node:path'
 
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { MAX_TEXT_FILE_BYTES } from '@/shared/fileTypes'
 import { toAbsolutePath, type AbsolutePath } from '@/shared/types'
 
 import { discoverSkillFiles, readSkillFileDetailed } from './skillFiles'
@@ -125,10 +124,8 @@ test('caps a file that grows after its stat and closes the descriptor', async ()
   await writeFile(path, 'initial')
   const handle = await open(path, 'r')
   const close = vi.spyOn(handle, 'close')
-  vi.spyOn(handle, 'read').mockResolvedValueOnce({
-    bytesRead: MAX_TEXT_FILE_BYTES + 1,
-    buffer: Buffer.alloc(0),
-  })
+  vi.spyOn(handle, 'stat').mockResolvedValueOnce(await handle.stat())
+  await writeFile(path, 'initial plus concurrent growth')
   vi.mocked(open).mockResolvedValueOnce(handle)
   // Act
   const result = await readSkillFileDetailed(root, path)

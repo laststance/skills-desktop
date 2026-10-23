@@ -4,9 +4,11 @@ import {
   toAbsolutePath,
   toSkillName,
   toSymlinkCount,
+  repositoryId,
   type Skill,
 } from '@/shared/types'
 
+import { installSkill } from './marketplaceSlice'
 import skillsReducer, {
   fetchSkills,
   inspectSkillFile,
@@ -68,6 +70,28 @@ test('Rescan clears inspection when the selected root has been removed', () => {
   expect(state.selectedSkill).toBeNull()
   expect(state.inspectedFile).toBeNull()
   expect(state.inspectorTabOverride).toBeNull()
+})
+
+test('starting a marketplace install invalidates file discovery before the filesystem changes', () => {
+  // Arrange
+  const options = {
+    repo: repositoryId('fixture/skills'),
+    global: true,
+    agents: [],
+  }
+  const initial = skillsReducer(undefined, { type: 'init' })
+  // Act
+  const pending = skillsReducer(
+    initial,
+    installSkill.pending('install', options),
+  )
+  const completed = skillsReducer(
+    pending,
+    installSkill.fulfilled(true, 'install', options),
+  )
+  // Assert
+  expect(pending.filesGeneration).toBe(1)
+  expect(completed.filesGeneration).toBe(1)
 })
 
 test('Rescan refreshes selected metadata while preserving an existing file intent', () => {

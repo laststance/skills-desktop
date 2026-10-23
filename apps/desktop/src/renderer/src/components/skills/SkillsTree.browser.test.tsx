@@ -86,6 +86,7 @@ async function fixture(selected = false, items = [alpha, beta]) {
   function Harness() {
     const [collapse, setCollapse] = useState(0)
     const [expanded, setExpanded] = useState(false)
+    const [visible, setVisible] = useState(true)
     return (
       <>
         <button
@@ -96,12 +97,17 @@ async function fixture(selected = false, items = [alpha, beta]) {
           Collapse all
         </button>
         <div style={{ height: 220, width: 264 }}>
-          <SkillsTree
-            collapseToken={collapse}
-            onExpandedChange={(expanded) => setExpanded(expanded)}
-          />
+          {visible && (
+            <SkillsTree
+              collapseToken={collapse}
+              onExpandedChange={(expanded) => setExpanded(expanded)}
+            />
+          )}
         </div>
         <button type="button">After tree</button>
+        <button type="button" onClick={() => setVisible(false)}>
+          Hide tree
+        </button>
       </>
     )
   }
@@ -188,6 +194,45 @@ test('reveals the inspected file on first entry without moving DOM focus', async
     .toBeVisible()
   expect(listDetailed).toHaveBeenCalledTimes(1)
   expect(document.activeElement?.getAttribute('role')).not.toBe('tree')
+})
+
+test('keeps another root expanded while a delayed first-entry file reveal completes', async () => {
+  // Arrange
+  let release: (value: SkillFilesListing) => void = () => undefined
+  const pending = new Promise<SkillFilesListing>((resolve) => {
+    release = resolve
+  })
+  listDetailed.mockImplementation(async (request) =>
+    request.root === alpha.path ? pending : { ...listing, files: [] },
+  )
+  const { screen } = await fixture(true)
+  await screen.getByRole('button', { name: 'Expand beta', exact: true }).click()
+  // Act
+  release(listing)
+  // Assert
+  await expect
+    .element(screen.getByRole('treeitem', { name: 'a\\b%.md', exact: true }))
+    .toBeVisible()
+  await expect
+    .element(screen.getByRole('treeitem', { name: 'beta', exact: true }))
+    .toHaveAttribute('aria-expanded', 'true')
+})
+
+test('disables Collapse all when the expanded tree is removed from the panel', async () => {
+  // Arrange
+  const { screen } = await fixture()
+  await screen
+    .getByRole('button', { name: 'Expand alpha', exact: true })
+    .click()
+  await expect
+    .element(screen.getByRole('button', { name: 'Collapse all', exact: true }))
+    .toBeEnabled()
+  // Act
+  await screen.getByRole('button', { name: 'Hide tree', exact: true }).click()
+  // Assert
+  await expect
+    .element(screen.getByRole('button', { name: 'Collapse all', exact: true }))
+    .toBeDisabled()
 })
 
 test('virtualizes a thousand roots and keeps End focus visible', async () => {

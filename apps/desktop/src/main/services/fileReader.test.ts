@@ -8,6 +8,7 @@ import {
   toDataUrl,
   toMimeType,
   toFileSizeBytes,
+  toPosixRelativePath,
 } from '@/shared/types'
 
 import { listSkillFiles, readBinaryFile, readSkillFile } from './fileReader'
@@ -21,9 +22,17 @@ afterEach(() => vi.resetAllMocks())
 
 test('legacy listing uses the same scheduler and retains a partial readable subset', async () => {
   // Arrange
+  const file = {
+    name: toFileName('SKILL.md'),
+    path: toAbsolutePath('/skills/a/SKILL.md'),
+    relativePath: toPosixRelativePath('SKILL.md'),
+    extension: toFileExtension('.md'),
+    size: toFileSizeBytes(4),
+    previewable: 'text' as const,
+  }
   vi.mocked(skillFilesScheduler.list).mockResolvedValue({
     status: 'partial',
-    files: [],
+    files: [file],
     issues: [{ relativePath: 'private', code: 'denied' }],
     observedEntries: 2,
   })
@@ -33,7 +42,16 @@ test('legacy listing uses the same scheduler and retains a partial readable subs
     'window:frame',
   )
   // Assert
-  expect(result).toEqual([])
+  expect(result).toEqual([
+    {
+      name: 'SKILL.md',
+      path: '/skills/a/SKILL.md',
+      relativePath: 'SKILL.md',
+      extension: '.md',
+      size: 4,
+      previewable: 'text',
+    },
+  ])
   expect(skillFilesScheduler.list).toHaveBeenCalledWith('window:frame', {
     root: '/skills/a',
     requestId: expect.any(String),

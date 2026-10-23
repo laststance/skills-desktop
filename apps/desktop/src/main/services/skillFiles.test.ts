@@ -183,6 +183,28 @@ test('rejects paths outside the root, nested symlinks, directories and unsupport
   ).toEqual({ status: 'error', code: 'missing' })
 })
 
+test('reads the validated normalized target when a dot segment follows a nested symlink', async () => {
+  // Arrange
+  await mkdir(join(root, 'private/nested'), { recursive: true })
+  await writeFile(join(root, 'safe.md'), 'validated content')
+  await writeFile(join(root, 'private/safe.md'), 'unvalidated content')
+  await symlink(join(root, 'private/nested'), join(root, 'shortcut'))
+  const path = toAbsolutePath(`${root}/shortcut/../safe.md`)
+  // Act
+  const result = await readSkillFileDetailed(root, path)
+  // Assert
+  expect(result).toEqual({
+    status: 'ready',
+    kind: 'text',
+    data: {
+      name: 'safe.md',
+      content: 'validated content',
+      extension: 'md',
+      lineCount: 1,
+    },
+  })
+})
+
 test('enforces the five MiB image preview cap', async () => {
   // Arrange
   const path = toAbsolutePath(join(root, 'large.png'))

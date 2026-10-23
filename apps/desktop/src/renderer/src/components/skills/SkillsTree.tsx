@@ -345,7 +345,11 @@ export function SkillsTree({
       const root = ids.current.get(selected.path)!
       // Publish loaded paths before opening ancestors; a late load never restores keyboard focus.
       const next = buildSkillTree(skills, ids.current, cache.entries)
-      model.resetPaths(next.paths)
+      const expanded = [...next.nodes.keys()].filter((path) => {
+        const item = model.getItem(path)
+        return item && 'expand' in item && item.isExpanded()
+      })
+      model.resetPaths(next.paths, { initialExpandedPaths: expanded })
       const file =
         result.files.find((candidate) => candidate.path === captured.file) ??
         (!captured.file ? result.files[0] : undefined)
@@ -477,7 +481,13 @@ export function SkillsTree({
     }
     event.preventDefault()
   }
-  useCycleEffect(() => (): void => cache.pin(new Set()), [cache])
+  useCycleEffect(
+    () => (): void => {
+      cache.pin(new Set())
+      onExpandedChange(false)
+    },
+    [cache, onExpandedChange],
+  )
   const props: TreeRowProps = {
     rows,
     nodes: input.nodes,

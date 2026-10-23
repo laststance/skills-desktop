@@ -1,5 +1,5 @@
 import type { PayloadAction } from '@reduxjs/toolkit'
-import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
+import { createAsyncThunk, createSlice, isPending } from '@reduxjs/toolkit'
 
 import type { RootState } from '@/renderer/src/redux/store'
 import type {
@@ -20,6 +20,8 @@ import type {
   TombstoneId,
 } from '@/shared/types'
 import { toAgentCount } from '@/shared/types'
+
+import { installSkill } from './marketplaceSlice'
 
 /**
  * Redux state for the Installed Skills feature area.
@@ -1036,19 +1038,18 @@ const skillsSlice = createSlice({
         state.error = action.error.message ?? 'Undo failed'
       })
       .addMatcher(
-        (action) =>
-          [
-            'skills/deleteSelected/pending',
-            'skills/clearSelectedOrphanSymlinks/pending',
-            'skills/clearSelectedBrokenSymlinkSlots/pending',
-            'skills/unlinkSelectedFromAgent/pending',
-            'skills/unlinkFromAgent/pending',
-            'skills/createSymlinks/pending',
-            'skills/copyToAgents/pending',
-            'skills/bulkCopyToAgents/pending',
-            'skills/undoLastBulkDelete/pending',
-            'marketplace/install/pending',
-          ].includes(action.type),
+        isPending(
+          deleteSelectedSkills,
+          clearSelectedOrphanSymlinks,
+          clearSelectedBrokenSymlinkSlots,
+          unlinkSelectedFromAgent,
+          unlinkSkillFromAgent,
+          createSymlinks,
+          copyToAgents,
+          bulkCopyToAgents,
+          undoLastBulkDelete,
+          installSkill,
+        ),
         (state) => {
           state.filesGeneration += 1
         },

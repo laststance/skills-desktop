@@ -315,6 +315,8 @@ export async function readSkillFileDetailed(
   const rel = relative(root, path)
   if (!rel || rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel))
     return { status: 'error', code: 'denied' }
+  // Open the same normalized path whose segments are checked below.
+  const target = join(root, rel)
   let handle: Awaited<ReturnType<typeof open>> | undefined
   try {
     const identity = await lstat(root)
@@ -325,26 +327,27 @@ export async function readSkillFileDetailed(
       if ((await lstat(current)).isSymbolicLink())
         return { status: 'error', code: 'denied' }
     }
-    const kind = classifyFile(basename(path))
+    const kind = classifyFile(basename(target))
     if (kind === 'binary') return { status: 'error', code: 'denied' }
     const limit = kind === 'image' ? MAX_IMAGE_FILE_BYTES : MAX_TEXT_FILE_BYTES
-    handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW)
+    handle = await open(target, constants.O_RDONLY | constants.O_NOFOLLOW)
     const info = await handle.stat()
     if (!info.isFile()) return { status: 'error', code: 'denied' }
     if (info.size > limit) return { status: 'error', code: 'limit' }
-    const bytes = Buffer.alloc(limit + 1)
+    const bytes = Buffer.alloc(Math.min(info.size, limit) + 1)
     let length = 0
-    // A growing file cannot allocate an unbounded buffer after the initial stat.
-    while (length <= limit) {
+    // The spare byte detects concurrent growth without allocating the full preview limit.
+    while (length < bytes.length) {
       const read = await handle.read(bytes, length, bytes.length - length, null)
       if (read.bytesRead === 0) break
       length += read.bytesRead
     }
-    if (length > limit) return { status: 'error', code: 'limit' }
+    if (length > limit || length > info.size)
+      return { status: 'error', code: 'limit' }
     const latest = await lstat(root)
     if (latest.dev !== identity.dev || latest.ino !== identity.ino)
       return { status: 'error', code: 'missing' }
-    const name = toFileName(basename(path))
+    const name = toFileName(basename(target))
     if (kind === 'image') {
       const mime = IMAGE_MIME_TYPES[getNormalizedExtension(name)]
       if (!mime) return { status: 'error', code: 'denied' }
