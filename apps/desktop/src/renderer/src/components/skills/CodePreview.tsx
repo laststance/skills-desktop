@@ -6,6 +6,7 @@ import { match } from 'ts-pattern'
 import { useCodePreview } from '@/renderer/src/hooks/useCodePreview'
 import { useAppSelector } from '@/renderer/src/redux/hooks'
 import { selectPreviewAppearanceSettings } from '@/renderer/src/redux/slices/settingsSlice'
+import type { SkillFilesCode } from '@/shared/skillFiles'
 import type { AbsolutePath } from '@/shared/types'
 import { toAbsolutePath } from '@/shared/types'
 
@@ -36,8 +37,17 @@ interface CodePreviewProps {
 export const CodePreview = function CodePreview({
   skillPath,
 }: CodePreviewProps): React.ReactElement {
-  const { files, activeFile, setActiveFile, content, loading, loadFailed } =
-    useCodePreview(skillPath)
+  const {
+    files,
+    activeFile,
+    setActiveFile,
+    content,
+    loading,
+    loadFailed,
+    reading,
+    retry,
+    listing,
+  } = useCodePreview(skillPath)
   // Preview typography is user-configurable in Settings → Appearance; this is
   // the single Redux read that feeds the otherwise-presentational FileContent.
   const { markdownFontSizePx, codeFontSizePx, codeThemeId } = useAppSelector(
@@ -64,7 +74,9 @@ export const CodePreview = function CodePreview({
         Loading files...
       </div>
     ))
-    .with({ kind: 'unavailable' }, () => <FilesUnavailableNotice />)
+    .with({ kind: 'unavailable' }, () => (
+      <FilesUnavailableNotice retry={retry} code={listing?.code} />
+    ))
     .with({ kind: 'empty' }, () => (
       <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
         No preview files found
@@ -76,17 +88,49 @@ export const CodePreview = function CodePreview({
         onValueChange={handleValueChange}
         className="flex flex-col h-full"
       >
+        {listing?.status === 'partial' && (
+          <div
+            role="status"
+            className="px-3 py-1 text-xs text-muted-foreground"
+          >
+            Some files could not be listed.{' '}
+            {listing.code ||
+            listing.issues.some(
+              (issue) =>
+                issue.code !== 'depth' &&
+                issue.code !== 'limit' &&
+                issue.code !== 'denied',
+            ) ? (
+              <FileRecoveryAction retry={retry} code={listing.code} />
+            ) : null}
+          </div>
+        )}
         <FileTabs files={files} activeFilePath={activeFilePath} />
         <TabsPrimitive.Content
           value={activeFilePath}
           className="flex-1 flex flex-col min-h-0 focus-visible:outline-none"
         >
-          <FileContent
-            content={content}
-            markdownFontSizePx={markdownFontSizePx}
-            codeFontSizePx={codeFontSizePx}
-            codeThemeId={codeThemeId}
-          />
+          {reading ? (
+            <div role="status" className="p-4 text-sm text-muted-foreground">
+              Loading preview…
+            </div>
+          ) : content.kind === 'error' ? (
+            <div role="alert" className="p-4 text-sm text-muted-foreground">
+              {content.code === 'missing'
+                ? 'This file is no longer available. Rescan skills to refresh the list.'
+                : content.code === 'limit'
+                  ? 'This file exceeds the preview size limit.'
+                  : 'This file could not be read.'}
+              <FileRecoveryAction retry={retry} code={content.code} />
+            </div>
+          ) : (
+            <FileContent
+              content={content}
+              markdownFontSizePx={markdownFontSizePx}
+              codeFontSizePx={codeFontSizePx}
+              codeThemeId={codeThemeId}
+            />
+          )}
         </TabsPrimitive.Content>
       </TabsPrimitive.Root>
     ))
@@ -100,18 +144,46 @@ export const CodePreview = function CodePreview({
  * previewable files" empty. Amber is the app-wide inaccessible-status hue, so
  * this adds no new colour semantic. @see DESIGN.md "Empty States"
  */
-const FilesUnavailableNotice =
-  function FilesUnavailableNotice(): React.ReactElement {
-    return (
-      <div className="flex flex-col items-center justify-center h-full p-6 text-center">
-        <FolderX className="size-10 text-amber-400 mb-3" aria-hidden />
-        <h3 className="text-sm font-medium text-foreground mb-1">
-          Cannot read this skill&apos;s files
-        </h3>
-        <p className="text-xs text-muted-foreground max-w-xs">
-          Its folder sits outside the skill directories this app is allowed to
-          read. The Info tab shows where each agent links this skill from.
-        </p>
-      </div>
-    )
-  }
+const FilesUnavailableNotice = function FilesUnavailableNotice({
+  retry,
+  code,
+}: {
+  retry: () => void
+  code?: SkillFilesCode
+}): React.ReactElement {
+  return (
+    <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+      <FolderX className="size-10 text-amber-400 mb-3" aria-hidden />
+      <h3 className="text-sm font-medium text-foreground mb-1">
+        Cannot read this skill&apos;s files
+      </h3>
+      <p className="text-xs text-muted-foreground max-w-xs">
+        The folder may be missing, inaccessible, or outside the allowed skill
+        directories. The Info tab shows its location.
+      </p>
+      <FileRecoveryAction retry={retry} code={code} />
+    </div>
+  )
+}
+
+/** Offers recovery only when it can change the outcome of a listing or content failure.
+ * @example <FileRecoveryAction code="missing" retry={retry} />
+ */
+function FileRecoveryAction({
+  code,
+  retry,
+}: {
+  code?: SkillFilesCode
+  retry: () => void
+}): React.ReactElement | null {
+  if (code === 'denied' || code === 'limit') return null
+  return (
+    <button
+      type="button"
+      onClick={retry}
+      className="ml-2 min-h-6 text-sm text-primary"
+    >
+      {code === 'missing' ? 'Rescan skills' : 'Retry'}
+    </button>
+  )
+}

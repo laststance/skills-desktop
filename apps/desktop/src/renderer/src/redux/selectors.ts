@@ -615,19 +615,31 @@ function isBulkSelectableSkill(
 export const selectBulkSelectableVisibleSkillNames = createSelector(
   [
     selectFilteredSkills,
+    selectSkillsItems,
     selectSelectedAgentId,
     selectProtectedNamesSet,
     selectSkillsError,
   ],
-  (filteredSkills, selectedAgentId, protectedNames, skillsError): SkillName[] =>
-    // The error screen hides every row, so nothing is selectable behind it.
-    skillsError !== null
-      ? []
-      : filteredSkills
-          .filter((skill) =>
-            isBulkSelectableSkill(skill, selectedAgentId, protectedNames),
-          )
-          .map((skill) => skill.name),
+  (
+    filteredSkills,
+    allSkills,
+    selectedAgentId,
+    protectedNames,
+    skillsError,
+  ): SkillName[] => {
+    // The error screen hides every row; ambiguous names cannot identify one mutation target.
+    if (skillsError !== null) return []
+    const counts = new Map<SkillName, number>()
+    for (const skill of allSkills)
+      counts.set(skill.name, (counts.get(skill.name) ?? 0) + 1)
+    return filteredSkills
+      .filter(
+        (skill) =>
+          counts.get(skill.name) === 1 &&
+          isBulkSelectableSkill(skill, selectedAgentId, protectedNames),
+      )
+      .map((skill) => skill.name)
+  },
 )
 
 /**

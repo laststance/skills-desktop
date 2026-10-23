@@ -94,6 +94,13 @@ vi.mock('./components/ui/tooltip', () => ({
   ),
 }))
 
+// Layout tests isolate file IO; real cache and navigation are exercised by Tree/preview specs.
+vi.mock('./hooks/SkillFilesProvider', () => ({
+  SkillFilesProvider: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
+}))
+
 vi.mock('./hooks/useReleaseNotesToast', () => ({
   useReleaseNotesToast: vi.fn(),
 }))

@@ -30,6 +30,7 @@ catalog:
   typescript-eslint: ^8.72.0
   vitest: ^5.0.5
   zod: 4.6.7
+  '@pierre/trees': 1.0.0-beta.6
 
 # The TypeScript 6 compatibility wrapper reports package version 6.0.2 while
 # its JS API and `tsc6` binary are 6.0.3.

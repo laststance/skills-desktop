@@ -7,7 +7,8 @@ import { Button } from '@/renderer/src/components/ui/button'
 import { Separator } from '@/renderer/src/components/ui/separator'
 import { useUpdateSettings } from '@/renderer/src/hooks/useUpdateSettings'
 import { cn } from '@/renderer/src/lib/utils'
-import { useAppSelector } from '@/renderer/src/redux/hooks'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import { setInspectorTabOverride } from '@/renderer/src/redux/slices/skillsSlice'
 import type { LocationViewModel } from '@/renderer/src/utils/getLocationViewModel'
 import { getLocationViewModel } from '@/renderer/src/utils/getLocationViewModel'
 import { COPIED_FEEDBACK_DURATION_MS } from '@/shared/constants'
@@ -41,13 +42,16 @@ export const SkillDetail = function SkillDetail({
   skill,
 }: SkillDetailProps): React.ReactElement {
   const settings = useAppSelector((state) => state.settings)
-  const activeTab = settings.defaultSkillTab
+  const override = useAppSelector((state) => state.skills.inspectorTabOverride)
+  const activeTab = override ?? settings.defaultSkillTab
+  const dispatch = useAppDispatch()
   const { items: agents } = useAppSelector((state) => state.agents)
   const selectedAgentId = useAppSelector((state) => state.ui.selectedAgentId)
   const updateSettings = useUpdateSettings()
 
   const handleTabChange = (nextTab: Settings['defaultSkillTab']): void => {
     if (nextTab === activeTab) return
+    dispatch(setInspectorTabOverride(null))
     updateSettings({ defaultSkillTab: nextTab })
   }
 

@@ -13,6 +13,9 @@ export const IPC_CHANNELS = {
   SOURCE_GET_STATS: 'source:getStats',
 
   // Files
+  FILES_LIST_DETAILED: 'files:listDetailed',
+  FILES_CANCEL_LIST: 'files:cancelList',
+  FILES_READ_DETAILED: 'files:readDetailed',
   FILES_LIST: 'files:list',
   FILES_READ: 'files:read',
   FILES_READ_BINARY: 'files:readBinary',

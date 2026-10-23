@@ -1,5 +1,12 @@
-import { AlertTriangle, ChevronDown, GitBranch } from 'lucide-react'
-import React, { useRef } from 'react'
+import {
+  List as ListIcon,
+  ListTree,
+  ChevronsDownUp,
+  AlertTriangle,
+  ChevronDown,
+  GitBranch,
+} from 'lucide-react'
+import React, { useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 import { LockPruneDialog } from '@/renderer/src/components/dashboard/LockPruneDialog'
@@ -7,6 +14,7 @@ import { SymlinkCleanupDialog } from '@/renderer/src/components/dashboard/Symlin
 import { SkillsMarketplace } from '@/renderer/src/components/marketplace'
 import { InstallModal } from '@/renderer/src/components/marketplace/InstallModal'
 import { FilterPill } from '@/renderer/src/components/shared/FilterPill'
+import { SegmentedControl } from '@/renderer/src/components/shared/segmented-control'
 import { CleanupAgentDialog } from '@/renderer/src/components/sidebar/CleanupAgentDialog'
 import { SyncResultDialog } from '@/renderer/src/components/sidebar/SyncResultDialog'
 import { AddSymlinkModal } from '@/renderer/src/components/skills/AddSymlinkModal'
@@ -26,6 +34,8 @@ import {
 import { SearchBox } from '@/renderer/src/components/skills/SearchBox'
 import { SkillsList } from '@/renderer/src/components/skills/SkillsList'
 import { shouldShowOrphanToggle } from '@/renderer/src/components/skills/skillsListHelpers'
+import { SkillsTree } from '@/renderer/src/components/skills/SkillsTree'
+import { SkillTreeBoundary } from '@/renderer/src/components/skills/SkillTreeBoundary'
 import { UndoToast } from '@/renderer/src/components/skills/UndoToast'
 import { UnlinkDialog } from '@/renderer/src/components/skills/UnlinkDialog'
 import { Button } from '@/renderer/src/components/ui/button'
@@ -77,6 +87,7 @@ import {
 } from '@/renderer/src/redux/selectors'
 import { setPreviewSkill } from '@/renderer/src/redux/slices/marketplaceSlice'
 import { selectProtectedNamesSet } from '@/renderer/src/redux/slices/protectSlice'
+import { setSkillsViewMode } from '@/renderer/src/redux/slices/rendererPreferencesSlice'
 import {
   clearSelection,
   clearSelectedOrphanSymlinks,
@@ -1100,6 +1111,11 @@ function appendDeleteRescanSummary(
  * global keyboard shortcuts that back the bulk-delete flow (Cmd/Ctrl+A, Esc).
  */
 export const MainContent = function MainContent(): React.ReactElement {
+  const mode = useAppSelector(
+    (state) => state.rendererPreferences.skillsViewMode,
+  )
+  const [collapseToken, setCollapseToken] = useState(0)
+  const [treeExpanded, setTreeExpanded] = useState(false)
   const dispatch = useAppDispatch()
   // Subscribe to install progress here (always-mounted host) rather than in
   // SkillsMarketplace — the marketplace tab unmounts when "installed" is
@@ -1258,6 +1274,27 @@ export const MainContent = function MainContent(): React.ReactElement {
           <div className="flex-1 min-h-0 overflow-hidden flex flex-col pt-3 pb-4 pl-4 pr-[5px]">
             {/* Reserves the list's scrollbar gutter and each row's pr-[5px], so
                 the header's right edge lines up with the cards below. */}
+            <div className="flex h-9 shrink-0 items-center justify-between pr-[5px]">
+              <button
+                type="button"
+                aria-label="Collapse all skills"
+                disabled={mode !== 'tree' || !treeExpanded}
+                className="flex size-6 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent disabled:opacity-30 focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => setCollapseToken((value) => value + 1)}
+              >
+                <ChevronsDownUp className="size-3.5" />
+              </button>
+              <SegmentedControl
+                aria-label="Skills view"
+                size="sm"
+                value={mode}
+                onValueChange={(value) => dispatch(setSkillsViewMode(value))}
+                options={[
+                  { value: 'list', label: 'List', icon: ListIcon },
+                  { value: 'tree', label: 'Tree', icon: ListTree },
+                ]}
+              />
+            </div>
             <div className="skills-list-scrollbar shrink-0 overflow-hidden [scrollbar-gutter:stable] pr-[5px]">
               <InstalledListHeader
                 onPrimaryAction={handlePrimaryAction}
@@ -1273,7 +1310,18 @@ export const MainContent = function MainContent(): React.ReactElement {
               />
             </div>
             <div className="flex-1 min-h-0 pt-3">
-              <SkillsList />
+              <SkillsList>
+                {mode === 'tree' ? (
+                  <SkillTreeBoundary
+                    useList={() => dispatch(setSkillsViewMode('list'))}
+                  >
+                    <SkillsTree
+                      collapseToken={collapseToken}
+                      onExpandedChange={(expanded) => setTreeExpanded(expanded)}
+                    />
+                  </SkillTreeBoundary>
+                ) : undefined}
+              </SkillsList>
             </div>
           </div>
         </TabsContent>

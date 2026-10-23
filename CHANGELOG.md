@@ -4,6 +4,8 @@
 
 ### Added
 
+- Optional Installed Tree view with lazy skill folders, nested file previews, keyboard navigation, shared file discovery and persistent List/Tree preference.
+
 - Skills Desktop is now MIT licensed, with contributing and code-of-conduct guides and an architecture overview for new contributors.
 - Report security issues privately through GitHub's vulnerability reporting, linked from the security policy.
 

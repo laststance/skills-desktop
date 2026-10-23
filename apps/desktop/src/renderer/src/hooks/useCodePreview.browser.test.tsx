@@ -1,1003 +1,284 @@
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { configureStore } from '@reduxjs/toolkit'
+import type { ReactNode } from 'react'
+import { Provider } from 'react-redux'
+import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { renderHook } from 'vitest-browser-react'
 
-import type {
-  SkillBinaryContent,
-  SkillFile,
-  SkillFileContent,
-} from '@/shared/types'
+import skills, {
+  fetchSkills,
+  inspectSkillFile,
+  selectSkill,
+} from '@/renderer/src/redux/slices/skillsSlice'
+import type { SkillFileRead, SkillFilesListing } from '@/shared/skillFiles'
 import {
   toAbsolutePath,
-  toDataUrl,
   toFileExtension,
   toFileName,
   toFileSizeBytes,
   toLineCount,
-  toMimeType,
   toPosixRelativePath,
+  toSkillName,
+  toSymlinkCount,
+  type Skill,
+  type SkillFile,
 } from '@/shared/types'
 
-const listMock = vi.fn<(skillPath: string) => Promise<SkillFile[]>>()
-const readMock = vi.fn<(filePath: string) => Promise<SkillFileContent | null>>()
-const readBinaryMock =
-  vi.fn<(filePath: string) => Promise<SkillBinaryContent | null>>()
+import { SkillFilesProvider } from './SkillFilesProvider'
+import { useCodePreview } from './useCodePreview'
 
-/**
- * Build a SkillFile fixture with sane defaults.
- * @param overrides - Partial overrides
- * @returns Complete SkillFile
- * @example makeFile({ name: 'README.md' }) // => SkillFile with name README.md
- */
-function makeFile(overrides: Partial<SkillFile> = {}): SkillFile {
-  return {
-    name: toFileName('SKILL.md'),
-    path: toAbsolutePath('/skills/tdd/SKILL.md'),
-    relativePath: toPosixRelativePath('SKILL.md'),
-    extension: toFileExtension('.md'),
-    size: toFileSizeBytes(100),
-    previewable: 'text',
-    ...overrides,
-  }
+const root = toAbsolutePath('/skills/alpha')
+const skill: Skill = {
+  name: toSkillName('alpha'),
+  path: root,
+  description: '',
+  symlinks: [],
+  symlinkCount: toSymlinkCount(0),
+  isSource: true,
+  isOrphan: false,
 }
-
-/**
- * Build a SkillFileContent fixture with sane defaults.
- * @param overrides - Partial overrides
- * @returns Complete SkillFileContent
- */
-function makeTextContent(
-  overrides: Partial<SkillFileContent> = {},
-): SkillFileContent {
-  return {
-    name: toFileName('SKILL.md'),
-    content: 'hello',
-    extension: toFileExtension('.md'),
-    lineCount: toLineCount(1),
-    ...overrides,
-  }
+const first: SkillFile = {
+  name: toFileName('SKILL.md'),
+  path: toAbsolutePath('/skills/alpha/SKILL.md'),
+  relativePath: toPosixRelativePath('SKILL.md'),
+  extension: toFileExtension('.md'),
+  size: toFileSizeBytes(10),
+  previewable: 'text',
 }
+const second: SkillFile = {
+  ...first,
+  name: toFileName('guide.md'),
+  path: toAbsolutePath('/skills/alpha/guide.md'),
+  relativePath: toPosixRelativePath('guide.md'),
+}
+const body = {
+  name: toFileName('SKILL.md'),
+  content: 'First file',
+  extension: toFileExtension('md'),
+  lineCount: toLineCount(1),
+}
+const listing: SkillFilesListing = {
+  status: 'complete',
+  files: [first, second],
+  issues: [],
+  observedEntries: 2,
+}
+const listDetailed = vi.fn<() => Promise<SkillFilesListing>>()
+const readDetailed =
+  vi.fn<(_root: string, path: string) => Promise<SkillFileRead>>()
 
 beforeEach(() => {
-  listMock.mockReset()
-  readMock.mockReset()
-  readBinaryMock.mockReset()
-  // Stub only the `electron` global. In browser mode Vitest reuses the page
-  // per file by default; `vi.stubGlobal` + `vi.unstubAllGlobals()` pairs up
-  // to prevent one test's fake IPC from leaking into the next.
+  listDetailed.mockReset().mockResolvedValue(listing)
+  readDetailed
+    .mockReset()
+    .mockResolvedValue({ status: 'ready', kind: 'text', data: body })
   vi.stubGlobal('electron', {
     files: {
-      list: listMock,
-      read: readMock,
-      readBinary: readBinaryMock,
+      listDetailed,
+      readDetailed,
+      cancelList: vi.fn().mockResolvedValue(undefined),
     },
   })
 })
+afterEach(() => vi.unstubAllGlobals())
 
-afterEach(() => {
-  vi.unstubAllGlobals()
+/** Mounts a preview with the real shared cache and navigation reducer.
+ * @example const { result, store } = await fixture()
+ */
+async function fixture(initialFile?: SkillFile) {
+  const store = configureStore({ reducer: { skills } })
+  store.dispatch(selectSkill(skill))
+  if (initialFile)
+    store.dispatch(inspectSkillFile({ skill, path: initialFile.path }))
+  function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <Provider store={store}>
+        <SkillFilesProvider>{children}</SkillFilesProvider>
+      </Provider>
+    )
+  }
+  const mounted = await renderHook(
+    (props: { path: string } = { path: root }) =>
+      useCodePreview(toAbsolutePath(props.path)),
+    { initialProps: { path: root }, wrapper: Wrapper },
+  )
+  return { ...mounted, store }
+}
+
+test('previews the first file and reuses a warm listing after a skill round trip', async () => {
+  // Arrange
+  const { result, rerender } = await fixture()
+  await expect
+    .poll(() => result.current.content)
+    .toEqual({ kind: 'text', data: body })
+  // Act
+  rerender({ path: toAbsolutePath('/skills/beta') })
+  await expect.poll(() => listDetailed.mock.calls.length).toBe(2)
+  rerender({ path: root })
+  // Assert
+  await expect
+    .poll(() => result.current.activeFile)
+    .toBe('/skills/alpha/SKILL.md')
+  expect(listDetailed).toHaveBeenCalledTimes(2)
 })
 
-describe('useCodePreview', () => {
-  test('auto-selects and previews the first file when a skill is opened', async () => {
-    // Arrange
-    const file = makeFile()
-    const body = makeTextContent()
-    listMock.mockResolvedValue([file])
-    readMock.mockResolvedValue(body)
+test('honors an explicit Tree file intent before the initial read without reading SKILL.md', async () => {
+  // Arrange / Act
+  const { result } = await fixture(second)
+  // Assert
+  await expect
+    .poll(() => result.current.activeFile)
+    .toBe('/skills/alpha/guide.md')
+  await expect.poll(() => readDetailed.mock.calls.length).toBe(1)
+  expect(readDetailed).toHaveBeenCalledWith(
+    '/skills/alpha',
+    '/skills/alpha/guide.md',
+  )
+})
 
-    // Act
-    const { useCodePreview } = await import('./useCodePreview')
-    const { result } = await renderHook(() =>
-      useCodePreview(toAbsolutePath('/skills/tdd')),
-    )
+test('updates shared navigation when a Files tab is clicked and ignores unmapped paths', async () => {
+  // Arrange
+  const { result, store, act } = await fixture()
+  await expect.poll(() => result.current.files.length).toBe(2)
+  // Act
+  await act(async () => result.current.setActiveFile(second.path))
+  await act(async () =>
+    result.current.setActiveFile(toAbsolutePath('/private/secret')),
+  )
+  // Assert
+  expect(store.getState().skills.inspectedFile?.path).toBe(
+    '/skills/alpha/guide.md',
+  )
+  expect(
+    readDetailed.mock.calls.some((call) => call[1] === '/private/secret'),
+  ).toBe(false)
+})
 
-    // Assert
-    // Poll the loaded content instead of `loading === false`. `loading` starts
-    // false and transitions true→false, so a `loading === false` poll can race
-    // past the effect and observe the pre-load snapshot.
-    await expect
-      .poll(() => result.current.content)
-      .toEqual({ kind: 'text', data: body })
-    expect(result.current.files).toEqual([file])
-    expect(result.current.activeFile).toBe(file.path)
-    expect(result.current.loading).toBe(false)
+test('discards a late initial read after another file is selected', async () => {
+  // Arrange
+  let release: (value: SkillFileRead) => void = () => undefined
+  readDetailed.mockImplementationOnce(
+    async () =>
+      new Promise((resolve) => {
+        release = resolve
+      }),
+  )
+  readDetailed.mockResolvedValue({
+    status: 'ready',
+    kind: 'text',
+    data: { ...body, content: 'Second file' },
   })
-
-  test('shows an empty preview and reads no file content when the skill has no files', async () => {
-    // Arrange
-    listMock.mockResolvedValue([])
-
-    // Act
-    const { useCodePreview } = await import('./useCodePreview')
-    const { result } = await renderHook(() =>
-      useCodePreview(toAbsolutePath('/skills/empty')),
-    )
-
-    // Assert
-    // `content` is `{kind:'empty'}` before AND after the effect for this case,
-    // so gate on the IPC call count instead to prove the effect actually ran.
-    await expect.poll(() => listMock.mock.calls.length).toBe(1)
-    await expect.poll(() => result.current.loading).toBe(false)
-    expect(result.current.activeFile).toBeNull()
-    expect(result.current.content).toEqual({ kind: 'empty' })
-    expect(readMock).not.toHaveBeenCalled()
+  const { result, act } = await fixture()
+  await expect.poll(() => readDetailed.mock.calls.length).toBe(1)
+  // Act
+  await act(async () => result.current.setActiveFile(second.path))
+  await expect
+    .poll(() => result.current.content)
+    .toEqual({ kind: 'text', data: { ...body, content: 'Second file' } })
+  await act(() => release({ status: 'ready', kind: 'text', data: body }))
+  // Assert
+  expect(result.current.content).toEqual({
+    kind: 'text',
+    data: { ...body, content: 'Second file' },
   })
+})
 
-  test('previews a different file when the user selects it', async () => {
-    // Arrange
-    const first = makeFile()
-    const second = makeFile({
-      name: toFileName('notes.md'),
-      path: toAbsolutePath('/skills/tdd/notes.md'),
-      relativePath: toPosixRelativePath('notes.md'),
-    })
-    const firstBody = makeTextContent()
-    const secondBody = makeTextContent({
-      name: toFileName('notes.md'),
-      content: 'notes',
-    })
-    listMock.mockResolvedValue([first, second])
-    readMock.mockImplementation(async (p) =>
-      p === first.path ? firstBody : secondBody,
-    )
+test('clears old content while the newly selected file is reading', async () => {
+  // Arrange
+  const { result, act } = await fixture()
+  await expect
+    .poll(() => result.current.content)
+    .toEqual({ kind: 'text', data: body })
+  readDetailed.mockImplementation(async () => new Promise(() => {}))
+  // Act
+  await act(async () => result.current.setActiveFile(second.path))
+  // Assert
+  expect(result.current.reading).toBe(true)
+  expect(result.current.content).toEqual({ kind: 'empty' })
+})
 
-    const { useCodePreview } = await import('./useCodePreview')
-    const { result, act } = await renderHook(() =>
-      useCodePreview(toAbsolutePath('/skills/tdd')),
-    )
-
-    await expect
-      .poll(() => result.current.content)
-      .toEqual({ kind: 'text', data: firstBody })
-
-    // Act
-    await act(async () => {
-      await result.current.setActiveFile(second.path)
-    })
-
-    // Assert
-    expect(result.current.activeFile).toBe(second.path)
-    expect(result.current.content).toEqual({ kind: 'text', data: secondBody })
+test('distinguishes a successful empty directory from unavailable discovery', async () => {
+  // Arrange
+  listDetailed.mockResolvedValue({
+    status: 'complete',
+    files: [],
+    issues: [],
+    observedEntries: 0,
   })
+  // Act
+  const { result } = await fixture()
+  // Assert
+  await expect.poll(() => result.current.loading).toBe(false)
+  expect(result.current.loadFailed).toBe(false)
+  expect(result.current.activeFile).toBeNull()
+  expect(readDetailed).not.toHaveBeenCalled()
+})
 
-  test('does not re-fetch when the user re-selects the file already being previewed', async () => {
-    // Arrange
-    const file = makeFile()
-    listMock.mockResolvedValue([file])
-    readMock.mockResolvedValue(makeTextContent())
+test('settles rejected discovery and manually retries without an automatic loop', async () => {
+  // Arrange
+  listDetailed.mockRejectedValueOnce(new Error('private error'))
+  const { result, act } = await fixture()
+  await expect.poll(() => result.current.loadFailed).toBe(true)
+  expect(listDetailed).toHaveBeenCalledTimes(1)
+  // Act
+  await act(() => result.current.retry())
+  // Assert
+  await expect
+    .poll(() => result.current.content)
+    .toEqual({ kind: 'text', data: body })
+  expect(listDetailed).toHaveBeenCalledTimes(2)
+})
 
-    const { useCodePreview } = await import('./useCodePreview')
-    const { result, act } = await renderHook(() =>
-      useCodePreview(toAbsolutePath('/skills/tdd')),
-    )
+test('retains readable tabs when a selected content read fails', async () => {
+  // Arrange
+  readDetailed.mockRejectedValueOnce(new Error('private error'))
+  // Act
+  const { result } = await fixture()
+  // Assert
+  await expect
+    .poll(() => result.current.content)
+    .toEqual({ kind: 'error', code: 'unavailable' })
+  expect(result.current.files).toHaveLength(2)
+  expect(result.current.loadFailed).toBe(false)
+})
 
-    await expect.poll(() => result.current.activeFile).toBe(file.path)
-    expect(readMock).toHaveBeenCalledTimes(1)
+test('keeps a missing file intent visible as an error instead of silently previewing a different file', async () => {
+  // Arrange
+  const missing = { ...second, path: toAbsolutePath('/skills/alpha/gone.md') }
+  // Act
+  const { result } = await fixture(missing)
+  // Assert
+  await expect
+    .poll(() => result.current.content)
+    .toEqual({ kind: 'error', code: 'missing' })
+  expect(readDetailed).not.toHaveBeenCalled()
+})
 
-    // Act
-    await act(async () => {
-      await result.current.setActiveFile(file.path)
-    })
+test('invalidates a cached listing and rejects stale content when a rescan starts', async () => {
+  // Arrange
+  const { result, store, act } = await fixture()
+  await expect
+    .poll(() => result.current.content)
+    .toEqual({ kind: 'text', data: body })
+  listDetailed.mockImplementation(async () => new Promise(() => {}))
+  // Act
+  await act(() => store.dispatch(fetchSkills.pending('refresh', undefined)))
+  // Assert
+  await expect.poll(() => result.current.loading).toBe(true)
+  expect(result.current.content).toEqual({ kind: 'empty' })
+  expect(listDetailed).toHaveBeenCalledTimes(2)
+})
 
-    // Assert
-    // No extra read — the guard short-circuited before the IPC call
-    expect(readMock).toHaveBeenCalledTimes(1)
+test('shows an oversized-file placeholder without issuing a content read', async () => {
+  // Arrange
+  listDetailed.mockResolvedValue({
+    ...listing,
+    files: [{ ...first, previewable: 'binary' }],
   })
-
-  test('clears the preview to empty when the active file is deselected', async () => {
-    // Arrange
-    const file = makeFile()
-    const body = makeTextContent()
-    listMock.mockResolvedValue([file])
-    readMock.mockResolvedValue(body)
-
-    const { useCodePreview } = await import('./useCodePreview')
-    const { result, act } = await renderHook(() =>
-      useCodePreview(toAbsolutePath('/skills/tdd')),
-    )
-
-    await expect
-      .poll(() => result.current.content)
-      .toEqual({ kind: 'text', data: body })
-
-    // Act
-    await act(async () => {
-      await result.current.setActiveFile(null)
-    })
-
-    // Assert
-    // Deselecting wipes the preview to the empty state without any IPC read.
-    expect(result.current.content).toEqual({ kind: 'empty' })
-    // Only the initial auto-select read ran — clearing skips loadContentForFile.
-    expect(readMock).toHaveBeenCalledTimes(1)
-  })
-
-  test('keeps the user-selected file showing when a slow initial-load read finally resolves', async () => {
-    // Arrange
-    const first = makeFile()
-    const second = makeFile({
-      name: toFileName('notes.md'),
-      path: toAbsolutePath('/skills/tdd/notes.md'),
-      relativePath: toPosixRelativePath('notes.md'),
-    })
-    const secondBody = makeTextContent({
-      name: toFileName('notes.md'),
-      content: 'notes',
-    })
-
-    listMock.mockResolvedValue([first, second])
-
-    // read(first) hangs forever — simulates slow IPC for initial load.
-    // read(second) resolves immediately — the user click's fetch wins.
-    let resolveFirst: ((v: SkillFileContent | null) => void) | null = null
-    readMock.mockImplementation(async (p) => {
-      if (p === first.path) {
-        return new Promise<SkillFileContent | null>((res) => {
-          resolveFirst = res
-        })
-      }
-      return secondBody
-    })
-
-    const { useCodePreview } = await import('./useCodePreview')
-    const { result, act } = await renderHook(() =>
-      useCodePreview(toAbsolutePath('/skills/tdd')),
-    )
-
-    await expect.poll(() => result.current.files.length).toBe(2)
-    // Gate on the IPC call itself: `files.length === 2` only proves `list()`
-    // resolved. The stale-response branch we're exercising is on the read
-    // promise, so assert read(first) is actually pending before continuing —
-    // otherwise `resolveFirst?.(…)` below could silently no-op and the test
-    // would pass without ever covering the guard.
-    await expect
-      .poll(() => readMock.mock.calls.some((c) => c[0] === first.path))
-      .toBe(true)
-
-    // Act
-    await act(async () => {
-      await result.current.setActiveFile(second.path)
-    })
-
-    // Assert
-    expect(result.current.activeFile).toBe(second.path)
-    expect(result.current.content).toEqual({ kind: 'text', data: secondBody })
-
-    // Act
-    // Now the slow initial read resolves — it must NOT clobber user's selection.
-    await act(async () => {
-      resolveFirst?.(makeTextContent())
-      await Promise.resolve()
-    })
-
-    // Assert
-    expect(result.current.activeFile).toBe(second.path)
-    expect(result.current.content).toEqual({ kind: 'text', data: secondBody })
-  })
-
-  test('keeps the latest selection showing when a slow earlier selection finally resolves', async () => {
-    // Arrange
-    const first = makeFile()
-    const second = makeFile({
-      name: toFileName('notes.md'),
-      path: toAbsolutePath('/skills/tdd/notes.md'),
-      relativePath: toPosixRelativePath('notes.md'),
-    })
-    const third = makeFile({
-      name: toFileName('other.md'),
-      path: toAbsolutePath('/skills/tdd/other.md'),
-      relativePath: toPosixRelativePath('other.md'),
-    })
-    const firstBody = makeTextContent()
-    const thirdBody = makeTextContent({
-      name: toFileName('other.md'),
-      content: 'third',
-    })
-    listMock.mockResolvedValue([first, second, third])
-
-    // read(first) resolves normally for the initial auto-select.
-    // read(second) hangs — that's the "slow prior setActiveFile" we race against.
-    // read(third) resolves with `thirdBody` — the user's final click.
-    let resolveSecond: ((v: SkillFileContent | null) => void) | null = null
-    readMock.mockImplementation(async (p) => {
-      if (p === first.path) return firstBody
-      if (p === second.path) {
-        return new Promise<SkillFileContent | null>((res) => {
-          resolveSecond = res
-        })
-      }
-      return thirdBody
-    })
-
-    const { useCodePreview } = await import('./useCodePreview')
-    const { result, act } = await renderHook(() =>
-      useCodePreview(toAbsolutePath('/skills/tdd')),
-    )
-
-    await expect
-      .poll(() => result.current.content)
-      .toEqual({ kind: 'text', data: firstBody })
-
-    // Act
-    // Fire the slow click — don't await so the fetch stays pending.
-    let slowPromise: Promise<void> | null = null
-    await act(async () => {
-      slowPromise = result.current.setActiveFile(second.path)
-      // Yield once so setUserSelectedFile's state update flushes before
-      // the next setActiveFile call reads `activeFile` via closure.
-      await Promise.resolve()
-    })
-
-    // Assert
-    expect(result.current.activeFile).toBe(second.path)
-
-    // Act
-    // Fire the winning click — this one resolves quickly.
-    await act(async () => {
-      await result.current.setActiveFile(third.path)
-    })
-
-    // Assert
-    expect(result.current.activeFile).toBe(third.path)
-    expect(result.current.content).toEqual({ kind: 'text', data: thirdBody })
-
-    // Act
-    // Now resolve the hanging read(second). Guard must drop its result.
-    await act(async () => {
-      resolveSecond?.(
-        makeTextContent({ name: toFileName('notes.md'), content: 'stale' }),
-      )
-      await slowPromise
-    })
-
-    // Assert
-    expect(result.current.activeFile).toBe(third.path)
-    expect(result.current.content).toEqual({ kind: 'text', data: thirdBody })
-  })
-
-  test('clears the previous file preview immediately when the user switches to another skill', async () => {
-    // Arrange
-    const fileA = makeFile({
-      path: toAbsolutePath('/skills/a/SKILL.md'),
-      relativePath: toPosixRelativePath('SKILL.md'),
-    })
-    const fileB = makeFile({
-      name: toFileName('b.md'),
-      path: toAbsolutePath('/skills/b/SKILL.md'),
-      relativePath: toPosixRelativePath('SKILL.md'),
-    })
-    const bodyA = makeTextContent({ content: 'A' })
-    const bodyB = makeTextContent({ content: 'B' })
-
-    // Path A resolves immediately. Path B's list hangs on an external promise
-    // so the assertion can observe the synchronous reset *between* rerender
-    // and the new skill's IPC completion — otherwise the eventual state would
-    // mask whether the render-phase reset branch actually fired.
-    let resolveListB: ((v: SkillFile[]) => void) | null = null
-    listMock.mockImplementation(async (p) => {
-      if (p === '/skills/a') return [fileA]
-      return new Promise<SkillFile[]>((res) => {
-        resolveListB = res
-      })
-    })
-    readMock.mockImplementation(async (p) => (p === fileA.path ? bodyA : bodyB))
-
-    const { useCodePreview } = await import('./useCodePreview')
-    const { result, rerender, act } = await renderHook(
-      (props?: { path: string }) =>
-        useCodePreview(toAbsolutePath(props?.path ?? '/skills/a')),
-      { initialProps: { path: '/skills/a' } },
-    )
-
-    await expect
-      .poll(() => result.current.content)
-      .toEqual({ kind: 'text', data: bodyA })
-
-    // Act
-    rerender({ path: '/skills/b' })
-
-    // Assert
-    // Synchronous reset branch: the render-phase `setUserSelectedFile(null)`
-    // + `setContent({kind:'empty'})` in useCodePreview fire when
-    // `prevSkillPathRef.current !== skillPath`. With the listMock for path B
-    // hanging, the effect stalls at `await list()` so we observe the
-    // post-reset, pre-IPC snapshot: loading=true (loadedPath still /skills/a)
-    // and content={kind:'empty'}.
-    await expect.poll(() => result.current.loading).toBe(true)
-    expect(result.current.content).toEqual({ kind: 'empty' })
-
-    // Act
-    // Unblock path B's IPC and verify the eventual happy path. Wrapping the
-    // resolver call in `act()` keeps effect flushing under React's control
-    // and sidesteps TS's closure-narrowing of `resolveListB` to `null`.
-    await act(async () => {
-      resolveListB?.([fileB])
-      await Promise.resolve()
-    })
-
-    // Assert
-    await expect
-      .poll(() => result.current.content)
-      .toEqual({ kind: 'text', data: bodyB })
-    expect(result.current.activeFile).toBe(fileB.path)
-    expect(result.current.loading).toBe(false)
-  })
-
-  test('keeps the tab list usable when a file read rejects after the list loaded', async () => {
-    // Arrange -- list succeeds, so the tabs are valid; only the first file's
-    // content fails. Treating this as an unreadable folder would hide a tab
-    // bar the user can still click through.
-    const first = makeFile()
-    const second = makeFile({
-      name: toFileName('notes.md'),
-      path: toAbsolutePath('/skills/tdd/notes.md'),
-      relativePath: toPosixRelativePath('notes.md'),
-    })
-    listMock.mockResolvedValue([first, second])
-    readMock.mockRejectedValue(new Error('EIO'))
-
-    // Act
-    const { useCodePreview } = await import('./useCodePreview')
-    const { result } = await renderHook(() =>
-      useCodePreview(toAbsolutePath('/skills/tdd')),
-    )
-
-    // Assert
-    await expect.poll(() => result.current.loading).toBe(false)
-    expect(result.current.loadFailed).toBe(false)
-    expect(result.current.files).toEqual([first, second])
-    expect(result.current.activeFile).toBe(first.path)
-    expect(result.current.content).toEqual({ kind: 'empty' })
-  })
-
-  test('keeps the tab list usable when an image read rejects after the list loaded', async () => {
-    // Arrange -- same contract on the binary branch of loadContentForFile.
-    const image = makeFile({
-      name: toFileName('logo.png'),
-      path: toAbsolutePath('/skills/tdd/logo.png'),
-      relativePath: toPosixRelativePath('logo.png'),
-      extension: toFileExtension('.png'),
-      previewable: 'image',
-    })
-    listMock.mockResolvedValue([image])
-    readBinaryMock.mockRejectedValue(new Error('EIO'))
-
-    // Act
-    const { useCodePreview } = await import('./useCodePreview')
-    const { result } = await renderHook(() =>
-      useCodePreview(toAbsolutePath('/skills/tdd')),
-    )
-
-    // Assert
-    await expect.poll(() => result.current.loading).toBe(false)
-    expect(result.current.loadFailed).toBe(false)
-    expect(result.current.files).toEqual([image])
-    expect(result.current.content).toEqual({ kind: 'empty' })
-  })
-
-  test('keeps the user-selected file showing when a slow initial-load read finally rejects', async () => {
-    // Arrange -- reject-side twin of the resolve-side stale-click test above.
-    // read(first) hangs then fails; read(second) wins immediately, so the
-    // failure lands after the user is already looking at `second`.
-    const first = makeFile()
-    const second = makeFile({
-      name: toFileName('notes.md'),
-      path: toAbsolutePath('/skills/tdd/notes.md'),
-      relativePath: toPosixRelativePath('notes.md'),
-    })
-    const secondBody = makeTextContent({
-      name: toFileName('notes.md'),
-      content: 'notes',
-    })
-
-    listMock.mockResolvedValue([first, second])
-
-    let rejectFirst: ((reason: Error) => void) | null = null
-    readMock.mockImplementation(async (p) => {
-      if (p === first.path) {
-        return new Promise<SkillFileContent | null>((_res, rej) => {
-          rejectFirst = rej
-        })
-      }
-      return secondBody
-    })
-
-    const { useCodePreview } = await import('./useCodePreview')
-    const { result, act } = await renderHook(() =>
-      useCodePreview(toAbsolutePath('/skills/tdd')),
-    )
-
-    await expect.poll(() => result.current.files.length).toBe(2)
-    // Same gate as the resolve-side test: prove read(first) is pending, or
-    // `rejectFirst?.(…)` no-ops and the guard never gets exercised.
-    await expect
-      .poll(() => readMock.mock.calls.some((c) => c[0] === first.path))
-      .toBe(true)
-
-    // Act
-    await act(async () => {
-      await result.current.setActiveFile(second.path)
-    })
-
-    // Assert
-    expect(result.current.activeFile).toBe(second.path)
-    expect(result.current.content).toEqual({ kind: 'text', data: secondBody })
-
-    // Act
-    // The slow initial read now fails. The catch must not blank the pane the
-    // user is reading -- only `first`'s content is missing, and nobody is
-    // looking at it.
-    await act(async () => {
-      rejectFirst?.(new Error('EIO'))
-      await Promise.resolve()
-    })
-
-    // Assert
-    expect(result.current.activeFile).toBe(second.path)
-    expect(result.current.content).toEqual({ kind: 'text', data: secondBody })
-    expect(result.current.loadFailed).toBe(false)
-  })
-
-  test('empties the pane instead of showing the previous file when a click fails', async () => {
-    // Arrange -- first file reads fine, the clicked one rejects. The tab bar
-    // has already moved (selection commits before the read), so keeping the
-    // old content would caption `first`'s text with `second`'s tab.
-    const first = makeFile()
-    const second = makeFile({
-      name: toFileName('notes.md'),
-      path: toAbsolutePath('/skills/tdd/notes.md'),
-      relativePath: toPosixRelativePath('notes.md'),
-    })
-    const firstBody = makeTextContent()
-    listMock.mockResolvedValue([first, second])
-    readMock.mockImplementation(async (p) => {
-      if (p === first.path) return firstBody
-      throw new Error('EIO')
-    })
-
-    const { useCodePreview } = await import('./useCodePreview')
-    const { result, act } = await renderHook(() =>
-      useCodePreview(toAbsolutePath('/skills/tdd')),
-    )
-    await expect.poll(() => result.current.loading).toBe(false)
-    expect(result.current.content).toEqual({ kind: 'text', data: firstBody })
-
-    // Act
-    await act(async () => {
-      await result.current.setActiveFile(second.path)
-    })
-
-    // Assert
-    expect(result.current.activeFile).toBe(second.path)
-    expect(result.current.content).toEqual({ kind: 'empty' })
-    // A failed read of one file is not a failed folder -- the tabs stay usable.
-    expect(result.current.loadFailed).toBe(false)
-    expect(result.current.files).toEqual([first, second])
-  })
-
-  test('empties the pane instead of showing the previous file when an image click fails', async () => {
-    // Arrange -- same contract on the binary branch of loadContentForFile.
-    const first = makeFile()
-    const image = makeFile({
-      name: toFileName('logo.png'),
-      path: toAbsolutePath('/skills/tdd/logo.png'),
-      relativePath: toPosixRelativePath('logo.png'),
-      extension: toFileExtension('.png'),
-      previewable: 'image',
-    })
-    const firstBody = makeTextContent()
-    listMock.mockResolvedValue([first, image])
-    readMock.mockResolvedValue(firstBody)
-    readBinaryMock.mockRejectedValue(new Error('EIO'))
-
-    const { useCodePreview } = await import('./useCodePreview')
-    const { result, act } = await renderHook(() =>
-      useCodePreview(toAbsolutePath('/skills/tdd')),
-    )
-    await expect.poll(() => result.current.loading).toBe(false)
-    expect(result.current.content).toEqual({ kind: 'text', data: firstBody })
-
-    // Act
-    await act(async () => {
-      await result.current.setActiveFile(image.path)
-    })
-
-    // Assert
-    expect(result.current.activeFile).toBe(image.path)
-    expect(result.current.content).toEqual({ kind: 'empty' })
-    expect(result.current.loadFailed).toBe(false)
-  })
-
-  test('ends the loading state and reports failure when the file list cannot be read', async () => {
-    // Arrange -- the main process rejects any path outside its allowed bases,
-    // which is how a skill symlinked from off-tree reaches this hook.
-    listMock.mockRejectedValue(new Error('Path traversal attempt detected'))
-
-    // Act
-    const { useCodePreview } = await import('./useCodePreview')
-    const { result } = await renderHook(() =>
-      useCodePreview(toAbsolutePath('/outside/skills/tdd')),
-    )
-
-    // Assert
-    // `loading` must settle to false: leaving it true is the infinite-spinner
-    // bug this catch exists to prevent.
-    await expect.poll(() => result.current.loadFailed).toBe(true)
-    expect(result.current.loading).toBe(false)
-    expect(result.current.files).toEqual([])
-    expect(result.current.activeFile).toBeNull()
-  })
-
-  test("ignores a previous skill's list rejection that lands after the next skill loaded", async () => {
-    // Arrange -- ordering twin of the test below: there the rejection settles
-    // BEFORE the switch, here it settles after, so the stale catch runs while
-    // skill B already owns the pane.
-    const fileB = makeFile({ path: toAbsolutePath('/skills/b/SKILL.md') })
-    const bodyB = makeTextContent({ content: 'B' })
-    let rejectA: ((reason: Error) => void) | null = null
-    listMock.mockImplementation(async (p) => {
-      if (p === '/outside/skills/a') {
-        return new Promise<SkillFile[]>((_res, rej) => {
-          rejectA = rej
-        })
-      }
-      return [fileB]
-    })
-    readMock.mockResolvedValue(bodyB)
-
-    const { useCodePreview } = await import('./useCodePreview')
-    const { result, rerender, act } = await renderHook(
-      (props?: { path: string }) =>
-        useCodePreview(toAbsolutePath(props?.path ?? '/outside/skills/a')),
-      { initialProps: { path: '/outside/skills/a' } },
-    )
-    // Gate on the pending call: without it `rejectA?.(…)` could no-op.
-    await expect
-      .poll(() => listMock.mock.calls.some((c) => c[0] === '/outside/skills/a'))
-      .toBe(true)
-
-    // Act
-    rerender({ path: '/skills/b' })
-    await expect
-      .poll(() => result.current.content)
-      .toEqual({ kind: 'text', data: bodyB })
-    // Only now does skill A's list fail.
-    await act(async () => {
-      rejectA?.(new Error('Path traversal attempt detected'))
-      await Promise.resolve()
-    })
-
-    // Assert
-    // Skill B is readable; A's failure must not strand it on the unavailable
-    // pane, and must not roll `loadedPath` back to A and re-show the spinner.
-    expect(result.current.loadFailed).toBe(false)
-    expect(result.current.loading).toBe(false)
-    expect(result.current.content).toEqual({ kind: 'text', data: bodyB })
-    expect(result.current.activeFile).toBe(fileB.path)
-  })
-
-  test("clears the previous skill's tabs when the next skill's list fails", async () => {
-    // Arrange -- the reverse order of the test below: skill B lists fine, then
-    // skill A is unreadable. `files` survives a skill switch, so a failure that
-    // left it alone would hand the caller skill B's tabs under skill A's path.
-    const fileB = makeFile({ path: toAbsolutePath('/skills/b/SKILL.md') })
-    listMock.mockImplementation(async (p) => {
-      if (p === '/outside/skills/a')
-        throw new Error('Path traversal attempt detected')
-      return [fileB]
-    })
-    readMock.mockResolvedValue(makeTextContent({ content: 'B' }))
-
-    const { useCodePreview } = await import('./useCodePreview')
-    const { result, rerender } = await renderHook(
-      (props?: { path: string }) =>
-        useCodePreview(toAbsolutePath(props?.path ?? '/skills/b')),
-      { initialProps: { path: '/skills/b' } },
-    )
-    await expect.poll(() => result.current.files).toEqual([fileB])
-
-    // Act
-    rerender({ path: '/outside/skills/a' })
-
-    // Assert
-    await expect.poll(() => result.current.loadFailed).toBe(true)
-    expect(result.current.files).toEqual([])
-    expect(result.current.activeFile).toBeNull()
-  })
-
-  test("drops a previous skill's load failure when a readable skill is opened", async () => {
-    // Arrange -- skill A is unreadable, skill B lists fine.
-    const fileB = makeFile({ path: toAbsolutePath('/skills/b/SKILL.md') })
-    const bodyB = makeTextContent({ content: 'B' })
-    listMock.mockImplementation(async (p) => {
-      if (p === '/outside/skills/a')
-        throw new Error('Path traversal attempt detected')
-      return [fileB]
-    })
-    readMock.mockResolvedValue(bodyB)
-
-    const { useCodePreview } = await import('./useCodePreview')
-    const { result, rerender } = await renderHook(
-      (props?: { path: string }) =>
-        useCodePreview(toAbsolutePath(props?.path ?? '/outside/skills/a')),
-      { initialProps: { path: '/outside/skills/a' } },
-    )
-    await expect.poll(() => result.current.loadFailed).toBe(true)
-
-    // Act
-    rerender({ path: '/skills/b' })
-
-    // Assert
-    // A sticky flag would blame skill B for skill A's unreadable folder.
-    await expect
-      .poll(() => result.current.content)
-      .toEqual({ kind: 'text', data: bodyB })
-    expect(result.current.loadFailed).toBe(false)
-    expect(result.current.activeFile).toBe(fileB.path)
-  })
-
-  test('previews an image file through the binary reader without calling the text reader', async () => {
-    // Arrange
-    const image = makeFile({
-      name: toFileName('logo.png'),
-      path: toAbsolutePath('/skills/tdd/logo.png'),
-      relativePath: toPosixRelativePath('logo.png'),
-      extension: toFileExtension('.png'),
-      previewable: 'image',
-    })
-    const binary: SkillBinaryContent = {
-      name: toFileName('logo.png'),
-      dataUrl: toDataUrl('data:image/png;base64,AAA'),
-      mimeType: toMimeType('image/png'),
-      size: toFileSizeBytes(10),
-    }
-    listMock.mockResolvedValue([image])
-    readBinaryMock.mockResolvedValue(binary)
-
-    // Act
-    const { useCodePreview } = await import('./useCodePreview')
-    const { result } = await renderHook(() =>
-      useCodePreview(toAbsolutePath('/skills/tdd')),
-    )
-
-    // Assert
-    await expect
-      .poll(() => result.current.content)
-      .toEqual({ kind: 'image', data: binary })
-    expect(readMock).not.toHaveBeenCalled()
-  })
-
-  test('shows a placeholder instead of reading content for an oversized file', async () => {
-    // Arrange
-    const big = makeFile({
-      name: toFileName('dump.bin'),
-      path: toAbsolutePath('/skills/tdd/dump.bin'),
-      relativePath: toPosixRelativePath('dump.bin'),
-      extension: toFileExtension('.bin'),
-      size: toFileSizeBytes(999_999),
-      previewable: 'binary',
-    })
-    listMock.mockResolvedValue([big])
-
-    // Act
-    const { useCodePreview } = await import('./useCodePreview')
-    const { result } = await renderHook(() =>
-      useCodePreview(toAbsolutePath('/skills/tdd')),
-    )
-
-    // Assert
-    await expect
-      .poll(() => result.current.content)
-      .toEqual({
-        kind: 'binary',
-        fileName: 'dump.bin',
-        size: 999_999,
-      })
-    expect(readMock).not.toHaveBeenCalled()
-    expect(readBinaryMock).not.toHaveBeenCalled()
-  })
-
-  test('drops the abandoned skill files when the user switches skills before the first list resolves', async () => {
-    // Arrange
-    const fileA = makeFile({
-      name: toFileName('a.md'),
-      path: toAbsolutePath('/skills/a/a.md'),
-      relativePath: toPosixRelativePath('a.md'),
-    })
-    const fileB = makeFile({
-      name: toFileName('b.md'),
-      path: toAbsolutePath('/skills/b/b.md'),
-      relativePath: toPosixRelativePath('b.md'),
-    })
-    const bodyB = makeTextContent({ name: toFileName('b.md'), content: 'B' })
-
-    // Skill A's list() hangs on an external promise so its effect is still
-    // mid-`await` when the user switches to skill B. Skill B resolves normally.
-    let resolveListA: ((v: SkillFile[]) => void) | null = null
-    listMock.mockImplementation(async (p) => {
-      if (p === '/skills/a') {
-        return new Promise<SkillFile[]>((res) => {
-          resolveListA = res
-        })
-      }
-      return [fileB]
-    })
-    readMock.mockResolvedValue(bodyB)
-
-    const { useCodePreview } = await import('./useCodePreview')
-    const { result, rerender, act } = await renderHook(
-      (props?: { path: string }) =>
-        useCodePreview(toAbsolutePath(props?.path ?? '/skills/a')),
-      { initialProps: { path: '/skills/a' } },
-    )
-
-    // Gate on skill A's list() actually being in flight before switching, so
-    // the cleanup that flips its `cancelled` flag has something to cancel.
-    await expect
-      .poll(() => listMock.mock.calls.some((c) => c[0] === '/skills/a'))
-      .toBe(true)
-
-    // Act
-    // Switch to skill B — this tears down A's effect (cancelled = true).
-    rerender({ path: '/skills/b' })
-    await expect
-      .poll(() => result.current.content)
-      .toEqual({ kind: 'text', data: bodyB })
-
-    // Act
-    // Now the abandoned skill A list finally resolves. The cancelled guard must
-    // drop it so skill B's files are never clobbered.
-    await act(async () => {
-      resolveListA?.([fileA])
-      await Promise.resolve()
-    })
-
-    // Assert
-    // Skill B's files and content survive; the stale A list was discarded.
-    expect(result.current.files).toEqual([fileB])
-    expect(result.current.activeFile).toBe(fileB.path)
-    expect(result.current.content).toEqual({ kind: 'text', data: bodyB })
-  })
-
-  test('ignores a request to preview a path that is not in the file list and reads nothing extra', async () => {
-    // Arrange
-    const file = makeFile()
-    const body = makeTextContent()
-    listMock.mockResolvedValue([file])
-    readMock.mockResolvedValue(body)
-
-    const { useCodePreview } = await import('./useCodePreview')
-    const { result, act } = await renderHook(() =>
-      useCodePreview(toAbsolutePath('/skills/tdd')),
-    )
-
-    await expect
-      .poll(() => result.current.content)
-      .toEqual({ kind: 'text', data: body })
-    expect(readMock).toHaveBeenCalledTimes(1)
-
-    // Act
-    // Ask for a path that never appeared in `files` (e.g. a ghost file removed
-    // from disk between list and click). It differs from activeFile so the
-    // early `path === activeFile` guard does not short-circuit first.
-    await act(async () => {
-      await result.current.setActiveFile(toAbsolutePath('/skills/tdd/ghost.md'))
-    })
-
-    // Assert
-    // The unknown path is ignored whole: no extra read fires, the preview is
-    // unchanged, and -- the part that keeps CodePreview's empty-state guard
-    // honest -- the ghost path never becomes the active selection.
-    expect(readMock).toHaveBeenCalledTimes(1)
-    expect(result.current.content).toEqual({ kind: 'text', data: body })
-    expect(result.current.activeFile).toBe(file.path)
-  })
-
-  test('shows an empty preview when a text file read returns null because the file vanished mid-load', async () => {
-    // Arrange
-    const file = makeFile()
-    listMock.mockResolvedValue([file])
-    // read() resolves null — the file was deleted or became unreadable between
-    // listing and reading.
-    readMock.mockResolvedValue(null)
-
-    // Act
-    const { useCodePreview } = await import('./useCodePreview')
-    const { result } = await renderHook(() =>
-      useCodePreview(toAbsolutePath('/skills/tdd')),
-    )
-
-    // Assert
-    await expect.poll(() => result.current.content).toEqual({ kind: 'empty' })
-    expect(readMock).toHaveBeenCalledTimes(1)
-  })
-
-  test('shows an empty preview when an image file read returns null because the image vanished mid-load', async () => {
-    // Arrange
-    const image = makeFile({
-      name: toFileName('logo.png'),
-      path: toAbsolutePath('/skills/tdd/logo.png'),
-      relativePath: toPosixRelativePath('logo.png'),
-      extension: toFileExtension('.png'),
-      previewable: 'image',
-    })
-    listMock.mockResolvedValue([image])
-    // readBinary() resolves null — the image was deleted or became unreadable
-    // between listing and reading.
-    readBinaryMock.mockResolvedValue(null)
-
-    // Act
-    const { useCodePreview } = await import('./useCodePreview')
-    const { result } = await renderHook(() =>
-      useCodePreview(toAbsolutePath('/skills/tdd')),
-    )
-
-    // Assert
-    await expect.poll(() => result.current.content).toEqual({ kind: 'empty' })
-    expect(readBinaryMock).toHaveBeenCalledTimes(1)
-  })
-
-  test('shows the spinner again when switching back to a skill mid-reload', async () => {
-    // Arrange -- A lists once, then hangs on its second visit; B never settles,
-    // so the trip back to A happens while nothing else can repaint the pane.
-    const fileA = makeFile({ path: toAbsolutePath('/skills/a/SKILL.md') })
-    const bodyA = makeTextContent({ content: 'A' })
-    let resolveSecondListOfA: ((files: SkillFile[]) => void) | null = null
-    let listCallsForA = 0
-    listMock.mockImplementation(async (p) => {
-      if (p === '/skills/a') {
-        listCallsForA += 1
-        if (listCallsForA === 1) return [fileA]
-        return new Promise<SkillFile[]>((res) => {
-          resolveSecondListOfA = res
-        })
-      }
-      // Skill B's list never resolves, so its effect writes nothing.
-      return new Promise<SkillFile[]>(() => {})
-    })
-    readMock.mockResolvedValue(bodyA)
-
-    const { useCodePreview } = await import('./useCodePreview')
-    const { result, rerender, act } = await renderHook(
-      (props?: { path: string }) =>
-        useCodePreview(toAbsolutePath(props?.path ?? '/skills/a')),
-      { initialProps: { path: '/skills/a' } },
-    )
-    await expect
-      .poll(() => result.current.content)
-      .toEqual({ kind: 'text', data: bodyA })
-
-    // Act
-    rerender({ path: '/skills/b' })
-    // Gate on B's effect: without it React batches both rerenders into a single
-    // render at '/skills/a', the B render never commits, and the switch this
-    // test is about never happens.
-    await expect
-      .poll(() => listMock.mock.calls.some((c) => c[0] === '/skills/b'))
-      .toBe(true)
-    rerender({ path: '/skills/a' })
-    // Gate on A's SECOND list call, which only happens once the return render
-    // has committed. Assert before this and `result.current` still reports the
-    // B render, where `loading` was true for an unrelated reason.
-    await expect.poll(() => listCallsForA).toBe(2)
-
-    // Assert
-    // `loadedPath` still held '/skills/a' across the detour, so `loading` read
-    // false while A was re-listing -- and the switch reset had already blanked
-    // `content`. That painted a file with text as a file with none.
-    expect(result.current.loading).toBe(true)
-
-    // And the spinner is transient, not a new way to get stuck: A's second list
-    // lands and the pane comes back.
-    // Same `act()` wrapper the sibling tests use: it keeps effect flushing under
-    // React's control and sidesteps TS narrowing the resolver to `null`.
-    await act(async () => {
-      resolveSecondListOfA?.([fileA])
-      await Promise.resolve()
-    })
-    await expect
-      .poll(() => result.current.content)
-      .toEqual({ kind: 'text', data: bodyA })
-    expect(result.current.loading).toBe(false)
-  })
+  // Act
+  const { result } = await fixture()
+  // Assert
+  await expect
+    .poll(() => result.current.content)
+    .toEqual({ kind: 'binary', fileName: 'SKILL.md', size: 10 })
+  expect(readDetailed).not.toHaveBeenCalled()
 })

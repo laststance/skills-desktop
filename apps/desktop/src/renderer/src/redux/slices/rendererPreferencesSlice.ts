@@ -2,6 +2,7 @@ import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
 
 /** Durable renderer choices; {@link rendererPreferencesHydrated} gates startup cues. */
 export interface RendererPreferencesState {
+  skillsViewMode: 'list' | 'tree'
   markdownPreviewMode: 'code' | 'reading'
   lastSeenVersion: string | null
   /** Runtime readiness, never trusted or written by the storage adapter. */
@@ -9,6 +10,7 @@ export interface RendererPreferencesState {
 }
 
 const initialState: RendererPreferencesState = {
+  skillsViewMode: 'list',
   markdownPreviewMode: 'code',
   lastSeenVersion: null,
   hydrated: false,
@@ -18,6 +20,15 @@ const rendererPreferencesSlice = createSlice({
   name: 'rendererPreferences',
   initialState,
   reducers: {
+    /** Remembers the central Installed presentation without changing navigation.
+     * @example dispatch(setSkillsViewMode('tree'))
+     */
+    setSkillsViewMode: (
+      state,
+      action: PayloadAction<RendererPreferencesState['skillsViewMode']>,
+    ) => {
+      state.skillsViewMode = action.payload
+    },
     /** Records the mode selected by {@link FileContent}, shared by every preview surface.
      * @example dispatch(setMarkdownPreviewMode('reading'))
      */
@@ -52,6 +63,7 @@ const rendererPreferencesSlice = createSlice({
 })
 
 export const {
+  setSkillsViewMode,
   setMarkdownPreviewMode,
   markReleaseNotesSeen,
   syncRendererPreferences,

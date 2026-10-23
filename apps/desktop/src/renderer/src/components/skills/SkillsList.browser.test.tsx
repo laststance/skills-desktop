@@ -95,6 +95,9 @@ async function createStore(
       skills: {
         items: skillsState.items ?? [],
         selectedSkill: null,
+        filesGeneration: 0,
+        inspectedFile: null,
+        inspectorTabOverride: null,
         loading: skillsState.loading ?? false,
         error: null,
         skillToUnlink: null,

@@ -193,6 +193,7 @@ export default defineConfig({
             'react-dom/client',
             'react/jsx-runtime',
             'react-redux',
+            '@pierre/trees/react',
             '@reduxjs/toolkit',
             '@reduxjs/toolkit/query',
             'react-grid-layout',

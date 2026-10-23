@@ -79,6 +79,11 @@ export const FileContent = function FileContent({
   // a `pdf` preview) fails compilation here instead of silently falling
   // through to the text branch the way an `if`-chain would.
   return match(content)
+    .with({ kind: 'error' }, () => (
+      <div role="alert" className="p-4 text-sm text-muted-foreground">
+        This file could not be read.
+      </div>
+    ))
     .with({ kind: 'empty' }, () => <EmptyState />)
     .with({ kind: 'binary' }, ({ fileName, size }) => (
       <BinaryPlaceholder fileName={fileName} size={size} />

@@ -11,6 +11,7 @@ import { createRendererPreferencesPersistence } from './rendererPreferencesPersi
 import rendererPreferencesReducer, {
   markReleaseNotesSeen,
   setMarkdownPreviewMode,
+  setSkillsViewMode,
 } from './slices/rendererPreferencesSlice'
 
 const values = new Map<string, string>()
@@ -88,6 +89,7 @@ describe('renderer preference persistence', () => {
       version: 1,
       state: {
         rendererPreferences: {
+          skillsViewMode: 'list',
           markdownPreviewMode: 'reading',
           lastSeenVersion: '0.31.0',
         },
@@ -135,6 +137,7 @@ describe('renderer preference persistence', () => {
 
     // Assert
     expect(readPersisted().state.rendererPreferences).toEqual({
+      skillsViewMode: 'list',
       markdownPreviewMode: 'code',
       lastSeenVersion: '0.31.0',
     })
@@ -142,9 +145,17 @@ describe('renderer preference persistence', () => {
 
   test.each([
     {},
-    { markdownPreviewMode: 'reading' },
-    { markdownPreviewMode: 'reading', lastSeenVersion: '' },
-    { markdownPreviewMode: 'invalid', lastSeenVersion: null },
+    { skillsViewMode: 'list', markdownPreviewMode: 'reading' },
+    {
+      skillsViewMode: 'list',
+      markdownPreviewMode: 'reading',
+      lastSeenVersion: '',
+    },
+    {
+      skillsViewMode: 'list',
+      markdownPreviewMode: 'invalid',
+      lastSeenVersion: null,
+    },
   ])(
     'malformed remote preference fields cannot reset live choices: $0',
     async (preferences) => {
@@ -167,6 +178,7 @@ describe('renderer preference persistence', () => {
 
       // Assert
       expect(fixture.store.getState().rendererPreferences).toEqual({
+        skillsViewMode: 'list',
         markdownPreviewMode: 'reading',
         lastSeenVersion: '0.31.0',
         hydrated: true,
@@ -184,6 +196,7 @@ describe('renderer preference persistence', () => {
         version: 1,
         state: {
           rendererPreferences: {
+            skillsViewMode: 'list',
             markdownPreviewMode: 'reading',
             lastSeenVersion: '0.33.0',
           },
@@ -203,11 +216,13 @@ describe('renderer preference persistence', () => {
 
     // Assert
     expect(fixture.store.getState().rendererPreferences).toEqual({
+      skillsViewMode: 'list',
       markdownPreviewMode: 'reading',
       lastSeenVersion: '0.33.0',
       hydrated: true,
     })
     expect(readPersisted().state.rendererPreferences).toEqual({
+      skillsViewMode: 'list',
       markdownPreviewMode: 'reading',
       lastSeenVersion: '0.33.0',
     })
@@ -222,6 +237,7 @@ describe('renderer preference persistence', () => {
         version: 1,
         state: {
           rendererPreferences: {
+            skillsViewMode: 'list',
             markdownPreviewMode: 'reading',
             lastSeenVersion: '0.33.0',
           },
@@ -238,6 +254,7 @@ describe('renderer preference persistence', () => {
 
     // Assert
     expect(fixture.store.getState().rendererPreferences).toEqual({
+      skillsViewMode: 'list',
       markdownPreviewMode: 'code',
       lastSeenVersion: '0.33.0',
       hydrated: true,
@@ -248,6 +265,7 @@ describe('renderer preference persistence', () => {
 
     // Assert
     expect(readPersisted().state.rendererPreferences).toEqual({
+      skillsViewMode: 'list',
       markdownPreviewMode: 'code',
       lastSeenVersion: '0.33.0',
     })
@@ -267,6 +285,7 @@ describe('renderer preference persistence', () => {
         version: 1,
         state: {
           rendererPreferences: {
+            skillsViewMode: 'list',
             markdownPreviewMode: 'reading',
             lastSeenVersion: '0.33.0',
           },
@@ -284,11 +303,13 @@ describe('renderer preference persistence', () => {
 
     // Assert
     expect(fixture.store.getState().rendererPreferences).toEqual({
+      skillsViewMode: 'list',
       markdownPreviewMode: 'code',
       lastSeenVersion: '0.33.0',
       hydrated: true,
     })
     expect(readPersisted().state.rendererPreferences).toEqual({
+      skillsViewMode: 'list',
       markdownPreviewMode: 'reading',
       lastSeenVersion: '0.33.0',
     })
@@ -301,6 +322,7 @@ describe('renderer preference persistence', () => {
 
     // Assert
     expect(readPersisted().state.rendererPreferences).toEqual({
+      skillsViewMode: 'list',
       markdownPreviewMode: 'code',
       lastSeenVersion: '0.33.0',
     })
@@ -321,6 +343,7 @@ describe('renderer preference persistence', () => {
     // Assert
     expect(values.has(RENDERER_PREFERENCES_STORAGE_KEY)).toBe(false)
     expect(fixture.store.getState().rendererPreferences).toEqual({
+      skillsViewMode: 'list',
       markdownPreviewMode: 'code',
       lastSeenVersion: null,
       hydrated: true,
@@ -330,11 +353,19 @@ describe('renderer preference persistence', () => {
   test.each([
     {
       action: setMarkdownPreviewMode('reading'),
-      expected: { markdownPreviewMode: 'reading', lastSeenVersion: null },
+      expected: {
+        skillsViewMode: 'list',
+        markdownPreviewMode: 'reading',
+        lastSeenVersion: null,
+      },
     },
     {
       action: markReleaseNotesSeen('0.34.0'),
-      expected: { markdownPreviewMode: 'code', lastSeenVersion: '0.34.0' },
+      expected: {
+        skillsViewMode: 'list',
+        markdownPreviewMode: 'code',
+        lastSeenVersion: '0.34.0',
+      },
     },
   ])(
     'a new local choice after a remote clear preserves only the new intent: $expected',
@@ -373,6 +404,7 @@ describe('renderer preference persistence', () => {
 
     // Assert
     expect(readPersisted().state.rendererPreferences).toEqual({
+      skillsViewMode: 'list',
       markdownPreviewMode: 'reading',
       lastSeenVersion: null,
     })
@@ -386,6 +418,7 @@ describe('renderer preference persistence', () => {
         version: 1,
         state: {
           rendererPreferences: {
+            skillsViewMode: 'list',
             markdownPreviewMode: 'code',
             lastSeenVersion: '0.31.0',
           },
@@ -402,6 +435,7 @@ describe('renderer preference persistence', () => {
         version: 1,
         state: {
           rendererPreferences: {
+            skillsViewMode: 'list',
             markdownPreviewMode: 'code',
             lastSeenVersion: '0.33.0',
           },
@@ -414,11 +448,13 @@ describe('renderer preference persistence', () => {
 
     // Assert
     expect(fixture.store.getState().rendererPreferences).toEqual({
+      skillsViewMode: 'list',
       markdownPreviewMode: 'reading',
       lastSeenVersion: '0.33.0',
       hydrated: true,
     })
     expect(readPersisted().state.rendererPreferences).toEqual({
+      skillsViewMode: 'list',
       markdownPreviewMode: 'reading',
       lastSeenVersion: '0.33.0',
     })
@@ -439,6 +475,7 @@ describe('renderer preference persistence', () => {
 
     // Assert
     const expected = {
+      skillsViewMode: 'list',
       markdownPreviewMode: 'reading',
       lastSeenVersion: '0.33.0',
       hydrated: true,
@@ -446,6 +483,7 @@ describe('renderer preference persistence', () => {
     expect(second.store.getState().rendererPreferences).toEqual(expected)
     expect(restarted.store.getState().rendererPreferences).toEqual(expected)
     expect(readPersisted().state.rendererPreferences).toEqual({
+      skillsViewMode: 'list',
       markdownPreviewMode: 'reading',
       lastSeenVersion: '0.33.0',
     })
@@ -493,6 +531,7 @@ describe('renderer preference persistence', () => {
 
     // Assert
     expect(fixture.store.getState().rendererPreferences).toEqual({
+      skillsViewMode: 'list',
       markdownPreviewMode: 'code',
       lastSeenVersion: null,
       hydrated: true,
@@ -505,16 +544,26 @@ describe('renderer preference persistence', () => {
 
   test.each([
     {
-      stored: { markdownPreviewMode: 'reading', lastSeenVersion: 42 },
+      stored: {
+        skillsViewMode: 'list',
+        markdownPreviewMode: 'reading',
+        lastSeenVersion: 42,
+      },
       expected: {
+        skillsViewMode: 'list',
         markdownPreviewMode: 'reading',
         lastSeenVersion: null,
         hydrated: true,
       },
     },
     {
-      stored: { markdownPreviewMode: 'unknown', lastSeenVersion: '0.32.0' },
+      stored: {
+        skillsViewMode: 'list',
+        markdownPreviewMode: 'unknown',
+        lastSeenVersion: '0.32.0',
+      },
       expected: {
+        skillsViewMode: 'list',
         markdownPreviewMode: 'code',
         lastSeenVersion: '0.32.0',
         hydrated: true,
@@ -546,6 +595,7 @@ describe('renderer preference persistence', () => {
       version: 1,
       state: {
         rendererPreferences: {
+          skillsViewMode: 'list',
           markdownPreviewMode: 'reading',
           lastSeenVersion: null,
         },
@@ -583,6 +633,7 @@ describe('renderer preference persistence', () => {
 
     // Assert
     expect(store.getState().rendererPreferences).toEqual({
+      skillsViewMode: 'list',
       markdownPreviewMode: 'reading',
       lastSeenVersion: '0.32.0',
       hydrated: true,
@@ -591,6 +642,7 @@ describe('renderer preference persistence', () => {
       version: 1,
       state: {
         rendererPreferences: {
+          skillsViewMode: 'list',
           markdownPreviewMode: 'reading',
           lastSeenVersion: '0.32.0',
         },
@@ -614,6 +666,7 @@ describe('renderer preference persistence', () => {
 
     // Assert
     expect(second.store.getState().rendererPreferences).toEqual({
+      skillsViewMode: 'list',
       markdownPreviewMode: 'code',
       lastSeenVersion: '0.33.0',
       hydrated: true,
@@ -636,6 +689,7 @@ describe('renderer preference persistence', () => {
 
       // Assert
       expect(store.getState().rendererPreferences).toEqual({
+        skillsViewMode: 'list',
         markdownPreviewMode: 'code',
         lastSeenVersion: null,
         hydrated: true,
@@ -690,12 +744,14 @@ describe('renderer preference persistence', () => {
       version: 1,
       state: {
         rendererPreferences: {
+          skillsViewMode: 'list',
           markdownPreviewMode: 'reading',
           lastSeenVersion: '0.33.0',
         },
       },
     })
     expect(restart.store.getState().rendererPreferences).toEqual({
+      skillsViewMode: 'list',
       markdownPreviewMode: 'reading',
       lastSeenVersion: '0.33.0',
       hydrated: true,
@@ -713,6 +769,7 @@ describe('renderer preference persistence', () => {
       version: 1,
       state: {
         rendererPreferences: {
+          skillsViewMode: 'list',
           markdownPreviewMode: 'reading',
           lastSeenVersion: null,
         },
@@ -730,11 +787,13 @@ describe('renderer preference persistence', () => {
 
     // Assert
     expect(fixture.store.getState().rendererPreferences).toEqual({
+      skillsViewMode: 'list',
       markdownPreviewMode: 'reading',
       lastSeenVersion: '0.33.0',
       hydrated: true,
     })
     expect(readPersisted().state.rendererPreferences).toEqual({
+      skillsViewMode: 'list',
       markdownPreviewMode: 'reading',
       lastSeenVersion: '0.33.0',
     })
@@ -753,6 +812,7 @@ describe('renderer preference persistence', () => {
       version: 1,
       state: {
         rendererPreferences: {
+          skillsViewMode: 'list',
           markdownPreviewMode: 'code',
           lastSeenVersion: null,
         },
@@ -802,6 +862,7 @@ describe('renderer preference persistence', () => {
 
     // Assert
     expect(fixture.store.getState().rendererPreferences).toEqual({
+      skillsViewMode: 'list',
       markdownPreviewMode: 'code',
       lastSeenVersion: null,
       hydrated: true,
@@ -849,9 +910,102 @@ describe('renderer preference persistence', () => {
 
     // Assert
     expect(fixture.store.getState().rendererPreferences).toEqual({
+      skillsViewMode: 'list',
       markdownPreviewMode: 'code',
       lastSeenVersion: null,
       hydrated: true,
     })
   })
+})
+
+test('defaults older renderer envelopes to List while preserving their other choices', async () => {
+  // Arrange
+  values.set(
+    RENDERER_PREFERENCES_STORAGE_KEY,
+    JSON.stringify({
+      version: 1,
+      state: {
+        rendererPreferences: {
+          markdownPreviewMode: 'reading',
+          lastSeenVersion: '0.33.0',
+        },
+      },
+    }),
+  )
+  // Act
+  const { store } = await bootPreferences()
+  // Assert
+  expect(store.getState().rendererPreferences).toEqual({
+    skillsViewMode: 'list',
+    markdownPreviewMode: 'reading',
+    lastSeenVersion: '0.33.0',
+    hydrated: true,
+  })
+})
+
+test('persists Tree independently of a stale window changing Markdown mode', async () => {
+  // Arrange
+  const first = await bootPreferences()
+  const second = await bootPreferences()
+  // Act
+  first.store.dispatch(setSkillsViewMode('tree'))
+  second.store.dispatch(setMarkdownPreviewMode('reading'))
+  await vi.runAllTimersAsync()
+  const restarted = await bootPreferences()
+  // Assert
+  expect(restarted.store.getState().rendererPreferences).toEqual({
+    skillsViewMode: 'tree',
+    markdownPreviewMode: 'reading',
+    lastSeenVersion: null,
+    hydrated: true,
+  })
+})
+
+test('adopts a remote view choice and clears it when storage is cleared', async () => {
+  // Arrange
+  const fixture = await bootPreferences()
+  const target = new EventTarget()
+  const dispose = fixture.persistence.subscribeToStorage(target as Window)
+  const raw = JSON.stringify({
+    version: 1,
+    state: {
+      rendererPreferences: {
+        skillsViewMode: 'tree',
+        markdownPreviewMode: 'code',
+        lastSeenVersion: null,
+      },
+    },
+  })
+  values.set(RENDERER_PREFERENCES_STORAGE_KEY, raw)
+  // Act
+  emitStorage(target, RENDERER_PREFERENCES_STORAGE_KEY, raw)
+  // Assert
+  expect(fixture.store.getState().rendererPreferences.skillsViewMode).toBe(
+    'tree',
+  )
+  values.delete(RENDERER_PREFERENCES_STORAGE_KEY)
+  emitStorage(target, RENDERER_PREFERENCES_STORAGE_KEY, null)
+  expect(fixture.store.getState().rendererPreferences.skillsViewMode).toBe(
+    'list',
+  )
+  dispose()
+})
+
+test('keeps Tree active after a rejected write and retries on the next action', async () => {
+  // Arrange
+  const fixture = await bootPreferences()
+  localStorageMock.setItem.mockImplementationOnce(() => {
+    throw new Error('QuotaExceededError')
+  })
+  // Act
+  fixture.store.dispatch(setSkillsViewMode('tree'))
+  await vi.runAllTimersAsync()
+  // Assert
+  expect(fixture.store.getState().rendererPreferences.skillsViewMode).toBe(
+    'tree',
+  )
+  expect(fixture.onFailure).toHaveBeenCalled()
+  fixture.store.dispatch({ type: 'retry-storage' })
+  await vi.runAllTimersAsync()
+  expect(readPersisted().state.rendererPreferences.skillsViewMode).toBe('tree')
 })

@@ -1,4 +1,10 @@
 import type {
+  SkillFileRead,
+  SkillFilesListing,
+  SkillFilesRequest,
+} from '@/shared/skillFiles'
+
+import type {
   ActivityEvent,
   ActivityListOptions,
 } from '../../../shared/activityLog'
@@ -123,6 +129,12 @@ declare global {
         getStats: () => Promise<SourceStats>
       }
       files: {
+        listDetailed: (request: SkillFilesRequest) => Promise<SkillFilesListing>
+        cancelList: (request: SkillFilesRequest) => Promise<void>
+        readDetailed: (
+          root: AbsolutePath,
+          path: AbsolutePath,
+        ) => Promise<SkillFileRead>
         list: (skillPath: string) => Promise<SkillFile[]>
         read: (filePath: string) => Promise<SkillFileContent | null>
         readBinary: (filePath: string) => Promise<SkillBinaryContent | null>
