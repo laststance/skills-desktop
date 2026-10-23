@@ -51,7 +51,7 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "fallow": "3.33.1",
+    "fallow": "3.34.1",
     "husky": "^9.1.7",
     "lint-staged": "^17.6.0",
     "npm-run-all2": "^9.0.3",

@@ -8,9 +8,9 @@ import type {
   BulkCopyToAgentsResult,
   BulkDeleteResult,
   BulkUnlinkResult,
-  ClearOrphanSymlinksResult,
   ClearBrokenSymlinkSlotsOptions,
   ClearBrokenSymlinkSlotsResult,
+  ClearOrphanSymlinksResult,
   DeleteProgressPayload,
   FilesystemEntryIdentity,
   RestoreDeletedSkillResult,
@@ -124,6 +124,52 @@ function reconcileByLiveNames(
 ): SkillName[] {
   const liveNames = new Set(items.map((skill) => skill.name))
   return names.filter((name) => liveNames.has(name))
+}
+
+/**
+ * Settle the fulfilled state of a bulk-removal thunk: clear the delete
+ * in-flight fade and busy flag, untick the rows that actually left the list,
+ * and release the Shift+click anchor when the selection emptied or the
+ * anchor itself was removed.
+ *
+ * Called by `deleteSelectedSkills.fulfilled` and
+ * `clearSelectedOrphanSymlinks.fulfilled`, which differ only in which
+ * outcomes count as "removed". Keeping failed rows selected lets the user
+ * retry without re-ticking them.
+ *
+ * @param state - Draft skills state from the reducer.
+ * @param items - Per-item outcomes reported by the fulfilled payload.
+ * @param wasRemoved - Predicate marking an outcome as "removed from the list".
+ *
+ * @example
+ * ```ts
+ * settleBulkRemoval(state, action.payload.items, (o) => o === 'orphan-cleared')
+ * ```
+ */
+function settleBulkRemoval(
+  state: SkillsState,
+  items: readonly { skillName: SkillName; outcome: string }[],
+  wasRemoved: (outcome: string) => boolean,
+): void {
+  state.inFlightDeleteNames = []
+  state.bulkDeleting = false
+  state.bulkProgress = null
+  // Narrow the selection to the items that actually disappeared from the list.
+  const removedNames = new Set(
+    items
+      .filter((item) => wasRemoved(item.outcome))
+      .map((item) => item.skillName),
+  )
+  state.selectedSkillNames = state.selectedSkillNames.filter(
+    (name) => !removedNames.has(name),
+  )
+  // Reconcile anchor: drop if selection emptied or if the anchor itself was
+  // removed. Otherwise leave it so Shift+click continues from the same origin.
+  const anchorWasRemoved =
+    state.selectionAnchor !== null && removedNames.has(state.selectionAnchor)
+  if (state.selectedSkillNames.length === 0 || anchorWasRemoved) {
+    state.selectionAnchor = null
+  }
 }
 
 /**
@@ -831,33 +877,12 @@ const skillsSlice = createSlice({
       })
       .addCase(deleteSelectedSkills.fulfilled, (state, action) => {
         // Refetch happens via the component (thunks.ts refreshAllData); the
-        // slice only clears the in-flight fade and the busy flag.
-        state.inFlightDeleteNames = []
-        state.bulkDeleting = false
-        state.bulkProgress = null
-        // Narrow clearSelection to the items that actually disappeared from
-        // the list — keep failed ones selected so the user can retry without
-        // re-ticking them.
-        const removedNames = new Set(
-          action.payload.items
-            .filter(
-              (item) =>
-                item.outcome === 'deleted' || item.outcome === 'orphan-cleared',
-            )
-            .map((item) => item.skillName),
+        // slice only settles flags and prunes the selection.
+        settleBulkRemoval(
+          state,
+          action.payload.items,
+          (outcome) => outcome === 'deleted' || outcome === 'orphan-cleared',
         )
-        state.selectedSkillNames = state.selectedSkillNames.filter(
-          (name) => !removedNames.has(name),
-        )
-        // Reconcile anchor: drop if selection emptied or if anchor itself was
-        // deleted. Otherwise leave it so Shift+click continues from the same
-        // origin.
-        const anchorWasDeleted =
-          state.selectionAnchor !== null &&
-          removedNames.has(state.selectionAnchor)
-        if (state.selectedSkillNames.length === 0 || anchorWasDeleted) {
-          state.selectionAnchor = null
-        }
       })
       .addCase(deleteSelectedSkills.rejected, (state, action) => {
         state.inFlightDeleteNames = []
@@ -875,23 +900,11 @@ const skillsSlice = createSlice({
         state.error = null
       })
       .addCase(clearSelectedOrphanSymlinks.fulfilled, (state, action) => {
-        state.inFlightDeleteNames = []
-        state.bulkDeleting = false
-        state.bulkProgress = null
-        const removedNames = new Set(
-          action.payload.items
-            .filter((item) => item.outcome === 'orphan-cleared')
-            .map((item) => item.skillName),
+        settleBulkRemoval(
+          state,
+          action.payload.items,
+          (outcome) => outcome === 'orphan-cleared',
         )
-        state.selectedSkillNames = state.selectedSkillNames.filter(
-          (name) => !removedNames.has(name),
-        )
-        const anchorWasRemoved =
-          state.selectionAnchor !== null &&
-          removedNames.has(state.selectionAnchor)
-        if (state.selectedSkillNames.length === 0 || anchorWasRemoved) {
-          state.selectionAnchor = null
-        }
       })
       .addCase(clearSelectedOrphanSymlinks.rejected, (state, action) => {
         state.inFlightDeleteNames = []

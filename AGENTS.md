@@ -70,6 +70,8 @@ Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/do
 - **`*.browser.test.tsx`** runs in the Chromium lane via vitest browser mode. Vitest 4 projects need `dedupe + optimizeDeps` duplicated inline or React context breaks across files
 - **`npx skills remove <name>` defaults to local scope** while `npx skills add` defaults to global. Always pass `--global` for uninstall hints surfaced to users — see `SkillRowMarketplace.tsx` installed badge `aria-label`
 - **Port 9222 sticks** if `pnpm dev` died unclean. `kill-port 9222` (or `pkill -f electron`) before relaunching
+- **`@laststance/redux-storage-middleware` is pinned to 0.4.0** — 0.4.1 skips `saveHandler` when persisted slice refs are unchanged, so a retry after a failed write (lock/quota rejection) never fires. The app relies on save-on-every-action plus its own `dirty` guard. Unpin only after upstream fixes failed-write retry (laststance/redux-storage-middleware#14)
+- **`ELECTRON_RUN_AS_NODE` breaks `pnpm test:e2e`** when the host is itself an Electron app (e.g. Devin Desktop): Playwright's `--remote-debugging-port` is rejected as a Node "bad option" and every launch fails. Run `env -u ELECTRON_RUN_AS_NODE pnpm test:e2e`
 
 ## Quality Gate
 
