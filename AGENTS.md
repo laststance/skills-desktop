@@ -215,7 +215,7 @@ it earns and keeps that authority.
 
 Cloud Agents run on Linux. `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm build`, and `pnpm --filter skills-desktop-website <script>` are the checks that run here. `pnpm test:e2e` and `pnpm build:mac` need macOS.
 
-- Node.js 24.20.0 and pnpm 11.5.1 are already on `PATH`. Prefer those over the image Node 22 at `/exec-daemon/node`.
+- Node.js 24.20.0 and pnpm 11.5.1 are already on `PATH`. Prefer those over the image Node 22 at `/exec-daemon/node`. `.node-version` now pins Node 26.12.1 for local dev and CI; this image is still on 24.20.0, which satisfies `engines` (`>=24`) and runs these checks.
 - Playwright Chromium is installed for Vitest browser mode. Reinstall with `pnpm --filter skills-desktop exec playwright install chromium --with-deps` only if the browser cache is missing.
 - Dev servers are not started on boot. Website: `pnpm --filter skills-desktop-website dev` (port 3000). Desktop: `pnpm dev` (CDP on port 9222). Electron needs `DISPLAY` and `XAUTHORITY` from the desktop session; a replaced `HOME` must still point `XAUTHORITY` at the session cookie.
 - `UNSPLASH_ACCESS_KEY` is optional. Without it, `POST /api/rpc/unsplash/search` returns `UNAVAILABLE` and built-in images still work.
