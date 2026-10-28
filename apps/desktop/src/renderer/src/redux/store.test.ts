@@ -1,6 +1,10 @@
-import { describe, expect, test } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 
-import { THEME_PRESETS } from '@/shared/constants'
+import {
+  PERSIST_STATE_VERSION,
+  PERSIST_STORAGE_KEY,
+  THEME_PRESETS,
+} from '@/shared/constants'
 import type { Skill } from '@/shared/types'
 import { toAbsolutePath, toSkillName, toSymlinkCount } from '@/shared/types'
 
@@ -342,5 +346,115 @@ describe('store wiring (singleton assembly)', () => {
 
     // Assert — only a failed refresh clears; the retry ticks survive
     expect(store.getState().skills.selectedSkillNames).toEqual(['retry-skill'])
+  })
+})
+
+/**
+ * The store's storage adapter rethrows a rejected write so the middleware can
+ * retry it. That is only safe because the middleware (>= 0.5.0) still hydrates
+ * when the startup migration write-back fails; on 0.4.x the same throw failed
+ * hydration and the app booted on default settings with every save disabled.
+ */
+describe('persisted state boot (full localStorage)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+    vi.resetModules()
+  })
+
+  test('boots on the migrated theme and keeps the old saved copy when localStorage rejects the migration write-back', async () => {
+    // Arrange — a pre-chroma (v0) theme on disk, and a quota that rejects every write.
+    const storedV0 = JSON.stringify({
+      version: 0,
+      state: {
+        theme: { hue: 195, mode: 'dark', preset: 'cyan', presetType: 'color' },
+      },
+    })
+    const values = new Map<string, string>([[PERSIST_STORAGE_KEY, storedV0]])
+    const setItem = vi.fn(() => {
+      throw new DOMException('quota', 'QuotaExceededError')
+    })
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem,
+      removeItem: (key: string) => {
+        values.delete(key)
+      },
+    })
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.resetModules()
+
+    // Act
+    const { store } = await import('./store')
+    await vi.waitFor(() => {
+      expect(store.getState().theme.preset).toBe('cyan')
+    })
+
+    // Assert — the user's migrated theme, with the v0 copy still on disk for the next launch.
+    expect(store.getState().theme).toEqual({
+      hue: 195,
+      chroma: 0.16,
+      mode: 'dark',
+      modePreference: 'dark',
+      preset: 'cyan',
+    })
+    expect(values.get(PERSIST_STORAGE_KEY)).toBe(storedV0)
+    expect(setItem).toHaveBeenCalledWith(
+      PERSIST_STORAGE_KEY,
+      expect.any(String),
+    )
+  })
+
+  test('saves the migrated settings on the next action after the preference store also finished hydrating', async () => {
+    // Arrange — a v0 theme on disk; only the first settings write hits a full quota.
+    const storedV0 = JSON.stringify({
+      version: 0,
+      state: {
+        theme: { hue: 195, mode: 'dark', preset: 'cyan', presetType: 'color' },
+      },
+    })
+    const values = new Map<string, string>([[PERSIST_STORAGE_KEY, storedV0]])
+    let rejectNextSettingsWrite = true
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        if (key === PERSIST_STORAGE_KEY && rejectNextSettingsWrite) {
+          rejectNextSettingsWrite = false
+          throw new DOMException('quota', 'QuotaExceededError')
+        }
+        values.set(key, value)
+      },
+      removeItem: (key: string) => {
+        values.delete(key)
+      },
+    })
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.resetModules()
+    const { store } = await import('./store')
+    await vi.waitFor(() => {
+      expect(store.getState().theme.preset).toBe('cyan')
+      expect(store.getState().rendererPreferences.hydrated).toBe(true)
+    })
+
+    // Act — an action that leaves every persisted settings slice unchanged.
+    store.dispatch(setActiveTab('marketplace'))
+
+    // Assert — the second storage instance finishing hydration must not cancel the retry.
+    await vi.waitFor(() => {
+      expect(JSON.parse(values.get(PERSIST_STORAGE_KEY) ?? '{}')).toEqual(
+        expect.objectContaining({
+          version: PERSIST_STATE_VERSION,
+          state: expect.objectContaining({
+            theme: {
+              hue: 195,
+              chroma: 0.16,
+              mode: 'dark',
+              modePreference: 'dark',
+              preset: 'cyan',
+            },
+          }),
+        }),
+      )
+    })
   })
 })
