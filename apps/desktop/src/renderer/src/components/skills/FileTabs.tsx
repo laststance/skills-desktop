@@ -17,7 +17,9 @@ interface FileTabsProps {
  * Each tab shows the file's `relativePath`, so nested entries like
  * `workflows/run.md` remain distinguishable from a root-level `run.md`.
  * Overflow scrolls horizontally; the scrollbar chrome is hidden to keep the
- * bar visually quiet on skills with few files.
+ * bar visually quiet on skills with few files. The list must stay at its
+ * container's width (no `min-w-max`) — sizing it to its content leaves
+ * nothing for `overflow-x-auto` to scroll, so trailing tabs get clipped.
  *
  * Uses Radix Tabs primitives (`List` + `Trigger`) to get the WAI-ARIA tabs
  * pattern for free — roving tabindex, ArrowLeft/Right nav, Home/End,
@@ -36,7 +38,7 @@ export const FileTabs = function FileTabs({
   activeFilePath,
 }: FileTabsProps): React.ReactElement {
   return (
-    <TabsPrimitive.List className="shrink-0 flex items-stretch min-w-max overflow-x-auto border-b border-border bg-muted/30 scrollbar-none">
+    <TabsPrimitive.List className="shrink-0 flex items-stretch overflow-x-auto border-b border-border bg-muted/30 scrollbar-none">
       {files.map((file) => (
         <FileTab
           key={file.path}
@@ -63,7 +65,8 @@ const FileTab = function FileTab({
     <TabsPrimitive.Trigger
       value={file.path}
       className={cn(
-        'relative flex items-center gap-1.5 px-3 py-2 text-xs font-mono border-r border-border/60 whitespace-nowrap transition-colors',
+        // shrink-0: tabs keep their natural width and overflow into the scroll area instead of compressing
+        'relative flex shrink-0 items-center gap-1.5 px-3 py-2 text-xs font-mono border-r border-border/60 whitespace-nowrap transition-colors',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
         isActive
           ? 'bg-background text-foreground'
