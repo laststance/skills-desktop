@@ -99,7 +99,7 @@ PRs are ready to ship only when `validate` and e2e both pass in that order.
 | Skill     | `~/.agents/skills/`  | Directory with SKILL.md                                                                               |
 | Agent     | `~/.<agent>/skills/` | AI agents (count = `AGENT_DEFINITIONS.length` in `apps/desktop/src/shared/constants.ts`)              |
 | Symlink   | Agent→Skill          | `valid` / `broken` / `inaccessible` / `missing`                                                       |
-| Universal | `~/.agents/skills/`  | 19 agents share this source dir (see `UNIVERSAL_AGENT_IDS` in `apps/desktop/src/shared/constants.ts`) |
+| Universal | `~/.agents/skills/`  | 21 agents share this source dir (see `UNIVERSAL_AGENT_IDS` in `apps/desktop/src/shared/constants.ts`) |
 
 ### Skills CLI
 
@@ -108,7 +108,7 @@ PRs are ready to ship only when `validate` and e2e both pass in that order.
 | Repository     | https://github.com/vercel-labs/skills (paths below are inside that repo)                                                                                      |
 | CLI agent list | `src/agents.ts`                                                                                                                                               |
 | CLI types      | `src/types.ts`                                                                                                                                                |
-| Pinned version | `SKILLS_CLI_VERSION` in `apps/desktop/src/shared/constants.ts` (currently `1.7.0`) — bump when re-syncing `AGENT_DEFINITIONS` against the upstream skills CLI |
+| Pinned version | `SKILLS_CLI_VERSION` in `apps/desktop/src/shared/constants.ts` (currently `1.7.4`) — bump when re-syncing `AGENT_DEFINITIONS` against the upstream skills CLI |
 
 `AGENT_DEFINITIONS` in `apps/desktop/src/shared/constants.ts` mirrors the CLI's agent
 list. Each entry: `id` (app state), `cliId` (`--agent` flag), `name`
