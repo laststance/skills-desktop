@@ -309,7 +309,9 @@ export const AGENT_DEFINITIONS = [
     id: 'codex',
     cliId: 'codex',
     name: 'Codex',
-    installDir: '.codex',
+    // CLI 1.7.4 installs Codex skills into the universal source.
+    installDir: '.agents',
+    // Keep the universal source out of this agent's local skill scan.
     scanDir: '.codex',
   },
   {
@@ -577,7 +579,9 @@ export const AGENT_DEFINITIONS = [
     id: 'pi',
     cliId: 'pi',
     name: 'Pi',
-    installDir: '.pi/agent',
+    // CLI 1.7.4 installs Pi skills into the universal source.
+    installDir: '.agents',
+    // Pi's own user skills live in ~/.pi/agent/skills (its agent directory), not ~/.pi/skills.
     scanDir: '.pi/agent',
   },
   {
@@ -825,7 +829,9 @@ export const AGENT_DEFINITIONS = [
     id: 'fx',
     cliId: 'fx',
     name: 'fx',
-    installDir: '.fx',
+    // CLI 1.7.4 installs fx skills into the universal source.
+    installDir: '.agents',
+    // Keep the universal source out of this agent's local skill scan.
     scanDir: '.fx',
   },
   {
@@ -948,12 +954,14 @@ export const UNIVERSAL_AGENT_IDS = [
   'dexto',
   'droid',
   'firebender',
+  'fx',
   'gemini-cli',
   'github-copilot',
   'kilo',
   'kimi-cli',
   'loaf',
   'opencode',
+  'pi',
   'sarvam-code',
   'warp',
   'zed',
@@ -1045,7 +1053,7 @@ export const TERMINAL_APP_UI_LABELS: Record<
  * @example
  * spawn('npx', [`skills@${SKILLS_CLI_VERSION}`, 'find', 'react'])
  */
-export const SKILLS_CLI_VERSION = '1.7.0'
+export const SKILLS_CLI_VERSION = '1.7.4'
 
 /**
  * Canonical hostname for skills marketplace pages used by renderer/main

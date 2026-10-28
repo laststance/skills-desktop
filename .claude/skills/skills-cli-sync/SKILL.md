@@ -64,9 +64,12 @@ and cliId renames**.
 
 - `installDir` = the **parent** of `globalSkillsDir`, home-relative.
 - `scanDir` = `installDir`, **except** when `globalSkillsDir` resolves to the
-  universal source `~/.agents/skills` → `scanDir` diverges to `.<name>`. This is
-  the **v0.13.0 guard**: if `scanDir` aliased the source, the scanner would
-  surface every shared source skill as that agent's own "valid local skill".
+  universal source `~/.agents/skills` → `scanDir` diverges to the agent's own
+  home, usually `.<name>`. Check the agent's docs when its own skills dir is
+  nested: Pi keeps `.pi/agent`, because `~/.pi/agent/skills` is its user skills
+  dir and `~/.pi/skills` is not read. This is the **v0.13.0 guard**: if
+  `scanDir` aliased the source, the scanner would surface every shared source
+  skill as that agent's own "valid local skill".
 
 **Rule B — `UNIVERSAL_AGENT_IDS`** (from `skillsDir`):
 
@@ -148,6 +151,28 @@ Do not bump `package.json` `version` — releases are owned solely by
 ---
 
 ## Latest run (example — point-in-time, NOT part of the procedure)
+
+**2026-10-28 · v1.7.0 → v1.7.4** (3 agents moved to the universal source)
+
+- **No agent-list change:** the upstream `name:` set (79) minus the app `cliId`
+  set (75) is exactly the 4 standing exclusions. Zero app orphans, no id/cliId
+  migrations, no display-name rebrands. `types.ts` is unchanged.
+- **Install-path moves (Rule A):** upstream now sets `globalSkillsDir` to
+  `~/.agents/skills` for `codex`, `fx` and `pi`. So `installDir` → `.agents`,
+  and `scanDir` keeps each agent's own home: `.codex`, `.fx`, and `.pi/agent`
+  (Pi's user skills dir).
+- **Universal delta (Rule B):** `fx` and `pi` now use `skillsDir:
+'.agents/skills'`, so `UNIVERSAL_AGENT_IDS` 19 → 21. `codex` was already
+  universal.
+- **Excluded at this version:** `eve` and `promptscript`
+  (`globalSkillsDir: undefined`), `universal` (`showInUniversalList: false`),
+  `zenflow` (dir collides with zencoder's `~/.zencoder/skills`).
+- **Edits:** `SKILLS_CLI_VERSION` 1.7.0 → 1.7.4; the e2e pin
+  (`marketplace-install-regression.e2e.ts`); AGENTS.md pinned-version cell and
+  universal count; the SPEC directory diagram's Codex line. README/SPEC tables
+  are unchanged because detection paths follow `scanDir`.
+- Gates: `reconcile-agents.mjs` clean (75/75), prettier clean, `pnpm validate`
+  green (228 files / 3256 tests), `pnpm test:e2e` green (116 tests).
 
 **2026-08-26 JST · v1.5.18 → v1.5.23** (+4 community agents)
 

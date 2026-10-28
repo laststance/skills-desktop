@@ -34,7 +34,7 @@ Skills Desktop provides a GUI to manage and monitor skills installed via `npx sk
 
 ~/.claude/skills/           # Target: Claude Code symlinks
 ~/.cursor/skills/           # Target: Cursor symlinks
-~/.codex/skills/            # Target: OpenAI Codex symlinks
+~/.codex/skills/            # OpenAI Codex's own skills (CLI 1.7.4+ installs Codex into ~/.agents/skills)
 ~/.gemini/skills/           # Target: Gemini CLI symlinks
 ...                         # Other AI agents
 ```
