@@ -103,6 +103,39 @@ describe('FileTabs tab bar', () => {
       .toHaveAttribute('aria-selected', 'false')
   })
 
+  test('scrolls the tab bar horizontally so trailing tabs in a narrow pane stay reachable', async () => {
+    // Arrange: four long tabs whose combined width far exceeds a 240px pane.
+    const files = [
+      'SKILL.md',
+      'references/figures.md',
+      'references/persona.md',
+      'references/workflow.md',
+    ].map((relativePath) =>
+      makeSkillFile({
+        path: toAbsolutePath(`/Users/me/.agents/skills/tdd/${relativePath}`),
+        relativePath: toPosixRelativePath(relativePath),
+      }),
+    )
+    const screen = await render(
+      <div style={{ width: 240 }}>
+        <TabsPrimitive.Root value={files[0].path} onValueChange={() => {}}>
+          <FileTabs files={files} activeFilePath={files[0].path} />
+        </TabsPrimitive.Root>
+      </div>,
+    )
+    const tabList = screen.getByRole('tablist').element()
+
+    // Act: focusing a tab scrolls its scroll container to reveal it.
+    screen
+      .getByRole('tab', { name: 'references/workflow.md' })
+      .element()
+      .focus()
+
+    // Assert: the bar stays pane-wide and scrolled, instead of growing past the pane and clipping.
+    expect(tabList.clientWidth).toBe(240)
+    expect(tabList.scrollLeft).toBeGreaterThan(0)
+  })
+
   test('shows an image icon on tabs for previewable image files', async () => {
     // Arrange
     const files = [
