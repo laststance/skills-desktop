@@ -71,7 +71,7 @@ Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/do
 - **`npx skills remove <name>` defaults to local scope** while `npx skills add` defaults to global. Always pass `--global` for uninstall hints surfaced to users — see `SkillRowMarketplace.tsx` installed badge `aria-label`
 - **Port 9222 sticks** if `pnpm dev` died unclean. `kill-port 9222` (or `pkill -f electron`) before relaunching
 - **`@laststance/redux-storage-middleware` must stay ≥ 0.5.1, and `createReportingLocalStorage` must rethrow a rejected write** — the middleware retries a failed save on the next action only when `setItem` throws. 0.5.0+ still hydrates when the startup migration write-back throws (0.4.x set hydration to `error` and booted on defaults with saves off). 0.5.1+ keeps the two instances in `store.ts` (settings + renderer preferences on one store) from reacting to each other's `HYDRATE_COMPLETE`, which cancelled the settings retry. Swallowing the error silently drops quota-failed writes. Guarded by the quota-retry tests in `rendererPreferencesPersistence.test.ts` and the full-localStorage boot tests in `store.test.ts`
-- **Keep `navigator.locks.request` callbacks `async`** — Node 24's Web Locks never releases a lock whose callback throws synchronously, so every later request on that key hangs in node-lane tests (Chromium releases it). An `async` callback turns the throw into a rejection that frees the lock
+- **Keep `navigator.locks.request` callbacks `async`** — Node's Web Locks (24 and 26) never releases a lock whose callback throws synchronously, so every later request on that key hangs in node-lane tests (Chromium releases it). An `async` callback turns the throw into a rejection that frees the lock
 - **`ELECTRON_RUN_AS_NODE` breaks `pnpm test:e2e`** when the host is itself an Electron app (e.g. Devin Desktop): Playwright's `--remote-debugging-port` is rejected as a Node "bad option" and every launch fails. Run `env -u ELECTRON_RUN_AS_NODE pnpm test:e2e`
 
 ## Quality Gate
@@ -215,7 +215,7 @@ it earns and keeps that authority.
 
 Cloud Agents run on Linux. `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm build`, and `pnpm --filter skills-desktop-website <script>` are the checks that run here. `pnpm test:e2e` and `pnpm build:mac` need macOS.
 
-- Node.js 24.20.0 and pnpm 11.5.1 are already on `PATH`. Prefer those over the image Node 22 at `/exec-daemon/node`.
+- Node.js 24.20.0 and pnpm 11.5.1 are already on `PATH`. Prefer those over the image Node 22 at `/exec-daemon/node`. `.node-version` now pins Node 26.12.1 for local dev and CI; this image is still on 24.20.0, which satisfies `engines` (`>=24`) and runs these checks.
 - Playwright Chromium is installed for Vitest browser mode. Reinstall with `pnpm --filter skills-desktop exec playwright install chromium --with-deps` only if the browser cache is missing.
 - Dev servers are not started on boot. Website: `pnpm --filter skills-desktop-website dev` (port 3000). Desktop: `pnpm dev` (CDP on port 9222). Electron needs `DISPLAY` and `XAUTHORITY` from the desktop session; a replaced `HOME` must still point `XAUTHORITY` at the session cookie.
 - `UNSPLASH_ACCESS_KEY` is optional. Without it, `POST /api/rpc/unsplash/search` returns `UNAVAILABLE` and built-in images still work.

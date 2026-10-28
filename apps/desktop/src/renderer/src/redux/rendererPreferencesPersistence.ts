@@ -225,7 +225,7 @@ export function createRendererPreferencesPersistence<
         // The library also saves after remote syncs and failed-write retries; unchanged windows must never write stale choices.
         if (dirty.size === 0 || !storeApi) return
         // Serialize the full read/merge/write transaction across Chromium renderer processes.
-        // Async so a throw (failed read or write) rejects the request and frees the lock; Node 24 keeps it after a sync throw.
+        // Async so a throw (failed read or write) rejects the request and frees the lock; Node 24/26 keep it after a sync throw.
         await navigator.locks.request(key, async () => {
           if (dirty.size === 0 || !storeApi) return
           readFailed = false
