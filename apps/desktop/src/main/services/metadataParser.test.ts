@@ -29,6 +29,36 @@ describe('parseSkillMetadata', () => {
     expect(result.description).toBe('Does great things')
   })
 
+  test('reads the name and description of a SKILL.md saved with a byte order mark', async () => {
+    // Arrange — skills CLI 1.7.2+ recognizes BOM-prefixed frontmatter, so the app must too.
+    mockFs.readFile.mockResolvedValue(
+      '\uFEFF---\nname: Bom Skill\ndescription: Saved with a BOM\n---\n# Content',
+    )
+
+    // Act
+    const result = await parseSkillMetadata(toAbsolutePath('/skills/bom-skill'))
+
+    // Assert
+    expect(result.name).toBe('Bom Skill')
+    expect(result.description).toBe('Saved with a BOM')
+  })
+
+  test('reads the name and description of a SKILL.md saved with Windows line endings', async () => {
+    // Arrange
+    mockFs.readFile.mockResolvedValue(
+      '---\r\nname: Windows Skill\r\ndescription: |\r\n  Saved with CRLF\r\n---\r\n# Content',
+    )
+
+    // Act
+    const result = await parseSkillMetadata(
+      toAbsolutePath('/skills/windows-skill'),
+    )
+
+    // Assert — no stray carriage return survives into the values.
+    expect(result.name).toBe('Windows Skill')
+    expect(result.description).toBe('Saved with CRLF')
+  })
+
   test('names the skill after its directory when SKILL.md is missing', async () => {
     // Arrange
     mockFs.readFile.mockRejectedValue(new Error('ENOENT'))

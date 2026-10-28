@@ -1149,6 +1149,49 @@ describe('scanSkills source attribution from lock file', () => {
     expect(skills[0].sourceUrl).toBeUndefined()
   })
 
+  test('labels a skill installed from a local path as local instead of showing its absolute path', async () => {
+    // Arrange: skills CLI 1.7.1+ records global installs from a local path in
+    // the lock, with the absolute path as `source`. That is not a repository.
+    readdirMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills') {
+        return [
+          createDirent('my-skill', {
+            isDirectory: true,
+            isSymbolicLink: false,
+          }),
+        ]
+      }
+      return []
+    })
+    statMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills/my-skill/SKILL.md') {
+        return { isFile: () => true }
+      }
+      throw new Error(`ENOENT: ${path}`)
+    })
+    mockLstatDirectories(['/mock/source/skills/my-skill'])
+    readFileMock.mockResolvedValue(
+      JSON.stringify({
+        skills: {
+          'my-skill': {
+            source: '/Users/me/dev/my-skill',
+            sourceType: 'local',
+            sourceUrl: '/Users/me/dev/my-skill',
+          },
+        },
+      }),
+    )
+    const { scanSkills } = await import('./skillScanner')
+
+    // Act
+    const skills = await scanSkills()
+
+    // Assert — no source, so the row shows "Local" and stays out of the repository filter.
+    expect(skills).toHaveLength(1)
+    expect(skills[0].source).toBeUndefined()
+    expect(skills[0].sourceUrl).toBeUndefined()
+  })
+
   test('keeps the skill but drops a non-http(s) sourceUrl from a poisoned lock entry', async () => {
     // Arrange: the lock file is untrusted input — a `javascript:` URL must
     // never flow through to a rendered anchor behind the HttpUrl brand. The
