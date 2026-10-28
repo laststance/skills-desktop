@@ -33,7 +33,7 @@
     "release:verify": "node scripts/verify-release.mjs"
   },
   "dependencies": {
-    "@laststance/redux-storage-middleware": "0.5.0",
+    "@laststance/redux-storage-middleware": "0.5.1",
     "@orpc/client": "catalog:",
     "@orpc/contract": "catalog:",
     "@orpc/tanstack-query": "catalog:",

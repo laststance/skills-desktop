@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
-import { PERSIST_STORAGE_KEY, THEME_PRESETS } from '@/shared/constants'
+import {
+  PERSIST_STATE_VERSION,
+  PERSIST_STORAGE_KEY,
+  THEME_PRESETS,
+} from '@/shared/constants'
 import type { Skill } from '@/shared/types'
 import { toAbsolutePath, toSkillName, toSymlinkCount } from '@/shared/types'
 
@@ -367,11 +371,12 @@ describe('persisted state boot (full localStorage)', () => {
       },
     })
     const values = new Map<string, string>([[PERSIST_STORAGE_KEY, storedV0]])
+    const setItem = vi.fn(() => {
+      throw new DOMException('quota', 'QuotaExceededError')
+    })
     vi.stubGlobal('localStorage', {
       getItem: (key: string) => values.get(key) ?? null,
-      setItem: () => {
-        throw new DOMException('quota', 'QuotaExceededError')
-      },
+      setItem,
       removeItem: (key: string) => {
         values.delete(key)
       },
@@ -394,5 +399,62 @@ describe('persisted state boot (full localStorage)', () => {
       preset: 'cyan',
     })
     expect(values.get(PERSIST_STORAGE_KEY)).toBe(storedV0)
+    expect(setItem).toHaveBeenCalledWith(
+      PERSIST_STORAGE_KEY,
+      expect.any(String),
+    )
+  })
+
+  test('saves the migrated settings on the next action after the preference store also finished hydrating', async () => {
+    // Arrange — a v0 theme on disk; only the first settings write hits a full quota.
+    const storedV0 = JSON.stringify({
+      version: 0,
+      state: {
+        theme: { hue: 195, mode: 'dark', preset: 'cyan', presetType: 'color' },
+      },
+    })
+    const values = new Map<string, string>([[PERSIST_STORAGE_KEY, storedV0]])
+    let rejectNextSettingsWrite = true
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        if (key === PERSIST_STORAGE_KEY && rejectNextSettingsWrite) {
+          rejectNextSettingsWrite = false
+          throw new DOMException('quota', 'QuotaExceededError')
+        }
+        values.set(key, value)
+      },
+      removeItem: (key: string) => {
+        values.delete(key)
+      },
+    })
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.resetModules()
+    const { store } = await import('./store')
+    await vi.waitFor(() => {
+      expect(store.getState().theme.preset).toBe('cyan')
+      expect(store.getState().rendererPreferences.hydrated).toBe(true)
+    })
+
+    // Act — an action that leaves every persisted settings slice unchanged.
+    store.dispatch(setActiveTab('marketplace'))
+
+    // Assert — the second storage instance finishing hydration must not cancel the retry.
+    await vi.waitFor(() => {
+      expect(JSON.parse(values.get(PERSIST_STORAGE_KEY) ?? '{}')).toEqual(
+        expect.objectContaining({
+          version: PERSIST_STATE_VERSION,
+          state: expect.objectContaining({
+            theme: {
+              hue: 195,
+              chroma: 0.16,
+              mode: 'dark',
+              modePreference: 'dark',
+              preset: 'cyan',
+            },
+          }),
+        }),
+      )
+    })
   })
 })
