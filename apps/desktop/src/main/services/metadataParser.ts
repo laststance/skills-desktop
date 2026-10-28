@@ -37,7 +37,8 @@ export async function parseSkillMetadata(
 
 /**
  * Extract YAML frontmatter from markdown content
- * Supports multiline values with | or > syntax
+ * Supports multiline values with | or > syntax, a leading byte order mark,
+ * and Windows (CRLF) line endings, matching what the skills CLI accepts.
  * @param content - Raw markdown content
  * @returns Parsed frontmatter object
  * @example
@@ -45,11 +46,12 @@ export async function parseSkillMetadata(
  * // => { name: 'foo', description: 'Long text' }
  */
 function extractFrontmatter(content: string): Record<string, string> {
-  const match = content.match(/^---\n([\s\S]*?)\n---/)
+  // Optional BOM and CRLF, as in the skills CLI's own frontmatter parser (1.7.2+).
+  const match = content.match(/^\uFEFF?---\r?\n([\s\S]*?)\r?\n---/)
   if (!match) return {}
 
   const yaml = match[1]
-  const lines = yaml.split('\n')
+  const lines = yaml.split(/\r?\n/)
   const result: Record<string, string> = {}
 
   for (let i = 0; i < lines.length; i++) {

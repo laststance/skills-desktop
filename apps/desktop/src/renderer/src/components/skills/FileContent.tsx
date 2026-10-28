@@ -412,12 +412,13 @@ const MarkdownReadingPreview = React.memo(function MarkdownReadingPreview({
 /**
  * Remove leading YAML frontmatter from the Reading Mode body.
  * @param content - Raw Markdown source.
- * @returns Markdown without a leading `---` metadata block.
+ * @returns Markdown without a leading `---` metadata block (a leading BOM is removed with it).
  * @example
  * stripMarkdownFrontmatter('---\nname: demo\n---\n# Demo') // => '# Demo'
  */
 function stripMarkdownFrontmatter(content: string): string {
-  const match = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/.exec(content)
+  // Optional BOM, as the skills CLI accepts (1.7.2+).
+  const match = /^\uFEFF?---\r?\n[\s\S]*?\r?\n---\r?\n?/.exec(content)
   if (!match) return content
   if (!looksLikeYamlFrontmatter(match[0])) return content
   return content.slice(match[0].length).trimStart()
@@ -433,7 +434,7 @@ function stripMarkdownFrontmatter(content: string): string {
  */
 function looksLikeYamlFrontmatter(rawBlock: string): boolean {
   const lines = rawBlock
-    .replace(/^---\r?\n/, '')
+    .replace(/^\uFEFF?---\r?\n/, '')
     .replace(/\r?\n---\r?\n?$/, '')
     .split(/\r?\n/)
 

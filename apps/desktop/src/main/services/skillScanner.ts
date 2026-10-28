@@ -51,7 +51,11 @@ import {
 interface SkillLockEntry {
   /** Repository identifier in GitHub owner/repo form. @example "pbakaus/impeccable" */
   source: RepositoryId
-  /** Source kind tag (free-form string from skills CLI). @example "github" */
+  /**
+   * Source kind tag (free-form string from skills CLI). `local` entries (CLI
+   * 1.7.1+) carry an absolute filesystem path as `source`, not a repository.
+   * @example "github"
+   */
   sourceType: string
   /** Full clone URL to the source repository. */
   sourceUrl: HttpUrl
@@ -289,7 +293,9 @@ export async function scanSkills(): Promise<Skill[]> {
     const dirName = basename(skill.path)
     const lock =
       lockEntries.get(toSkillName(dirName)) ?? lockEntries.get(skill.name)
-    if (lock) {
+    // A local-path install has no repository: leave source unset so the row
+    // reads "Local" and the absolute path never becomes a repository filter.
+    if (lock && lock.sourceType !== 'local') {
       skill.source = repositoryId(lock.source)
       // The lock file is untrusted input — validate the scheme so a
       // `javascript:`/`file:` URL can never reach a rendered anchor behind

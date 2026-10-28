@@ -1098,6 +1098,29 @@ describe('FileContent Markdown modes', () => {
     await expect.element(screen.getByText('Visible body')).toBeInTheDocument()
   })
 
+  test('hides frontmatter saved with a byte order mark in Reading Mode', async () => {
+    // Arrange
+    const { FileContent } = await import('./FileContent')
+    const screen = await render(
+      <FileContent
+        content={makeTextContent({
+          content:
+            '\uFEFF---\nname: bom-skill\ndescription: Saved with a BOM\n---\n# Bom Heading\n\nBom body',
+        })}
+      />,
+    )
+
+    // Act
+    await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
+
+    // Assert
+    await expect
+      .element(screen.getByRole('heading', { name: 'Bom Heading' }))
+      .toBeInTheDocument()
+    await expect.element(screen.getByText('Bom body')).toBeInTheDocument()
+    expect(screen.getByText(/name: bom-skill/).query()).toBeNull()
+  })
+
   test('renders language-less code fences as block code without AST attributes', async () => {
     // Arrange
     const { FileContent } = await import('./FileContent')
