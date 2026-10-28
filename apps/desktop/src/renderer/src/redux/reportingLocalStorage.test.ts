@@ -32,13 +32,50 @@ describe('createReportingLocalStorage', () => {
     const onWriteFailure = vi.fn(() => true)
     const storage = createReportingLocalStorage(onWriteFailure)
 
-    // Act
-    storage.setItem('skills-desktop-state', '{"protect":{"items":["a"]}}')
-    storage.setItem('skills-desktop-state', '{"protect":{"items":["a","b"]}}')
-    storage.setItem('skills-desktop-state', '{"protect":{"items":[]}}')
+    // Act — each rejection still reaches the middleware so it can retry.
+    expect(() =>
+      storage.setItem('skills-desktop-state', '{"protect":{"items":["a"]}}'),
+    ).toThrow('quota')
+    expect(() =>
+      storage.setItem(
+        'skills-desktop-state',
+        '{"protect":{"items":["a","b"]}}',
+      ),
+    ).toThrow('quota')
+    expect(() =>
+      storage.setItem('skills-desktop-state', '{"protect":{"items":[]}}'),
+    ).toThrow('quota')
 
     // Assert
     expect(onWriteFailure).toHaveBeenCalledTimes(1)
+  })
+
+  test('hands a rejected write back to the middleware after warning, so the next action retries it', () => {
+    // Arrange
+    const quotaError = new DOMException('quota', 'QuotaExceededError')
+    vi.stubGlobal('localStorage', {
+      getItem: () => null,
+      setItem: () => {
+        throw quotaError
+      },
+      removeItem: () => {},
+    })
+    const onWriteFailure = vi.fn(() => true)
+    const onWriteSuccess = vi.fn()
+    const storage = createReportingLocalStorage(onWriteFailure, onWriteSuccess)
+
+    // Act
+    let surfaced: unknown = null
+    try {
+      storage.setItem('skills-desktop-state', '{"theme":{"mode":"dark"}}')
+    } catch (error) {
+      surfaced = error
+    }
+
+    // Assert — the original error, reported first and never acknowledged as durable.
+    expect(surfaced).toBe(quotaError)
+    expect(onWriteFailure).toHaveBeenCalledWith(quotaError)
+    expect(onWriteSuccess).toHaveBeenCalledTimes(0)
   })
 
   test('stays silent while localStorage accepts the persisted state', () => {
@@ -118,9 +155,18 @@ describe('createReportingLocalStorage', () => {
     const storage = createReportingLocalStorage(onWriteFailure)
 
     // Act — the hydration migration write, then the first debounced save.
-    storage.setItem('skills-desktop-state', '{"theme":{"mode":"dark"}}')
-    storage.setItem('skills-desktop-state', '{"protect":{"items":["a"]}}')
-    storage.setItem('skills-desktop-state', '{"protect":{"items":["a","b"]}}')
+    expect(() =>
+      storage.setItem('skills-desktop-state', '{"theme":{"mode":"dark"}}'),
+    ).toThrow('quota')
+    expect(() =>
+      storage.setItem('skills-desktop-state', '{"protect":{"items":["a"]}}'),
+    ).toThrow('quota')
+    expect(() =>
+      storage.setItem(
+        'skills-desktop-state',
+        '{"protect":{"items":["a","b"]}}',
+      ),
+    ).toThrow('quota')
 
     // Assert — retried after the undelivered attempt, then latched.
     expect(onWriteFailure).toHaveBeenCalledTimes(2)
@@ -139,8 +185,18 @@ describe('createReportingLocalStorage', () => {
     const secondRun = vi.fn(() => true)
 
     // Act
-    createReportingLocalStorage(firstRun).setItem('skills-desktop-state', '{}')
-    createReportingLocalStorage(secondRun).setItem('skills-desktop-state', '{}')
+    expect(() =>
+      createReportingLocalStorage(firstRun).setItem(
+        'skills-desktop-state',
+        '{}',
+      ),
+    ).toThrow('quota')
+    expect(() =>
+      createReportingLocalStorage(secondRun).setItem(
+        'skills-desktop-state',
+        '{}',
+      ),
+    ).toThrow('quota')
 
     // Assert
     expect(firstRun).toHaveBeenCalledTimes(1)

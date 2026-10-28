@@ -116,8 +116,8 @@ importers:
   apps/desktop:
     dependencies:
       '@laststance/redux-storage-middleware':
-        specifier: 0.4.0
-        version: 0.4.0(@reduxjs/toolkit@2.13.0(react-redux@9.3.0(@types/react@19.3.0)(react@19.3.1)(redux@5.0.1))(react@19.3.1))(react-redux@9.3.0(@types/react@19.3.0)(react@19.3.1)(redux@5.0.1))
+        specifier: 0.5.1
+        version: 0.5.1(@reduxjs/toolkit@2.13.0(react-redux@9.3.0(@types/react@19.3.0)(react@19.3.1)(redux@5.0.1))(react@19.3.1))(react-redux@9.3.0(@types/react@19.3.0)(react@19.3.1)(redux@5.0.1))
       '@orpc/client':
         specifier: 'catalog:'
         version: 1.16.1
@@ -1214,8 +1214,8 @@ packages:
       typescript:
         optional: true
 
-  '@laststance/redux-storage-middleware@0.4.0':
-    resolution: {integrity: sha512-Q8AcqOavdoUJckVbnGkQf9vNzBPOeyorQtPmrbnyzbIM8jvfWOOGsCVwCFoJOf+LrHHgdZ21aDG7Y1QMK/CRPw==}
+  '@laststance/redux-storage-middleware@0.5.1':
+    resolution: {integrity: sha512-mkPMUCuVVJyu0i8jb7oHt9Rq60hQwSlgyr/RH5nDvqhmFF3PUskeFLvuXwzqjqzTL57A1zrpgDcYSMfmWh5wng==}
     peerDependencies:
       '@reduxjs/toolkit': ^2.0.0
       react-redux: ^9.0.0
@@ -6465,7 +6465,7 @@ snapshots:
     optionalDependencies:
       typescript: '@typescript/typescript6@6.0.2'
 
-  '@laststance/redux-storage-middleware@0.4.0(@reduxjs/toolkit@2.13.0(react-redux@9.3.0(@types/react@19.3.0)(react@19.3.1)(redux@5.0.1))(react@19.3.1))(react-redux@9.3.0(@types/react@19.3.0)(react@19.3.1)(redux@5.0.1))':
+  '@laststance/redux-storage-middleware@0.5.1(@reduxjs/toolkit@2.13.0(react-redux@9.3.0(@types/react@19.3.0)(react@19.3.1)(redux@5.0.1))(react@19.3.1))(react-redux@9.3.0(@types/react@19.3.0)(react@19.3.1)(redux@5.0.1))':
     dependencies:
       '@reduxjs/toolkit': 2.13.0(react-redux@9.3.0(@types/react@19.3.0)(react@19.3.1)(redux@5.0.1))(react@19.3.1)
       react-redux: 9.3.0(@types/react@19.3.0)(react@19.3.1)(redux@5.0.1)

@@ -3,14 +3,18 @@ import type { SyncStorage } from '@laststance/redux-storage-middleware'
 /**
  * Wrap `localStorage` so a rejected persist write is reported once instead of vanishing.
  * Exists because the middleware's own adapter swallows every `setItem` throw
- * (`createSafeStorage`, `dist/index.mjs:147-155`) and degrades to a no-op store
- * when `localStorage` is unavailable, so a user whose locked skills, bookmarks
- * and theme have stopped persisting learns about it only after a restart.
+ * (`createSafeStorage`) and degrades to a no-op store when `localStorage` is
+ * unavailable, so a user whose locked skills, bookmarks and theme have stopped
+ * persisting learns about it only after a restart. A rejected write is rethrown
+ * after reporting: the middleware retries a failed save on the next action only
+ * when it sees the throw, and since 0.5.0 a failed migration write-back still
+ * hydrates instead of failing startup.
  * Built once by the store and handed to `createStorageMiddleware`.
  * @param reportWriteFailure - Called on every rejected write until it returns `true`, i.e. until the warning actually reached the user.
  * @param onWriteSuccess - Acknowledges a durable write so preference persistence can release pending edits.
  * @param onReadFailure - Distinguishes denied reads from absent keys when reconciling concurrent preference writes.
- * @returns A {@link SyncStorage} adapter that reads and removes exactly as leniently as the default one.
+ * @returns A {@link SyncStorage} adapter that reads and removes exactly as leniently as the default one, and rethrows rejected writes.
+ * @throws The original `localStorage.setItem` error, after it has been reported.
  * @example
  * createReportingLocalStorage(() => { toast.error('Settings could not be saved'); return true })
  */
@@ -59,8 +63,9 @@ export function createReportingLocalStorage(
           key,
           error,
         )
-        if (reported) return
-        reported = reportWriteFailure(error)
+        if (!reported) reported = reportWriteFailure(error)
+        // Rethrow so the middleware marks the save failed and retries it on the next action.
+        throw error
       }
     },
     removeItem: (key): void => {
