@@ -15,7 +15,7 @@ Read the product and domain notes that apply to your change:
 
 ## Local setup
 
-The app and its E2E suite run on macOS only. Install Node.js 24.20.0 (see [`.node-version`](.node-version)) and the pnpm version pinned in the root `package.json` `packageManager` field. Follow [pnpm's installation guide](https://pnpm.io/installation) or run `corepack enable`.
+The app and its E2E suite run on macOS only. Install Node.js 26.12.1 (see [`.node-version`](.node-version)) and the pnpm version pinned in the root `package.json` `packageManager` field. Follow [pnpm's installation guide](https://pnpm.io/installation) or run `corepack enable`.
 
 ```sh
 pnpm install --frozen-lockfile

@@ -84,7 +84,7 @@ Use **List / Tree** above Installed skills to choose cards or an expandable hier
 ### Prerequisites
 
 - macOS (the app and its E2E suite are macOS-only)
-- Node.js 24 (the exact version is pinned in [`.node-version`](.node-version))
+- Node.js 26 (the exact version is pinned in [`.node-version`](.node-version))
 - pnpm, pinned by the `packageManager` field (`corepack enable` or [pnpm/setup](https://pnpm.io/installation))
 
 ### Setup
