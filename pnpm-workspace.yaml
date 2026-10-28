@@ -8,10 +8,10 @@ catalogMode: strict
 catalog:
   '@typescript/native': npm:typescript@7.0.2
   '@eslint/js': ^10.0.1
-  '@orpc/client': 1.16.0
-  '@orpc/contract': 1.16.0
-  '@orpc/server': 1.16.0
-  '@orpc/tanstack-query': 1.16.0
+  '@orpc/client': 1.16.1
+  '@orpc/contract': 1.16.1
+  '@orpc/server': 1.16.1
+  '@orpc/tanstack-query': 1.16.1
   '@types/node': ^26.6.5
   '@types/react': ^19.3.0
   '@types/react-dom': ^19.3.0
@@ -27,7 +27,7 @@ catalog:
   # Keep the TypeScript 6 JS API at the `typescript` import for ESLint and other tools.
   # @typescript/native provides TypeScript 7's `tsc` binary without a bin conflict.
   typescript: npm:@typescript/typescript6@6.0.2
-  typescript-eslint: ^8.72.0
+  typescript-eslint: ^8.72.1
   vitest: ^5.0.5
   zod: 4.6.7
   '@pierre/trees': 1.0.0-beta.6

@@ -51,10 +51,10 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "fallow": "3.34.1",
+    "fallow": "3.36.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.6.0",
-    "npm-run-all2": "^9.0.3",
+    "npm-run-all2": "^9.0.4",
     "prettier": "catalog:",
     "sherif": "1.13.0"
   },
