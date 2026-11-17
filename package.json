@@ -51,12 +51,12 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "fallow": "3.36.0",
-    "husky": "^9.1.7",
-    "lint-staged": "^17.6.0",
-    "npm-run-all2": "^9.0.4",
+    "fallow": "catalog:",
+    "husky": "catalog:",
+    "lint-staged": "catalog:",
+    "npm-run-all2": "catalog:",
     "prettier": "catalog:",
-    "sherif": "1.13.0"
+    "sherif": "catalog:"
   },
   "lint-staged": {
     "*": "prettier --ignore-unknown --write"

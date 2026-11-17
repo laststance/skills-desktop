@@ -82,4 +82,13 @@ async function handleRequest(request: Request): Promise<Response> {
   return response
 }
 
-export { handleRequest as POST, handleRequest as OPTIONS }
+export { handleRequest as POST }
+
+/** Handles Next's preflight route through the same bounded CORS policy as {@link POST}.
+ * @param request - The browser's preflight request.
+ * @returns The shared handler's CORS response.
+ * @example OPTIONS(new Request('https://skills-desktop.vercel.app/api/rpc', { method: 'OPTIONS' }))
+ */
+export function OPTIONS(request: Request): Promise<Response> {
+  return handleRequest(request)
+}
