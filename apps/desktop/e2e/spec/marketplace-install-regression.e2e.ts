@@ -127,8 +127,12 @@ test('Marketplace Install works when Electron starts with sparse macOS GUI PATH'
     // Install button below still goes through IPC, skillsCliService, and
     // child_process.spawn.
     await dispatchAction(appWindow, {
-      type: 'marketplace/setMarketplaceSearchQuery',
-      payload: 'find-skills',
+      type: 'marketplace/search/pending',
+      meta: {
+        arg: 'find-skills',
+        requestId: 'e2e-marketplace-install-path',
+        requestStatus: 'pending',
+      },
     })
     await dispatchAction(appWindow, {
       type: 'marketplace/search/fulfilled',

@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events'
+import { PassThrough } from 'node:stream'
 
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
@@ -8,13 +9,11 @@ import type { InstallProgress } from '@/shared/types'
 
 /**
  * Fake child process so we can drive stdout/stderr/close from the test.
- * The real `ChildProcess` has ~40 fields we do not touch; the cast is safe
- * because execCli() only consumes `.stdout.on('data')`, `.stderr.on('data')`,
- * `.on('close')`, `.on('error')`, and `.kill()`.
+ * Real byte streams let the tests split a UTF-8 character across writes.
  */
 class FakeChildProcess extends EventEmitter {
-  stdout = new EventEmitter()
-  stderr = new EventEmitter()
+  stdout = new PassThrough()
+  stderr = new PassThrough()
   kill = vi.fn()
 }
 
@@ -57,8 +56,8 @@ function simulateCli({
     if (autoClose) {
       // Defer emission until after execCli finishes attaching listeners
       queueMicrotask(() => {
-        if (stdout) fake.stdout.emit('data', Buffer.from(stdout))
-        if (stderr) fake.stderr.emit('data', Buffer.from(stderr))
+        if (stdout) fake.stdout.write(Buffer.from(stdout))
+        if (stderr) fake.stderr.write(Buffer.from(stderr))
         fake.emit('close', exitCode)
       })
     }
@@ -447,21 +446,145 @@ describe('skillsCliService.search failure handling', () => {
     process.env.PATH = ORIGINAL_PATH
   })
 
-  test('shows no results when the skills CLI exits with an error', async () => {
-    // Arrange — non-zero exit code with stderr exercises both the failure
-    // early-return and the stderr accumulation handler.
+  test.each([
+    { stderr: 'npm error: registry unavailable', exitCode: 1 },
+    {
+      stderr:
+        '--owner requires a GitHub owner\nUsage: npx skills find <query> [--owner <owner>]',
+      exitCode: 0,
+    },
+    { stdout: 'Usage: npx skills find <query> [--owner <owner>]', exitCode: 0 },
+    {
+      stdout: '\u001b[1mUsage:\u001b[0m skills <command> [options]',
+      exitCode: 0,
+    },
+  ])(
+    'reports a failed CLI search without exposing its output ($exitCode)',
+    async (output) => {
+      // Arrange
+      simulateCli(output)
+      const { skillsCliService } = await import('./skillsCliService')
+
+      // Act
+      const search = skillsCliService.search(toSearchQuery('react'))
+
+      // Assert
+      await expect(search).rejects.toThrow(
+        /^The skills CLI could not complete the search\.$/,
+      )
+    },
+  )
+
+  test.each([
+    {
+      stream: 'stderr',
+      stdout: 'No skills found for "react"',
+      stderr: 'Usage: skills <command> [options]',
+    },
+    {
+      stream: 'stdout',
+      stdout: 'Usage: skills <command> [options]\nNo skills found for "react"',
+      stderr: '',
+    },
+  ])(
+    'reports CLI usage on $stream even when stdout ends with an empty result',
+    async ({ stdout, stderr }) => {
+      // Arrange
+      simulateCli({ stdout, stderr, exitCode: 0 })
+      const { skillsCliService } = await import('./skillsCliService')
+
+      // Act
+      const result = skillsCliService.search(toSearchQuery('react'))
+
+      // Assert
+      await expect(result).rejects.toThrow(
+        'The skills CLI could not complete the search.',
+      )
+    },
+  )
+
+  test('keeps a successful CLI no-match response empty even when npm printed a warning', async () => {
+    // Arrange
     simulateCli({
-      stdout: '',
-      stderr: 'network unreachable',
-      exitCode: 1,
+      stdout: 'No skills found for "absent"',
+      stderr: 'npm warn an update is available',
     })
     const { skillsCliService } = await import('./skillsCliService')
 
     // Act
-    const results = await skillsCliService.search(toSearchQuery('react'))
+    const results = await skillsCliService.search(toSearchQuery('absent'))
 
     // Assert
     expect(results).toEqual([])
+  })
+
+  test.each(['\n', '\u2028', '\u2029'])(
+    'keeps an empty result when the CLI echoes usage text inside the query (%j)',
+    async (separator) => {
+      // Arrange
+      const query = toSearchQuery(
+        `example${separator}Usage: skills <command> [options]${separator}text`,
+      )
+      simulateCli({
+        stdout: `\n\u001b[2mNo skills found for "${query}"\u001b[0m\n`,
+        exitCode: 0,
+      })
+      const { skillsCliService } = await import('./skillsCliService')
+
+      // Act
+      const result = skillsCliService.search(query)
+
+      // Assert
+      await expect(result).resolves.toEqual([])
+    },
+  )
+
+  test.each([false, true])(
+    'preserves a split UTF-8 search echo and distinguishes standalone usage (includes usage: %s)',
+    async (hasDiagnostic) => {
+      // Arrange
+      const fake = simulateCli({ autoClose: false })
+      const { skillsCliService } = await import('./skillsCliService')
+      const query = toSearchQuery('猫\nUsage: skills <command> [options]\ntext')
+      const output = Buffer.from(`No skills found for "${query}"`)
+      const splitAt = output.indexOf(Buffer.from('猫')) + 1
+
+      // Act
+      const search = skillsCliService.search(query)
+      if (hasDiagnostic)
+        fake.stdout.write('Usage: skills <command> [options]\n')
+      fake.stdout.write(output.subarray(0, splitAt))
+      fake.stdout.end(output.subarray(splitAt))
+      fake.emit('close', 0)
+
+      // Assert
+      if (hasDiagnostic) {
+        await expect(search).rejects.toThrow(
+          'The skills CLI could not complete the search.',
+        )
+      } else {
+        await expect(search).resolves.toEqual([])
+      }
+    },
+  )
+
+  test('reports CLI usage after a UTF-8 line separator split across stderr writes', async () => {
+    // Arrange
+    const fake = simulateCli({ autoClose: false })
+    const { skillsCliService } = await import('./skillsCliService')
+    const diagnostic = Buffer.from('\u2028Usage: skills <command> [options]')
+
+    // Act
+    const search = skillsCliService.search(toSearchQuery('absent'))
+    fake.stdout.end('No skills found for "absent"')
+    fake.stderr.write(diagnostic.subarray(0, 1))
+    fake.stderr.end(diagnostic.subarray(1))
+    fake.emit('close', 0)
+
+    // Assert
+    await expect(search).rejects.toThrow(
+      'The skills CLI could not complete the search.',
+    )
   })
 
   test('skips a malformed result row whose repo segment has no owner slash', async () => {
@@ -520,7 +643,7 @@ describe('skillsCliService.install failure and progress', () => {
       agents: [],
       skills: [toSkillName('task')],
     })
-    fake.stderr.emit('data', Buffer.from('permission denied'))
+    fake.stderr.write(Buffer.from('permission denied'))
     fake.emit('close', 1)
     await installPromise
 
@@ -577,9 +700,9 @@ describe('skillsCliService.install failure and progress', () => {
       agents: [],
       skills: [toSkillName('task')],
     })
-    fake.stdout.emit('data', Buffer.from('Downloading repository archive'))
-    fake.stdout.emit('data', Buffer.from('Installing skill files now'))
-    fake.stdout.emit('data', Buffer.from('Creating symlink for agent'))
+    fake.stdout.write(Buffer.from('Downloading repository archive'))
+    fake.stdout.write(Buffer.from('Installing skill files now'))
+    fake.stdout.write(Buffer.from('Creating symlink for agent'))
     fake.emit('close', 0)
     await installPromise
 
@@ -613,9 +736,8 @@ describe('skillsCliService.execCli error and timeout paths', () => {
     process.env.PATH = ORIGINAL_PATH
   })
 
-  test('returns no results when spawning npx itself fails', async () => {
-    // Arrange — the spawn `error` event (e.g. npx missing on PATH) resolves
-    // the command as a failure, so search() yields an empty list.
+  test('reports a failed search when spawning npx itself fails', async () => {
+    // Arrange
     vi.useRealTimers()
     const fake = simulateCli({ autoClose: false })
     const { skillsCliService } = await import('./skillsCliService')
@@ -623,15 +745,16 @@ describe('skillsCliService.execCli error and timeout paths', () => {
     // Act
     const searchPromise = skillsCliService.search(toSearchQuery('react'))
     fake.emit('error', new Error('spawn npx ENOENT'))
-    const results = await searchPromise
 
     // Assert
-    expect(results).toEqual([])
+    await expect(searchPromise).rejects.toThrow(
+      'The skills CLI could not complete the search.',
+    )
   })
 
   test('ignores a late close event after the process already errored out', async () => {
     // Arrange — once finalize() has settled on the error path, a trailing
-    // close must be a no-op (the settled guard), and the search still resolves.
+    // close must be a no-op, preserving the initial failure.
     vi.useRealTimers()
     const fake = simulateCli({ autoClose: false })
     const { skillsCliService } = await import('./skillsCliService')
@@ -640,10 +763,11 @@ describe('skillsCliService.execCli error and timeout paths', () => {
     const searchPromise = skillsCliService.search(toSearchQuery('react'))
     fake.emit('error', new Error('spawn npx ENOENT'))
     fake.emit('close', 0)
-    const results = await searchPromise
 
     // Assert — the second finalize was ignored; the error result stands.
-    expect(results).toEqual([])
+    await expect(searchPromise).rejects.toThrow(
+      'The skills CLI could not complete the search.',
+    )
   })
 
   test('aborts the CLI command and reports a timeout when npx hangs past the limit', async () => {
@@ -661,11 +785,11 @@ describe('skillsCliService.execCli error and timeout paths', () => {
     await vi.advanceTimersByTimeAsync(PAST_SPAWN_TIMEOUT_MS)
     // The kill only asks; the result waits for the child to actually go.
     fake.emit('close', null)
-    const results = await searchPromise
 
-    // Assert — search swallows the failure into an empty list, and the child
-    // was sent the kill signal by the timeout handler.
-    expect(results).toEqual([])
+    // Assert
+    await expect(searchPromise).rejects.toThrow(
+      'CLI command timed out after 60s',
+    )
     expect(fake.kill).toHaveBeenCalledWith('SIGTERM')
   })
 })

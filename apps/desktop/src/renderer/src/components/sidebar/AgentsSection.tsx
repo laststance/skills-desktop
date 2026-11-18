@@ -88,7 +88,11 @@ export const AgentsSection = function AgentsSection(): React.ReactElement {
       ) : (
         <div className="space-y-1">
           {visibleInstalled.map((agent) => (
-            <AgentItem key={agent.id} agent={agent} />
+            <AgentItem
+              key={agent.id}
+              agent={agent}
+              focusFallbackRef={headingRef}
+            />
           ))}
         </div>
       )}
@@ -101,7 +105,11 @@ export const AgentsSection = function AgentsSection(): React.ReactElement {
             </summary>
             <div className="mt-2 space-y-1">
               {hiddenInstalled.map((agent) => (
-                <AgentItem key={agent.id} agent={agent} />
+                <AgentItem
+                  key={agent.id}
+                  agent={agent}
+                  focusFallbackRef={headingRef}
+                />
               ))}
             </div>
           </details>

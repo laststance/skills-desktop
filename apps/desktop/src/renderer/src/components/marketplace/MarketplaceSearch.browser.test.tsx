@@ -12,13 +12,6 @@ import {
 } from '@/shared/types'
 import type { SkillSearchResult } from '@/shared/types'
 
-// The unit tests cover the debounce primitive and the reducer's latest-wins
-// guard in isolation. This file is the only place the *composed* incremental
-// search runs end to end: a real keystroke → handleChange → debounced run →
-// runSearch's commit+dispatch → the IPC `search` call → results in the store.
-// It guards the wiring the lint-forced callback pivot moved into the component,
-// which nothing else exercises.
-
 const mockSearch = vi.fn()
 
 beforeEach(() => {
@@ -111,7 +104,9 @@ describe('MarketplaceSearch — incremental search', () => {
     await input.fill('')
 
     // Assert — results cleared, query reset, panel back to its idle state.
-    await expect.poll(() => store.getState().marketplace.status).toBe('idle')
+    await expect
+      .poll(() => store.getState().marketplace.search.status)
+      .toBe('idle')
     expect(store.getState().marketplace.searchResults).toEqual([])
     expect(store.getState().marketplace.searchQuery).toBe('')
   })

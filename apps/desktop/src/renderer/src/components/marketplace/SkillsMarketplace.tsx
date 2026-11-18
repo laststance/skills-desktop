@@ -6,6 +6,7 @@ import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import { loadLeaderboard } from '@/renderer/src/redux/slices/marketplaceSlice'
 import type { RankingFilter } from '@/shared/types'
 
+import { formatSearchResultsHeading } from './formatSearchResultsHeading'
 import { LeaderboardSkeleton } from './LeaderboardSkeleton'
 import { MarketplaceSearch } from './MarketplaceSearch'
 import { RankingTabs } from './RankingTabs'
@@ -47,7 +48,7 @@ export const SkillsMarketplace =
     const [rankingFilter, setRankingFilter] =
       useState<RankingFilter>('all-time')
 
-    const { searchResults, status, searchQuery, error, leaderboard } =
+    const { searchResults, search, searchQuery, error, leaderboard } =
       useAppSelector((state) => state.marketplace)
     const { items: installedSkills } = useAppSelector((state) => state.skills)
 
@@ -55,7 +56,7 @@ export const SkillsMarketplace =
     const installedSkillNames = new Set(installedSkills.map((s) => s.name))
 
     const hasSearched = searchQuery.length > 0
-    const isSearching = status === 'searching'
+    const isSearching = search.status === 'pending'
 
     // Current leaderboard data for active filter
     const currentLeaderboard = leaderboard[rankingFilter]
@@ -92,9 +93,15 @@ export const SkillsMarketplace =
           <MarketplaceSearch />
         </div>
 
-        {error && (
-          <div className="mx-6 mb-4 px-4 py-2 bg-destructive/10 border border-destructive/20 rounded-md">
-            <p className="text-sm text-destructive">{error}</p>
+        {(error || search.status === 'error') && (
+          <div
+            role="alert"
+            className="mx-6 mb-4 px-4 py-2 bg-destructive/10 border border-destructive/20 rounded-md text-sm text-destructive"
+          >
+            {error && <p>{error}</p>}
+            {search.status === 'error' && (
+              <p>Marketplace search failed. Try again.</p>
+            )}
           </div>
         )}
 
@@ -116,7 +123,7 @@ export const SkillsMarketplace =
                   </div>
                 )}
 
-                {!isSearching && searchResults.length === 0 && (
+                {search.status === 'idle' && searchResults.length === 0 && (
                   <div className="flex flex-col items-center justify-center py-16 text-center">
                     <p className="text-muted-foreground">
                       No skills found for &quot;{searchQuery}&quot;
@@ -130,10 +137,11 @@ export const SkillsMarketplace =
                 {searchResults.length > 0 && (
                   <div className="flex flex-col gap-2">
                     <p className="text-sm text-muted-foreground mb-3">
-                      Found {searchResults.length} skill
-                      {searchResults.length !== 1 ? 's' : ''} for &quot;
-                      {searchQuery}
-                      &quot;
+                      {formatSearchResultsHeading(
+                        isSearching,
+                        searchQuery,
+                        searchResults.length,
+                      )}
                     </p>
                     {searchResults.map((skill) => (
                       <SkillRowMarketplace

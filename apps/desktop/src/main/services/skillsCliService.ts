@@ -157,16 +157,31 @@ class SkillsCliService extends EventEmitter {
    * Search for skills using `npx skills find <query>`
    * @param query - Search query string
    * @returns Array of matching skills
+   * @throws When the CLI fails or prints usage instead of running the search.
    * @example
    * search('react')
    * // => [{ rank: 1, name: 'vercel-react-best-practices', repo: 'vercel-labs/agent-skills', url: '...' }]
    */
   async search(query: SearchQuery): Promise<SkillSearchResult[]> {
     const result = await this.execCli(['find', query])
-    if (!result.success) {
-      return []
+    // A timeout message is generated locally. Other CLI diagnostics can contain private paths.
+    if (result.timedOut) throw new Error(result.stderr)
+    const output = stripAnsi(result.stdout).trimEnd()
+    const noMatches = `No skills found for "${stripAnsi(query)}"`
+    // Remove only the CLI's echoed query so real usage diagnostics on either stream still count.
+    const stdout = output.endsWith(noMatches)
+      ? output.slice(0, -noMatches.length)
+      : output
+    // skills@1.7.4 prints usage and exits zero when it interprets the query as a CLI option.
+    if (
+      !result.success ||
+      /^Usage: (?:npx skills find |skills <command> \[options\]$)/m.test(
+        stdout + '\n' + stripAnsi(result.stderr),
+      )
+    ) {
+      throw new Error('The skills CLI could not complete the search.')
     }
-    return this.parseSearchOutput(result.stdout)
+    return this.parseSearchOutput(stdout)
   }
 
   /**
@@ -365,14 +380,14 @@ class SkillsCliService extends EventEmitter {
         }, KILL_GRACE_MS)
       }, timeoutMs)
 
-      proc.stdout?.on('data', (data: Buffer) => {
-        const text = data.toString()
+      // Preserve characters split across pipe writes before parsing or forwarding CLI output.
+      proc.stdout?.setEncoding('utf8').on('data', (text: string) => {
         stdout += text
         onOutput?.(text)
       })
 
-      proc.stderr?.on('data', (data: Buffer) => {
-        stderr += data.toString()
+      proc.stderr?.setEncoding('utf8').on('data', (text: string) => {
+        stderr += text
       })
 
       proc.on('close', (code) => {
@@ -420,14 +435,12 @@ class SkillsCliService extends EventEmitter {
    * vercel-labs/agent-skills@vercel-react-best-practices 402.7K installs
    * └ https://skills.sh/vercel-labs/agent-skills/vercel-react-best-practices
    * ```
-   * @param output - Raw CLI output
+   * @param output - CLI output with ANSI formatting removed
    * @returns Parsed search results
    */
   private parseSearchOutput(output: string): SkillSearchResult[] {
     const results: SkillSearchResult[] = []
-    // Strip ANSI codes and split into lines
-    const cleanOutput = stripAnsi(output)
-    const lines = cleanOutput.split('\n').filter((line) => line.trim())
+    const lines = output.split('\n').filter((line) => line.trim())
 
     let rank = 1
     for (let i = 0; i < lines.length; i++) {

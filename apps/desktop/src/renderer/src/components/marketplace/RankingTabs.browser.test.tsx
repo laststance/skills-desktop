@@ -1,5 +1,9 @@
+import { useState } from 'react'
 import { describe, expect, test, vi } from 'vitest'
+import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
+
+import type { RankingFilter } from '@/shared/types'
 
 import { RankingTabs } from './RankingTabs'
 
@@ -50,50 +54,40 @@ describe('RankingTabs — ranking filter selection', () => {
     expect(handleChange).toHaveBeenCalledWith('hot')
   })
 
-  test('advances to the next tab when the right arrow key is pressed', async () => {
-    // Arrange
-    const handleChange = vi.fn()
-    const screen = await render(
-      <RankingTabs value="all-time" onChange={handleChange} />,
-    )
-    const activeTab = screen.getByRole('tab', { name: 'All Time' }).element()
+  test.each([
+    {
+      initial: 'all-time',
+      from: 'All Time',
+      arrow: 'ArrowRight',
+      to: 'Trending',
+    },
+    { initial: 'hot', from: 'Hot', arrow: 'ArrowRight', to: 'All Time' },
+    { initial: 'all-time', from: 'All Time', arrow: 'ArrowLeft', to: 'Hot' },
+  ] as const)(
+    '$arrow on $from keeps $to focused and selected after Enter',
+    async ({ initial, from, arrow, to }) => {
+      // Arrange
+      function ControlledRankingTabs() {
+        const [value, setValue] = useState<RankingFilter>(initial)
+        return (
+          <RankingTabs value={value} onChange={(filter) => setValue(filter)} />
+        )
+      }
+      const screen = await render(<ControlledRankingTabs />)
+      screen.getByRole('tab', { name: from }).element().focus()
+      const destination = screen.getByRole('tab', { name: to })
 
-    // Act — right arrow moves selection from 'all-time' to 'trending'.
-    pressKeyOn('ArrowRight', activeTab)
+      // Act
+      await userEvent.keyboard(`{${arrow}}`)
 
-    // Assert
-    expect(handleChange).toHaveBeenCalledWith('trending')
-  })
-
-  test('wraps to the first tab when the right arrow is pressed on the last tab', async () => {
-    // Arrange
-    const handleChange = vi.fn()
-    const screen = await render(
-      <RankingTabs value="hot" onChange={handleChange} />,
-    )
-    const activeTab = screen.getByRole('tab', { name: 'Hot' }).element()
-
-    // Act — right arrow on the last tab ('hot') wraps to the first ('all-time').
-    pressKeyOn('ArrowRight', activeTab)
-
-    // Assert
-    expect(handleChange).toHaveBeenCalledWith('all-time')
-  })
-
-  test('wraps to the last tab when the left arrow is pressed on the first tab', async () => {
-    // Arrange
-    const handleChange = vi.fn()
-    const screen = await render(
-      <RankingTabs value="all-time" onChange={handleChange} />,
-    )
-    const activeTab = screen.getByRole('tab', { name: 'All Time' }).element()
-
-    // Act — left arrow on the first tab ('all-time') wraps to the last ('hot').
-    pressKeyOn('ArrowLeft', activeTab)
-
-    // Assert
-    expect(handleChange).toHaveBeenCalledWith('hot')
-  })
+      // Assert
+      await expect.element(destination).toHaveFocus()
+      await expect.element(destination).toHaveAttribute('aria-selected', 'true')
+      await userEvent.keyboard('{Enter}')
+      await expect.element(destination).toHaveFocus()
+      await expect.element(destination).toHaveAttribute('aria-selected', 'true')
+    },
+  )
 
   test('ignores non-arrow keys so unrelated typing never changes the filter', async () => {
     // Arrange
@@ -104,7 +98,7 @@ describe('RankingTabs — ranking filter selection', () => {
     const activeTab = screen.getByRole('tab', { name: 'All Time' }).element()
 
     // Act — a key that is neither ArrowLeft nor ArrowRight.
-    pressKeyOn('Enter', activeTab)
+    pressKeyOn('q', activeTab)
 
     // Assert
     expect(handleChange).not.toHaveBeenCalled()

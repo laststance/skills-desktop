@@ -79,6 +79,7 @@ async function renderLeaderboard(
       ? {
           marketplace: {
             status: 'idle' as const,
+            search: { status: 'idle' as const },
             searchQuery: toSearchQuery(''),
             searchResults: [],
             selectedSkill: null,

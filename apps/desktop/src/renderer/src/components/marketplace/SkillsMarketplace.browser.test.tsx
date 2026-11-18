@@ -95,6 +95,7 @@ function makeLeaderboardData(
 async function renderMarketplace(preloadedState: {
   marketplace?: {
     status?: MarketplaceStatus
+    search?: RootState['marketplace']['search']
     searchQuery?: SearchQuery
     searchResults?: SkillSearchResult[]
     error?: string | null
@@ -118,6 +119,7 @@ async function renderMarketplace(preloadedState: {
     preloadedState: {
       marketplace: {
         status: 'idle',
+        search: { status: 'idle' as const },
         searchQuery: toSearchQuery(''),
         searchResults: [],
         selectedSkill: null,
@@ -375,7 +377,7 @@ describe('SkillsMarketplace — search results view', () => {
     // Act
     const { screen } = await renderMarketplace({
       marketplace: {
-        status: 'searching',
+        search: { status: 'pending', requestId: 'first-search' },
         searchQuery: toSearchQuery('react'),
         searchResults: [],
       },
@@ -400,6 +402,55 @@ describe('SkillsMarketplace — search results view', () => {
     await expect
       .element(screen.getByText('No skills found for "nonexistent"'))
       .toBeInTheDocument()
+  })
+
+  test('keeps the previous rows while searching, then replaces them with a readable search failure', async () => {
+    // Arrange
+    let rejectSearch!: (error: Error) => void
+    vi.mocked(window.electron.skillsCli.search).mockReturnValueOnce(
+      new Promise((_resolve, reject) => {
+        rejectSearch = reject
+      }),
+    )
+    const { screen } = await renderMarketplace({
+      marketplace: {
+        searchQuery: toSearchQuery('task'),
+        searchResults: [makeSearchResult()],
+      },
+    })
+
+    // Act — type through the real debounce and keep the old row while the CLI runs.
+    await screen.getByRole('searchbox').fill('next')
+    await expect
+      .poll(() => vi.mocked(window.electron.skillsCli.search).mock.calls.length)
+      .toBe(1)
+    await expect
+      .element(
+        screen.getByText('Showing previous results while searching for "next"'),
+      )
+      .toBeVisible()
+    await expect
+      .element(screen.getByText('task', { exact: true }))
+      .toBeVisible()
+    rejectSearch(
+      new Error(
+        "Error invoking remote method 'skills:cli:search': Error: private CLI details",
+      ),
+    )
+
+    // Assert
+    await expect
+      .element(screen.getByText('Marketplace search failed. Try again.'))
+      .toBeVisible()
+    expect(
+      screen.getByText('private CLI details', { exact: false }).all(),
+    ).toHaveLength(0)
+    expect(
+      screen.getByText('No skills found for', { exact: false }).all(),
+    ).toHaveLength(0)
+    expect(
+      screen.getByRole('button', { name: 'Install', exact: true }).all(),
+    ).toHaveLength(0)
   })
 
   test('lists each matching skill with a plural count when a search returns results', async () => {
@@ -504,11 +555,11 @@ describe('SkillsMarketplace — error banner', () => {
     const { screen } = await renderMarketplace({
       marketplace: {
         status: 'error',
-        error: 'Search failed',
+        error: 'Installation failed',
       },
     })
 
     // Assert
-    await expect.element(screen.getByText('Search failed')).toBeInTheDocument()
+    await expect.element(screen.getByText('Installation failed')).toBeVisible()
   })
 })

@@ -114,6 +114,7 @@ async function renderDashboard(preloadedState: {
     preloadedState: {
       marketplace: {
         status: 'idle',
+        search: { status: 'idle' as const },
         searchQuery: toSearchQuery(''),
         searchResults: [],
         selectedSkill: null,
