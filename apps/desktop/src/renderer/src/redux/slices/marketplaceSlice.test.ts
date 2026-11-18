@@ -46,6 +46,38 @@ describe('marketplaceSlice', () => {
     vi.resetAllMocks()
   })
 
+  test.each(['success', 'failure'])(
+    'keeps the new results when a cleared and retyped query gets a late %s',
+    async (outcome) => {
+      // Arrange
+      let resolveOld!: (rows: SkillSearchResult[]) => void
+      let rejectOld!: (error: Error) => void
+      const old = new Promise<SkillSearchResult[]>((resolve, reject) => {
+        resolveOld = resolve
+        rejectOld = reject
+      })
+      mockSearch.mockReturnValueOnce(old).mockResolvedValueOnce([sampleResult])
+      const store = await createTestStore()
+      const { clearSearchResults, searchSkills, setMarketplaceSearchQuery } =
+        await import('./marketplaceSlice')
+      const query = toSearchQuery('task')
+      store.dispatch(setMarketplaceSearchQuery(query))
+      const first = store.dispatch(searchSkills(query))
+      store.dispatch(clearSearchResults())
+      store.dispatch(setMarketplaceSearchQuery(query))
+      await store.dispatch(searchSkills(query))
+
+      // Act
+      if (outcome === 'success') resolveOld([])
+      else rejectOld(new Error('stale CLI failure'))
+      await first
+
+      // Assert
+      expect(store.getState().marketplace.searchResults).toEqual([sampleResult])
+      expect(store.getState().marketplace.error).toBeNull()
+    },
+  )
+
   test('opens the Marketplace tab on a clean, idle search panel', async () => {
     // Arrange
     const store = await createTestStore()

@@ -447,18 +447,41 @@ describe('skillsCliService.search failure handling', () => {
     process.env.PATH = ORIGINAL_PATH
   })
 
-  test('shows no results when the skills CLI exits with an error', async () => {
-    // Arrange — non-zero exit code with stderr exercises both the failure
-    // early-return and the stderr accumulation handler.
+  test.each([
+    { stderr: 'npm error: registry unavailable', exitCode: 1 },
+    {
+      stderr:
+        '--owner requires a GitHub owner\nUsage: npx skills find <query> [--owner <owner>]',
+      exitCode: 0,
+    },
+    { stdout: 'Usage: npx skills find <query> [--owner <owner>]', exitCode: 0 },
+  ])(
+    'reports a failed CLI search without exposing its output ($exitCode)',
+    async (output) => {
+      // Arrange
+      simulateCli(output)
+      const { skillsCliService } = await import('./skillsCliService')
+
+      // Act
+      const search = skillsCliService.search(toSearchQuery('react'))
+
+      // Assert
+      await expect(search).rejects.toThrow(
+        /^The skills CLI could not complete the search\.$/,
+      )
+    },
+  )
+
+  test('keeps a successful CLI no-match response empty even when npm printed a warning', async () => {
+    // Arrange
     simulateCli({
-      stdout: '',
-      stderr: 'network unreachable',
-      exitCode: 1,
+      stdout: 'No skills found for "absent"',
+      stderr: 'npm warn an update is available',
     })
     const { skillsCliService } = await import('./skillsCliService')
 
     // Act
-    const results = await skillsCliService.search(toSearchQuery('react'))
+    const results = await skillsCliService.search(toSearchQuery('absent'))
 
     // Assert
     expect(results).toEqual([])
@@ -613,9 +636,8 @@ describe('skillsCliService.execCli error and timeout paths', () => {
     process.env.PATH = ORIGINAL_PATH
   })
 
-  test('returns no results when spawning npx itself fails', async () => {
-    // Arrange — the spawn `error` event (e.g. npx missing on PATH) resolves
-    // the command as a failure, so search() yields an empty list.
+  test('reports a failed search when spawning npx itself fails', async () => {
+    // Arrange
     vi.useRealTimers()
     const fake = simulateCli({ autoClose: false })
     const { skillsCliService } = await import('./skillsCliService')
@@ -623,15 +645,16 @@ describe('skillsCliService.execCli error and timeout paths', () => {
     // Act
     const searchPromise = skillsCliService.search(toSearchQuery('react'))
     fake.emit('error', new Error('spawn npx ENOENT'))
-    const results = await searchPromise
 
     // Assert
-    expect(results).toEqual([])
+    await expect(searchPromise).rejects.toThrow(
+      'The skills CLI could not complete the search.',
+    )
   })
 
   test('ignores a late close event after the process already errored out', async () => {
     // Arrange — once finalize() has settled on the error path, a trailing
-    // close must be a no-op (the settled guard), and the search still resolves.
+    // close must be a no-op, preserving the initial failure.
     vi.useRealTimers()
     const fake = simulateCli({ autoClose: false })
     const { skillsCliService } = await import('./skillsCliService')
@@ -640,10 +663,11 @@ describe('skillsCliService.execCli error and timeout paths', () => {
     const searchPromise = skillsCliService.search(toSearchQuery('react'))
     fake.emit('error', new Error('spawn npx ENOENT'))
     fake.emit('close', 0)
-    const results = await searchPromise
 
     // Assert — the second finalize was ignored; the error result stands.
-    expect(results).toEqual([])
+    await expect(searchPromise).rejects.toThrow(
+      'The skills CLI could not complete the search.',
+    )
   })
 
   test('aborts the CLI command and reports a timeout when npx hangs past the limit', async () => {
@@ -661,11 +685,11 @@ describe('skillsCliService.execCli error and timeout paths', () => {
     await vi.advanceTimersByTimeAsync(PAST_SPAWN_TIMEOUT_MS)
     // The kill only asks; the result waits for the child to actually go.
     fake.emit('close', null)
-    const results = await searchPromise
 
-    // Assert — search swallows the failure into an empty list, and the child
-    // was sent the kill signal by the timeout handler.
-    expect(results).toEqual([])
+    // Assert
+    await expect(searchPromise).rejects.toThrow(
+      'CLI command timed out after 60s',
+    )
     expect(fake.kill).toHaveBeenCalledWith('SIGTERM')
   })
 })

@@ -3,6 +3,7 @@ import { Provider } from 'react-redux'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
+import '@/renderer/src/styles/globals.css'
 import type { RepositoryId, SkillSearchResult } from '@/shared/types'
 import {
   toHttpUrl,
@@ -83,6 +84,46 @@ async function renderRow(skill: SkillSearchResult, isInstalled: boolean) {
   )
   return { screen, store }
 }
+
+describe('Marketplace results in compact windows', () => {
+  // The three-pane layout gives each row 216px at 800px and 266px at 900px.
+  test.each([
+    { width: 216, installed: true },
+    { width: 266, installed: false },
+  ])(
+    'keeps the skill, repository and actions visible in a $width px row',
+    async ({ width, installed }) => {
+      // Arrange
+      const skill = makeSkill({ name: toSkillName('find-skills') })
+      const { screen } = await renderRow(skill, installed)
+
+      // Act
+      screen.container.style.width = `${width}px`
+
+      // Assert
+      const row = screen.container.getBoundingClientRect()
+      for (const label of ['find-skills', 'vercel-labs/skills']) {
+        const text = screen.getByText(label, { exact: true })
+        await expect.element(text).toBeVisible()
+        expect(text.element().scrollWidth).toBe(text.element().clientWidth)
+        expect(text.element().scrollHeight).toBe(text.element().clientHeight)
+      }
+      const action = installed
+        ? screen.getByRole('img', { name: /find-skills is installed/ })
+        : screen.getByRole('button', { name: 'Install', exact: true })
+      for (const item of [
+        screen.getByRole('button', { name: 'Bookmark find-skills' }),
+        screen.getByText('100', { exact: true }),
+        action,
+      ]) {
+        await expect.element(item).toBeVisible()
+        const box = item.element().getBoundingClientRect()
+        expect(box.left).toBeGreaterThanOrEqual(row.left)
+        expect(box.right).toBeLessThanOrEqual(row.right)
+      }
+    },
+  )
+})
 
 /**
  * Regression boundary for the "remove uninstall action from installed skills"

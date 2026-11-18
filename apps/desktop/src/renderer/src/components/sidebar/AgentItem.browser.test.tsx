@@ -1,6 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
@@ -271,6 +272,46 @@ describe('Sidebar → AgentItem context menu', () => {
 })
 
 describe('Sidebar → AgentItem navigation', () => {
+  test.each([
+    ['Enter', '{Enter}'],
+    ['Space', '[Space]'],
+  ])('%s toggles the focused agent filter', async (_key, keystroke) => {
+    // Arrange
+    const { screen, store } = await renderItem()
+    const agent = screen.getByRole('button', {
+      name: /Filter skills by Claude Code/i,
+    })
+    agent.element().focus()
+
+    // Act
+    await userEvent.keyboard(keystroke)
+
+    // Assert
+    expect(store.getState().ui.selectedAgentId).toBe('claude-code')
+    await userEvent.keyboard(keystroke)
+    expect(store.getState().ui.selectedAgentId).toBeNull()
+  })
+
+  test('Shift+F10 opens agent actions without changing the filter and Escape restores focus', async () => {
+    // Arrange
+    const { screen, store } = await renderItem()
+    const agent = screen.getByRole('button', {
+      name: /Filter skills by Claude Code/i,
+    })
+    agent.element().focus()
+
+    // Act
+    await userEvent.keyboard('{Shift>}{F10}{/Shift}')
+
+    // Assert
+    await expect
+      .element(screen.getByRole('menuitem', { name: 'Reveal in Finder' }))
+      .toHaveFocus()
+    expect(store.getState().ui.selectedAgentId).toBeNull()
+    await userEvent.keyboard('{Escape}')
+    await expect.element(agent).toHaveFocus()
+  })
+
   test('switches Marketplace back to Installed and selects the agent when clicked', async () => {
     // Arrange
     const { screen, store } = await renderItem([])
