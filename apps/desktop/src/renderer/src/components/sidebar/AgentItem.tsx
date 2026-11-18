@@ -99,10 +99,22 @@ export const AgentItem = function AgentItem({
     dispatch(selectAgent(isSelected ? null : agent.id))
   }
 
-  const handleContextMenu = (e: React.MouseEvent): void => {
+  const handleContextMenu = (e: React.SyntheticEvent): void => {
     e.preventDefault()
     if (!agent.exists) return
     setContextOpen(true)
+  }
+
+  const handleKeyDownCapture = (event: React.KeyboardEvent): void => {
+    // Let the button generate its native click before Radix can cancel it.
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.stopPropagation()
+    } else if (
+      event.key === 'ContextMenu' ||
+      (event.shiftKey && event.key === 'F10')
+    ) {
+      handleContextMenu(event)
+    }
   }
 
   const handleContextOpenChange = (open: boolean): void => {
@@ -160,6 +172,7 @@ export const AgentItem = function AgentItem({
                 isSelected && 'border-l-primary bg-primary/10',
               )}
               onClick={handleClick}
+              onKeyDownCapture={handleKeyDownCapture}
               onContextMenu={handleContextMenu}
             >
               <span

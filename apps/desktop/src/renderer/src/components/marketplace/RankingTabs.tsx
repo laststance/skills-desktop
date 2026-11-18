@@ -28,19 +28,19 @@ export const RankingTabs = function RankingTabs({
   onChange,
   disabled = false,
 }: RankingTabsProps): React.ReactElement {
-  /** Arrow key navigation: Left/Right cycle between tabs */
-  function handleKeyDown(e: React.KeyboardEvent): void {
-    if (disabled) return
-    const currentIndex = tabs.findIndex((t) => t.id === value)
-    if (e.key === 'ArrowRight') {
-      e.preventDefault()
-      const next = tabs[(currentIndex + 1) % tabs.length]
-      onChange(next.id)
-    } else if (e.key === 'ArrowLeft') {
-      e.preventDefault()
-      const prev = tabs[(currentIndex - 1 + tabs.length) % tabs.length]
-      onChange(prev.id)
-    }
+  function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>): void {
+    if (disabled || (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight'))
+      return
+
+    event.preventDefault()
+    const currentIndex = tabs.findIndex((tab) => tab.id === value)
+    const direction = event.key === 'ArrowRight' ? 1 : -1
+    const nextIndex = (currentIndex + direction + tabs.length) % tabs.length
+    onChange(tabs[nextIndex].id)
+    // Enter and Space activate whichever button has DOM focus.
+    event.currentTarget
+      .querySelectorAll<HTMLButtonElement>('[role="tab"]')
+      [nextIndex].focus()
   }
 
   return (
