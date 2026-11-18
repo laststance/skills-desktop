@@ -330,6 +330,45 @@ describe('marketplaceSlice', () => {
     },
   )
 
+  test.each(['success', 'failure'])(
+    'keeps a retyped search pending when the original request reports %s',
+    async (outcome) => {
+      // Arrange
+      const store = await createTestStore()
+      const { clearSearchResults, searchSkills } =
+        await import('./marketplaceSlice')
+      const query = toSearchQuery('task')
+      store.dispatch(searchSkills.pending('original', query))
+      store.dispatch(clearSearchResults())
+      store.dispatch(searchSkills.pending('retyped', query))
+
+      // Act — the original CLI request finishes while the retyped one is still running.
+      const obsoleteResponse =
+        outcome === 'success'
+          ? searchSkills.fulfilled([sampleResult], 'original', query)
+          : searchSkills.rejected(
+              new Error('Old search failed'),
+              'original',
+              query,
+            )
+      store.dispatch(obsoleteResponse)
+
+      // Assert
+      expect(store.getState().marketplace.search.status).toBe('pending')
+      expect(store.getState().marketplace.searchResults).toEqual([])
+      expect(store.getState().marketplace.error).toBeNull()
+
+      // Act — the retyped search finishes with a different result.
+      const latestResult = { ...sampleResult, name: toSkillName('task-runner') }
+      store.dispatch(searchSkills.fulfilled([latestResult], 'retyped', query))
+
+      // Assert
+      expect(store.getState().marketplace.search.status).toBe('idle')
+      expect(store.getState().marketplace.searchResults).toEqual([latestResult])
+      expect(store.getState().marketplace.error).toBeNull()
+    },
+  )
+
   test('keeps an installation failure visible across a later search and clear', async () => {
     // Arrange
     const store = await createTestStore()

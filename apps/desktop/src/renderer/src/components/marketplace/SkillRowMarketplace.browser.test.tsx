@@ -101,7 +101,14 @@ describe('Marketplace results in compact windows', () => {
       screen.container.style.width = `${width}px`
 
       // Assert
-      const row = screen.container.getBoundingClientRect()
+      const preview = screen
+        .getByRole('button', { name: /find-skills vercel-labs/ })
+        .element()
+      const rowElement = preview.parentElement
+      if (!rowElement)
+        throw new Error('Expected a Marketplace row around the preview button')
+      const row = rowElement.getBoundingClientRect()
+      const previewBottom = preview.getBoundingClientRect().bottom
       for (const label of ['find-skills', 'vercel-labs/skills']) {
         const text = screen.getByText(label, { exact: true })
         await expect.element(text).toBeVisible()
@@ -118,6 +125,7 @@ describe('Marketplace results in compact windows', () => {
       ]) {
         await expect.element(item).toBeVisible()
         const box = item.element().getBoundingClientRect()
+        expect(box.top).toBeGreaterThanOrEqual(previewBottom)
         expect(box.left).toBeGreaterThanOrEqual(row.left)
         expect(box.right).toBeLessThanOrEqual(row.right)
       }

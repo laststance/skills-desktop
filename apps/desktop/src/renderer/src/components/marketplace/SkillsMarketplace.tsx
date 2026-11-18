@@ -136,10 +136,9 @@ export const SkillsMarketplace =
                 {searchResults.length > 0 && (
                   <div className="flex flex-col gap-2">
                     <p className="text-sm text-muted-foreground mb-3">
-                      Found {searchResults.length} skill
-                      {searchResults.length !== 1 ? 's' : ''} for &quot;
-                      {searchQuery}
-                      &quot;
+                      {isSearching
+                        ? `Showing previous results while searching for "${searchQuery}"`
+                        : `Found ${searchResults.length} skill${searchResults.length !== 1 ? 's' : ''} for "${searchQuery}"`}
                     </p>
                     {searchResults.map((skill) => (
                       <SkillRowMarketplace

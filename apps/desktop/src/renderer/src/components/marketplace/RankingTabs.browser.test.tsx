@@ -84,6 +84,7 @@ describe('RankingTabs — ranking filter selection', () => {
       await expect.element(destination).toHaveFocus()
       await expect.element(destination).toHaveAttribute('aria-selected', 'true')
       await userEvent.keyboard('{Enter}')
+      await expect.element(destination).toHaveFocus()
       await expect.element(destination).toHaveAttribute('aria-selected', 'true')
     },
   )

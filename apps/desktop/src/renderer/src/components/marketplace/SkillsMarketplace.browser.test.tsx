@@ -425,7 +425,12 @@ describe('SkillsMarketplace — search results view', () => {
       .poll(() => vi.mocked(window.electron.skillsCli.search).mock.calls.length)
       .toBe(1)
     await expect
-      .element(screen.getByRole('button', { name: 'Install', exact: true }))
+      .element(
+        screen.getByText('Showing previous results while searching for "next"'),
+      )
+      .toBeVisible()
+    await expect
+      .element(screen.getByText('task', { exact: true }))
       .toBeVisible()
     rejectSearch(
       new Error(
@@ -555,8 +560,6 @@ describe('SkillsMarketplace — error banner', () => {
     })
 
     // Assert
-    await expect
-      .element(screen.getByText('Installation failed'))
-      .toBeInTheDocument()
+    await expect.element(screen.getByText('Installation failed')).toBeVisible()
   })
 })

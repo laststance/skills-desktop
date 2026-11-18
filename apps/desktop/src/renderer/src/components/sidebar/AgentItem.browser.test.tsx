@@ -100,18 +100,14 @@ describe('Sidebar → AgentItem context menu', () => {
     const trigger = screen.getByRole('button', {
       name: /Filter skills by Claude Code/i,
     })
-    const triggerElement = trigger.element()
 
     // Act
-    // Open the dropdown via right-click on the agent row trigger.
-    triggerElement.dispatchEvent(
-      new MouseEvent('contextmenu', { bubbles: true, cancelable: true }),
-    )
+    await trigger.click({ button: 'right' })
 
     // Assert
     await expect
-      .element(screen.getByText(/^Hide from sidebar$/))
-      .toBeInTheDocument()
+      .element(screen.getByRole('menuitem', { name: 'Hide from sidebar' }))
+      .toBeVisible()
   })
 
   test('offers "Show in sidebar" in the right-click menu of an already-hidden agent', async () => {
@@ -282,35 +278,92 @@ describe('Sidebar → AgentItem navigation', () => {
       name: /Filter skills by Claude Code/i,
     })
     agent.element().focus()
+    expect(agent.element()).not.toHaveAttribute('aria-haspopup')
+    await expect.element(agent).toHaveAttribute('aria-pressed', 'false')
 
     // Act
     await userEvent.keyboard(keystroke)
 
     // Assert
     expect(store.getState().ui.selectedAgentId).toBe('claude-code')
+    await expect.element(agent).toHaveAttribute('aria-pressed', 'true')
     await userEvent.keyboard(keystroke)
     expect(store.getState().ui.selectedAgentId).toBeNull()
   })
 
-  test('Shift+F10 opens agent actions without changing the filter and Escape restores focus', async () => {
+  test.each([
+    ['Shift+F10', '{Shift>}{F10}{/Shift}'],
+    ['ContextMenu', '{ContextMenu}'],
+  ])(
+    '%s opens agent actions without changing the filter and Escape restores focus',
+    async (_key, keystroke) => {
+      // Arrange
+      const { screen, store } = await renderItem()
+      const agent = screen.getByRole('button', {
+        name: /Filter skills by Claude Code/i,
+      })
+      agent.element().focus()
+
+      // Act
+      await userEvent.keyboard(keystroke)
+
+      // Assert
+      await expect
+        .element(screen.getByRole('menuitem', { name: 'Reveal in Finder' }))
+        .toHaveFocus()
+      expect(store.getState().ui.selectedAgentId).toBeNull()
+      await userEvent.keyboard('{Escape}')
+      await expect.element(agent).toHaveFocus()
+    },
+  )
+
+  test('clicking the actions button opens its menu without selecting the agent', async () => {
     // Arrange
     const { screen, store } = await renderItem()
-    const agent = screen.getByRole('button', {
-      name: /Filter skills by Claude Code/i,
+    const actions = screen.getByRole('button', {
+      name: 'Actions for Claude Code',
     })
-    agent.element().focus()
 
     // Act
-    await userEvent.keyboard('{Shift>}{F10}{/Shift}')
+    await actions.click()
 
     // Assert
-    await expect
-      .element(screen.getByRole('menuitem', { name: 'Reveal in Finder' }))
-      .toHaveFocus()
+    await expect.element(screen.getByRole('menu')).toBeVisible()
     expect(store.getState().ui.selectedAgentId).toBeNull()
     await userEvent.keyboard('{Escape}')
-    await expect.element(agent).toHaveFocus()
+    await expect.element(actions).toHaveFocus()
   })
+
+  test.each([
+    ['Enter', '{Enter}'],
+    ['Space', '[Space]'],
+  ])(
+    '%s opens the agent actions button menu after tabbing from the filter',
+    async (_key, keystroke) => {
+      // Arrange
+      const { screen, store } = await renderItem()
+      const agent = screen.getByRole('button', {
+        name: /Filter skills by Claude Code/i,
+      })
+      const actions = screen.getByRole('button', {
+        name: 'Actions for Claude Code',
+      })
+      agent.element().focus()
+
+      // Act
+      await userEvent.keyboard('{Tab}')
+      await expect.element(actions).toHaveFocus()
+      await userEvent.keyboard(keystroke)
+
+      // Assert
+      await expect
+        .element(screen.getByRole('menuitem', { name: 'Reveal in Finder' }))
+        .toHaveFocus()
+      expect(store.getState().ui.selectedAgentId).toBeNull()
+      await userEvent.keyboard('{Escape}')
+      await expect.element(actions).toHaveFocus()
+    },
+  )
 
   test('switches Marketplace back to Installed and selects the agent when clicked', async () => {
     // Arrange

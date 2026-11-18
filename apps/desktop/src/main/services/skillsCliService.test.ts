@@ -455,6 +455,10 @@ describe('skillsCliService.search failure handling', () => {
       exitCode: 0,
     },
     { stdout: 'Usage: npx skills find <query> [--owner <owner>]', exitCode: 0 },
+    {
+      stdout: '\u001b[1mUsage:\u001b[0m skills <command> [options]',
+      exitCode: 0,
+    },
   ])(
     'reports a failed CLI search without exposing its output ($exitCode)',
     async (output) => {

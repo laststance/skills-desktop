@@ -169,7 +169,7 @@ class SkillsCliService extends EventEmitter {
     // skills@1.7.4 prints usage and exits zero when it interprets the query as a CLI option.
     if (
       !result.success ||
-      /^Usage: npx skills find /m.test(
+      /^Usage: (?:npx skills find |skills <command> \[options\]$)/m.test(
         stripAnsi(result.stdout + '\n' + result.stderr),
       )
     ) {

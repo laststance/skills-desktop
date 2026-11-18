@@ -1,5 +1,12 @@
-import { Eraser, EyeOff, FolderOpen, Terminal, Trash2 } from 'lucide-react'
-import React, { useState } from 'react'
+import {
+  Eraser,
+  EyeOff,
+  FolderOpen,
+  MoreHorizontal,
+  Terminal,
+  Trash2,
+} from 'lucide-react'
+import React, { useRef, useState } from 'react'
 
 import {
   DropdownMenu,
@@ -75,7 +82,7 @@ function getAgentTooltipPath(agentId: AgentId): string | undefined {
 
 /**
  * Single agent item in the sidebar
- * Left-click filters skills list. Right-click opens context menu for delete.
+ * The filter and its actions menu are separate keyboard stops.
  * Shows "N linked, M local" skill counts.
  * Hover tooltip displays the agent's skills folder path.
  */
@@ -88,6 +95,7 @@ export const AgentItem = function AgentItem({
   const isSelected = selectedAgentId === agent.id
   const isHidden = hiddenAgentIds.includes(agent.id)
   const [contextOpen, setContextOpen] = useState(false)
+  const contextInvoker = useRef<HTMLButtonElement | null>(null)
   const { revealInFinder, openInTerminal } = useOpenFolder()
   const updateSettings = useUpdateSettings()
 
@@ -99,17 +107,21 @@ export const AgentItem = function AgentItem({
     dispatch(selectAgent(isSelected ? null : agent.id))
   }
 
-  const handleContextMenu = (e: React.SyntheticEvent): void => {
-    e.preventDefault()
+  const handleContextMenu = (
+    event: React.SyntheticEvent<HTMLButtonElement>,
+  ): void => {
+    event.preventDefault()
     if (!agent.exists) return
+
+    // Row shortcuts bypass the dropdown trigger, so restore their invoker on close.
+    contextInvoker.current = event.currentTarget
     setContextOpen(true)
   }
 
-  const handleKeyDownCapture = (event: React.KeyboardEvent): void => {
-    // Let the button generate its native click before Radix can cancel it.
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.stopPropagation()
-    } else if (
+  const handleContextKey = (
+    event: React.KeyboardEvent<HTMLButtonElement>,
+  ): void => {
+    if (
       event.key === 'ContextMenu' ||
       (event.shiftKey && event.key === 'F10')
     ) {
@@ -117,8 +129,10 @@ export const AgentItem = function AgentItem({
     }
   }
 
-  const handleContextOpenChange = (open: boolean): void => {
-    if (!open) setContextOpen(false)
+  const handleMenuOpenChange = (open: boolean): void => {
+    // A regular trigger activation uses Radix's default focus restoration.
+    if (open) contextInvoker.current = null
+    setContextOpen(open)
   }
 
   const handleRevealInFinder = (): void => {
@@ -159,76 +173,98 @@ export const AgentItem = function AgentItem({
   const tooltipPath = getAgentTooltipPath(agent.id)
 
   return (
-    <Tooltip>
-      <DropdownMenu open={contextOpen} onOpenChange={handleContextOpenChange}>
+    <div className="group/agent relative">
+      <Tooltip>
         <TooltipTrigger asChild>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              aria-label={`Filter skills by ${agent.name}${skillCountText ? ` (${skillCountText})` : ''}`}
-              className={cn(
-                'flex w-full items-center gap-2 min-h-11 py-1.5 px-2 rounded-md transition-colors border-l-4 border-l-transparent text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
-                agent.exists && 'cursor-pointer hover:bg-muted/50',
-                isSelected && 'border-l-primary bg-primary/10',
-              )}
-              onClick={handleClick}
-              onKeyDownCapture={handleKeyDownCapture}
-              onContextMenu={handleContextMenu}
-            >
-              <span
-                className={cn(
-                  'text-sm truncate min-w-0',
-                  !agent.exists && 'text-muted-foreground/70',
-                )}
-              >
-                {agent.name}
-              </span>
-              {skillCountText && (
-                <span className="text-xs text-muted-foreground whitespace-nowrap">
-                  {skillCountText}
-                </span>
-              )}
-            </button>
-          </DropdownMenuTrigger>
-        </TooltipTrigger>
-        <DropdownMenuContent>
-          {/* Folder actions go above destructive items so accidental keyboard */}
-          {/* navigation (Down arrow → Enter) lands on a safe action first. */}
-          {/* `onSelect` (not `onClick`) — Radix DropdownMenu.Item only fires */}
-          {/* `onSelect` for keyboard activation (Enter/Space). */}
-          <DropdownMenuItem onSelect={handleRevealInFinder}>
-            <FolderOpen className="h-4 w-4 mr-2" />
-            Reveal in Finder
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={handleOpenInTerminal}>
-            <Terminal className="h-4 w-4 mr-2" />
-            Open in Terminal
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={handleToggleHidden}>
-            <EyeOff className="h-4 w-4 mr-2" />
-            {isHidden ? 'Show in sidebar' : 'Hide from sidebar'}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleCleanupMissing}>
-            <Eraser className="h-4 w-4 mr-2" />
-            Cleanup missing skills...
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={handleDelete}
-            className="text-destructive focus:text-destructive"
+          <button
+            type="button"
+            aria-label={`Filter skills by ${agent.name}${skillCountText ? ` (${skillCountText})` : ''}`}
+            aria-pressed={isSelected}
+            aria-disabled={!agent.exists}
+            className={cn(
+              'flex w-full items-center gap-2 min-h-11 py-1.5 px-2 rounded-md transition-colors border-l-4 border-l-transparent text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
+              agent.exists &&
+                'cursor-pointer pr-9 group-hover/agent:bg-muted/50',
+              isSelected && 'border-l-primary bg-primary/10',
+            )}
+            onClick={handleClick}
+            onKeyDown={handleContextKey}
+            onContextMenu={handleContextMenu}
           >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Delete skills folder
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      {tooltipPath && (
-        <TooltipContent side="right">
-          <span>{tooltipPath}</span>
-        </TooltipContent>
+            <span
+              className={cn(
+                'text-sm truncate min-w-0',
+                !agent.exists && 'text-muted-foreground/70',
+              )}
+            >
+              {agent.name}
+            </span>
+            {skillCountText && (
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                {skillCountText}
+              </span>
+            )}
+          </button>
+        </TooltipTrigger>
+        {tooltipPath && (
+          <TooltipContent side="right">
+            <span>{tooltipPath}</span>
+          </TooltipContent>
+        )}
+      </Tooltip>
+      {agent.exists && (
+        <DropdownMenu open={contextOpen} onOpenChange={handleMenuOpenChange}>
+          <DropdownMenuTrigger
+            aria-label={`Actions for ${agent.name}`}
+            className="absolute right-1 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:text-foreground"
+            onKeyDown={handleContextKey}
+            onContextMenu={handleContextMenu}
+          >
+            <MoreHorizontal aria-hidden="true" className="size-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            onCloseAutoFocus={(event) => {
+              if (contextInvoker.current) {
+                event.preventDefault()
+                contextInvoker.current.focus()
+                contextInvoker.current = null
+              }
+            }}
+          >
+            {/* Folder actions go above destructive items so accidental keyboard */}
+            {/* navigation (Down arrow → Enter) lands on a safe action first. */}
+            {/* `onSelect` (not `onClick`) — Radix DropdownMenu.Item only fires */}
+            {/* `onSelect` for keyboard activation (Enter/Space). */}
+            <DropdownMenuItem onSelect={handleRevealInFinder}>
+              <FolderOpen className="h-4 w-4 mr-2" />
+              Reveal in Finder
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={handleOpenInTerminal}>
+              <Terminal className="h-4 w-4 mr-2" />
+              Open in Terminal
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={handleToggleHidden}>
+              <EyeOff className="h-4 w-4 mr-2" />
+              {isHidden ? 'Show in sidebar' : 'Hide from sidebar'}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleCleanupMissing}>
+              <Eraser className="h-4 w-4 mr-2" />
+              Cleanup missing skills...
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={handleDelete}
+              className="text-destructive focus:text-destructive"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete skills folder
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
-    </Tooltip>
+    </div>
   )
 }
