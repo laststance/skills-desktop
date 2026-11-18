@@ -209,7 +209,18 @@ describe('Sidebar → AgentsSection', () => {
     await userEvent.keyboard('{Enter}')
 
     // Act
-    await screen.getByRole('menuitem', { name: 'Hide from sidebar' }).click()
+    await expect
+      .element(screen.getByRole('menuitem', { name: 'Reveal in Finder' }))
+      .toHaveFocus()
+    await userEvent.keyboard('{ArrowDown}')
+    await expect
+      .element(screen.getByRole('menuitem', { name: 'Open in Terminal' }))
+      .toHaveFocus()
+    await userEvent.keyboard('{ArrowDown}')
+    await expect
+      .element(screen.getByRole('menuitem', { name: 'Hide from sidebar' }))
+      .toHaveFocus()
+    await userEvent.keyboard('{Enter}')
 
     // Assert
     await expect.element(screen.getByText('1 hidden')).toBeVisible()
@@ -233,7 +244,18 @@ describe('Sidebar → AgentsSection', () => {
     await userEvent.keyboard('{Shift>}{F10}{/Shift}')
 
     // Act
-    await screen.getByRole('menuitem', { name: 'Show in sidebar' }).click()
+    await expect
+      .element(screen.getByRole('menuitem', { name: 'Reveal in Finder' }))
+      .toHaveFocus()
+    await userEvent.keyboard('{ArrowDown}')
+    await expect
+      .element(screen.getByRole('menuitem', { name: 'Open in Terminal' }))
+      .toHaveFocus()
+    await userEvent.keyboard('{ArrowDown}')
+    await expect
+      .element(screen.getByRole('menuitem', { name: 'Show in sidebar' }))
+      .toHaveFocus()
+    await userEvent.keyboard('{Enter}')
 
     // Assert
     await expect.element(screen.getByText('(2)', { exact: true })).toBeVisible()
@@ -241,6 +263,35 @@ describe('Sidebar → AgentsSection', () => {
       .element(screen.getByText('Agents', { exact: true }))
       .toHaveFocus()
   })
+
+  test.each([
+    ['Filter skills by Claude Code (3 linked)', '{Shift>}{F10}{/Shift}'],
+    ['Actions for Claude Code', '{Enter}'],
+  ])(
+    'moves focus to the Agents heading when Settings hides the agent while its menu is open from %s',
+    async (name, keystroke) => {
+      // Arrange
+      const { screen, store } = await renderSection()
+      const { setSettings } =
+        await import('@/renderer/src/redux/slices/settingsSlice')
+      screen.getByRole('button', { name }).element().focus()
+      await userEvent.keyboard(keystroke)
+      await expect
+        .element(screen.getByRole('menuitem', { name: 'Reveal in Finder' }))
+        .toHaveFocus()
+
+      // Act
+      store.dispatch(
+        setSettings({ ...DEFAULT_SETTINGS, hiddenAgentIds: ['claude-code'] }),
+      )
+
+      // Assert
+      await expect.element(screen.getByText('1 hidden')).toBeVisible()
+      await expect
+        .element(screen.getByText('Agents', { exact: true }))
+        .toHaveFocus()
+    },
+  )
 
   test('counts only visible agents in the header, excluding hidden ones', async () => {
     // With one hidden of two installed, the "(n)" counter must show "(1)"

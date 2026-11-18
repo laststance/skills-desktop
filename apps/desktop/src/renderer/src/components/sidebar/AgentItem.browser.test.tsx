@@ -334,6 +334,27 @@ describe('Sidebar → AgentItem navigation', () => {
     await expect.element(actions).toHaveFocus()
   })
 
+  test('a click-only activation opens agent actions and Escape restores focus', async () => {
+    // Arrange
+    const { screen, store } = await renderItem()
+    const actions = screen.getByRole('button', {
+      name: 'Actions for Claude Code',
+    })
+
+    // Act
+    actions
+      .element()
+      .dispatchEvent(
+        new MouseEvent('click', { bubbles: true, cancelable: true }),
+      )
+
+    // Assert
+    await expect.element(screen.getByRole('menu')).toBeVisible()
+    expect(store.getState().ui.selectedAgentId).toBeNull()
+    await userEvent.keyboard('{Escape}')
+    await expect.element(actions).toHaveFocus()
+  })
+
   test.each([
     ['Enter', '{Enter}'],
     ['Space', '[Space]'],

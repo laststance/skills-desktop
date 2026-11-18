@@ -476,6 +476,34 @@ describe('skillsCliService.search failure handling', () => {
     },
   )
 
+  test.each([
+    {
+      stream: 'stderr',
+      stdout: 'No skills found for "react"',
+      stderr: 'Usage: skills <command> [options]',
+    },
+    {
+      stream: 'stdout',
+      stdout: 'Usage: skills <command> [options]\nNo skills found for "react"',
+      stderr: '',
+    },
+  ])(
+    'reports CLI usage on $stream even when stdout ends with an empty result',
+    async ({ stdout, stderr }) => {
+      // Arrange
+      simulateCli({ stdout, stderr, exitCode: 0 })
+      const { skillsCliService } = await import('./skillsCliService')
+
+      // Act
+      const result = skillsCliService.search(toSearchQuery('react'))
+
+      // Assert
+      await expect(result).rejects.toThrow(
+        'The skills CLI could not complete the search.',
+      )
+    },
+  )
+
   test('keeps a successful CLI no-match response empty even when npm printed a warning', async () => {
     // Arrange
     simulateCli({

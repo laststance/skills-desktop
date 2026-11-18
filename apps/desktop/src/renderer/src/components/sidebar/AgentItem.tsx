@@ -97,6 +97,7 @@ export const AgentItem = function AgentItem({
   const isSelected = selectedAgentId === agent.id
   const isHidden = hiddenAgentIds.includes(agent.id)
   const [contextOpen, setContextOpen] = useState(false)
+  const actionsRef = useRef<HTMLButtonElement>(null)
   const returnFocusTarget = useRef<HTMLElement | null>(null)
   const { revealInFinder, openInTerminal } = useOpenFolder()
   const updateSettings = useUpdateSettings()
@@ -159,8 +160,6 @@ export const AgentItem = function AgentItem({
   }
 
   const handleToggleHidden = (): void => {
-    // Moving between groups unmounts both row buttons before the menu restores focus.
-    returnFocusTarget.current = focusFallbackRef?.current ?? null
     updateSettings({
       hiddenAgentIds: toggleArrayMember(hiddenAgentIds, agent.id),
     })
@@ -216,8 +215,13 @@ export const AgentItem = function AgentItem({
       {agent.exists && (
         <DropdownMenu open={contextOpen} onOpenChange={handleMenuOpenChange}>
           <DropdownMenuTrigger
+            ref={actionsRef}
             aria-label={`Actions for ${agent.name}`}
             className="absolute right-1 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:text-foreground"
+            onClick={(event) => {
+              // Radix handles pointerdown and keydown; assistive activation can send only a click.
+              if (event.detail === 0) handleMenuOpenChange(!contextOpen)
+            }}
             onKeyDown={handleContextKey}
             onContextMenu={handleContextMenu}
           >
@@ -226,10 +230,19 @@ export const AgentItem = function AgentItem({
           <DropdownMenuContent
             align="end"
             onCloseAutoFocus={(event) => {
-              if (returnFocusTarget.current) {
+              const shortcutTarget = returnFocusTarget.current
+              returnFocusTarget.current = null
+              // Radix restores a mounted Actions trigger according to how the menu closed.
+              if (!shortcutTarget && actionsRef.current?.isConnected) return
+
+              // Settings or a rescan can remove the invoker while its menu is open.
+              const target = shortcutTarget?.isConnected
+                ? shortcutTarget
+                : focusFallbackRef?.current
+              if (target) {
                 event.preventDefault()
-                returnFocusTarget.current.focus()
-                returnFocusTarget.current = null
+                // A dialog or outside control may already have claimed focus.
+                if (document.activeElement === document.body) target.focus()
               }
             }}
           >

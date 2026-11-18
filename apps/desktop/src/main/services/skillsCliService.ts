@@ -166,13 +166,12 @@ class SkillsCliService extends EventEmitter {
     const result = await this.execCli(['find', query])
     // A timeout message is generated locally. Other CLI diagnostics can contain private paths.
     if (result.timedOut) throw new Error(result.stderr)
-    const stdout = stripAnsi(result.stdout)
-    // The CLI echoes the entire query on a miss, including any help text or line breaks in it.
-    if (
-      result.success &&
-      stdout.trimEnd().endsWith(`No skills found for "${stripAnsi(query)}"`)
-    )
-      return []
+    const output = stripAnsi(result.stdout).trimEnd()
+    const noMatches = `No skills found for "${stripAnsi(query)}"`
+    // Remove only the CLI's echoed query so real usage diagnostics on either stream still count.
+    const stdout = output.endsWith(noMatches)
+      ? output.slice(0, -noMatches.length)
+      : output
     // skills@1.7.4 prints usage and exits zero when it interprets the query as a CLI option.
     if (
       !result.success ||
