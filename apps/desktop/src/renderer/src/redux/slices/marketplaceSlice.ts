@@ -26,9 +26,14 @@ const CACHE_TTL_MS = 30 * 60 * 1000
 type LeaderboardCache = Partial<Record<RankingFilter, LeaderboardData>>
 
 interface MarketplaceState {
-  /** Current marketplace operation state (search / install / idle). */
+  /** Installation status, independent of concurrent searches. */
   status: MarketplaceStatus
-  /** Live value of the search input. */
+  /** A pending search owns its request ID until superseded, cleared, or settled. */
+  search:
+    | { status: 'idle' }
+    | { status: 'pending'; requestId: string }
+    | { status: 'error' }
+  /** Debounced query committed when its search starts. */
   searchQuery: SearchQuery
   /** Results from the most recent `skills find` call. */
   searchResults: SkillSearchResult[]
@@ -38,7 +43,7 @@ interface MarketplaceState {
   previewSkill: SkillSearchResult | null
   /** Live progress for an in-flight install, or null when idle. */
   installProgress: InstallProgress | null
-  /** Human-readable error from the last failed operation. */
+  /** Human-readable error from the last failed installation. */
   error: string | null
   /** Per-filter leaderboard cache. Each filter tracks its own data and loading state. */
   leaderboard: LeaderboardCache
@@ -46,6 +51,7 @@ interface MarketplaceState {
 
 const initialState: MarketplaceState = {
   status: 'idle',
+  search: { status: 'idle' },
   searchQuery: toSearchQuery(''),
   searchResults: [],
   selectedSkill: null,
@@ -130,9 +136,6 @@ const marketplaceSlice = createSlice({
   name: 'marketplace',
   initialState,
   reducers: {
-    setMarketplaceSearchQuery: (state, action: PayloadAction<SearchQuery>) => {
-      state.searchQuery = action.payload
-    },
     selectSkillForInstall: (
       state,
       action: PayloadAction<InstallIntent | null>,
@@ -153,48 +156,47 @@ const marketplaceSlice = createSlice({
     },
     cancelOperation: (state) => {
       window.electron.skillsCli.cancel()
+      state.search = { status: 'idle' }
       state.status = 'idle'
       state.installProgress = null
     },
     clearError: (state) => {
+      if (state.search.status === 'error') state.search = { status: 'idle' }
       state.error = null
       state.status = 'idle'
     },
     clearSearchResults: (state) => {
       state.searchResults = []
       state.searchQuery = toSearchQuery('')
-      // Emptying the box returns to the leaderboard, so reset BOTH halves of the
-      // status/error pair: the input spinner keys off `status`, but the error
-      // banner renders on `error` itself — clearing only one leaves the last
-      // query's spinner or red banner stranded over the leaderboard.
-      state.status = 'idle'
-      state.error = null
+      state.search = { status: 'idle' }
     },
   },
   extraReducers: (builder) => {
     builder
       // Search
-      .addCase(searchSkills.pending, (state) => {
-        state.status = 'searching'
-        state.error = null
+      .addCase(searchSkills.pending, (state, action) => {
+        state.searchQuery = action.meta.arg
+        state.search = { status: 'pending', requestId: action.meta.requestId }
       })
       .addCase(searchSkills.fulfilled, (state, action) => {
-        // Latest-wins guard. Incremental search fires a new `skills find` on
-        // every debounced keystroke, and the CLI runs them concurrently — we
-        // never abort, because cancel() kills *every* child (the latest search
-        // and any install too). So an earlier "rea" response can resolve after
-        // "react"; drop any whose query no longer matches the box. `meta.arg`
-        // is the query that was searched; `searchQuery` is what's committed now.
-        if (action.meta.arg !== state.searchQuery) return
-        state.status = 'idle'
+        // A cleared and retyped query can have two CLI children running with the same text.
+        if (
+          state.search.status !== 'pending' ||
+          state.search.requestId !== action.meta.requestId
+        )
+          return
+        state.search = { status: 'idle' }
         state.searchResults = action.payload
       })
       .addCase(searchSkills.rejected, (state, action) => {
-        // Same guard: a superseded query's failure must not raise an error
-        // banner over the results the user is actually looking at.
-        if (action.meta.arg !== state.searchQuery) return
-        state.status = 'error'
-        state.error = action.error.message || 'Search failed'
+        // A late failure must also leave the current results and any installation error alone.
+        if (
+          state.search.status !== 'pending' ||
+          state.search.requestId !== action.meta.requestId
+        )
+          return
+        state.search = { status: 'error' }
+        state.searchResults = []
       })
       // Install
       .addCase(installSkill.pending, (state) => {
@@ -260,7 +262,6 @@ const marketplaceSlice = createSlice({
 })
 
 export const {
-  setMarketplaceSearchQuery,
   selectSkillForInstall,
   setPreviewSkill,
   setInstallProgress,

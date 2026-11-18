@@ -1063,19 +1063,11 @@ export interface InstallProgress {
 }
 
 /**
- * Marketplace operation flow state — drives spinners, disables the
- * search box during install, and gates the cancel button.
- *
- * - `idle`: marketplace is at rest.
- * - `searching`: a `skills find` CLI process is running.
- * - `installing`: a `skills install` CLI process is running; progress
- *   events stream into `installProgress`.
- * - `error`: most recent op failed; UI shows a Retry CTA.
- *
- * @example 'idle'
- * @example 'searching'
+ * Marketplace installation state. The install dialog and row buttons use it
+ * independently of any in-flight search.
+ * @example 'installing'
  */
-export type MarketplaceStatus = 'idle' | 'searching' | 'installing' | 'error'
+export type MarketplaceStatus = 'idle' | 'installing' | 'error'
 
 /**
  * Ranking tab in the marketplace leaderboard. Each value maps 1:1 to a

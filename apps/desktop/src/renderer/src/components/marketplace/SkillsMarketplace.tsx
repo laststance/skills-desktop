@@ -47,7 +47,7 @@ export const SkillsMarketplace =
     const [rankingFilter, setRankingFilter] =
       useState<RankingFilter>('all-time')
 
-    const { searchResults, status, searchQuery, error, leaderboard } =
+    const { searchResults, search, searchQuery, error, leaderboard } =
       useAppSelector((state) => state.marketplace)
     const { items: installedSkills } = useAppSelector((state) => state.skills)
 
@@ -55,7 +55,7 @@ export const SkillsMarketplace =
     const installedSkillNames = new Set(installedSkills.map((s) => s.name))
 
     const hasSearched = searchQuery.length > 0
-    const isSearching = status === 'searching'
+    const isSearching = search.status === 'pending'
 
     // Current leaderboard data for active filter
     const currentLeaderboard = leaderboard[rankingFilter]
@@ -92,9 +92,15 @@ export const SkillsMarketplace =
           <MarketplaceSearch />
         </div>
 
-        {error && (
-          <div className="mx-6 mb-4 px-4 py-2 bg-destructive/10 border border-destructive/20 rounded-md">
-            <p className="text-sm text-destructive">{error}</p>
+        {(error || search.status === 'error') && (
+          <div
+            role="alert"
+            className="mx-6 mb-4 px-4 py-2 bg-destructive/10 border border-destructive/20 rounded-md text-sm text-destructive"
+          >
+            {error && <p>{error}</p>}
+            {search.status === 'error' && (
+              <p>Marketplace search failed. Try again.</p>
+            )}
           </div>
         )}
 
@@ -116,7 +122,7 @@ export const SkillsMarketplace =
                   </div>
                 )}
 
-                {!isSearching && searchResults.length === 0 && (
+                {search.status === 'idle' && searchResults.length === 0 && (
                   <div className="flex flex-col items-center justify-center py-16 text-center">
                     <p className="text-muted-foreground">
                       No skills found for &quot;{searchQuery}&quot;

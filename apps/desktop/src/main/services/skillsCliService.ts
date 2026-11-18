@@ -157,14 +157,23 @@ class SkillsCliService extends EventEmitter {
    * Search for skills using `npx skills find <query>`
    * @param query - Search query string
    * @returns Array of matching skills
+   * @throws When the CLI fails or prints usage instead of running the search.
    * @example
    * search('react')
    * // => [{ rank: 1, name: 'vercel-react-best-practices', repo: 'vercel-labs/agent-skills', url: '...' }]
    */
   async search(query: SearchQuery): Promise<SkillSearchResult[]> {
     const result = await this.execCli(['find', query])
-    if (!result.success) {
-      return []
+    // A timeout message is generated locally. Other CLI diagnostics can contain private paths.
+    if (result.timedOut) throw new Error(result.stderr)
+    // skills@1.7.4 prints usage and exits zero when it interprets the query as a CLI option.
+    if (
+      !result.success ||
+      /^Usage: npx skills find /m.test(
+        stripAnsi(result.stdout + '\n' + result.stderr),
+      )
+    ) {
+      throw new Error('The skills CLI could not complete the search.')
     }
     return this.parseSearchOutput(result.stdout)
   }

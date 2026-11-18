@@ -6,7 +6,6 @@ import { useDebouncedCallback } from '@/renderer/src/hooks/useDebouncedCallback'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   searchSkills,
-  setMarketplaceSearchQuery,
   clearSearchResults,
 } from '@/renderer/src/redux/slices/marketplaceSlice'
 import { SEARCH_DEBOUNCE_MS } from '@/shared/constants'
@@ -23,20 +22,16 @@ import { toSearchQuery } from '@/shared/types'
 export const MarketplaceSearch =
   function MarketplaceSearch(): React.ReactElement {
     const dispatch = useAppDispatch()
-    const { searchQuery, status } = useAppSelector((state) => state.marketplace)
+    const { searchQuery, search } = useAppSelector((state) => state.marketplace)
     // Local value drives the input for instant typing feedback; the debounced
     // callback drives the actual (expensive, IPC-bound) remote search.
     const [localQuery, setLocalQuery] = useState(searchQuery)
-    const isSearching = status === 'searching'
+    const isSearching = search.status === 'pending'
 
-    // Fire the remote search for a settled query. Committing the query to Redux
-    // (setMarketplaceSearchQuery) and dispatching the search together keeps the
-    // view switch (hasSearched) and the 'searching' status atomic, so the
-    // results pane never flashes "no results" while the user is mid-type.
+    // The pending action commits the settled query and starts the spinner together.
     const runSearch = (query: string): void => {
       const trimmedQuery = query.trim()
       if (trimmedQuery === '') return
-      dispatch(setMarketplaceSearchQuery(toSearchQuery(trimmedQuery)))
       dispatch(searchSkills(toSearchQuery(trimmedQuery)))
     }
 
