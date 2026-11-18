@@ -36,6 +36,7 @@ import type { Agent, AgentId, SkillCount } from '@/shared/types'
 
 interface AgentItemProps {
   agent: Agent
+  focusFallbackRef?: React.RefObject<HTMLElement | null>
 }
 
 /**
@@ -88,6 +89,7 @@ function getAgentTooltipPath(agentId: AgentId): string | undefined {
  */
 export const AgentItem = function AgentItem({
   agent,
+  focusFallbackRef,
 }: AgentItemProps): React.ReactElement {
   const dispatch = useAppDispatch()
   const { selectedAgentId } = useAppSelector((state) => state.ui)
@@ -95,7 +97,7 @@ export const AgentItem = function AgentItem({
   const isSelected = selectedAgentId === agent.id
   const isHidden = hiddenAgentIds.includes(agent.id)
   const [contextOpen, setContextOpen] = useState(false)
-  const contextInvoker = useRef<HTMLButtonElement | null>(null)
+  const returnFocusTarget = useRef<HTMLElement | null>(null)
   const { revealInFinder, openInTerminal } = useOpenFolder()
   const updateSettings = useUpdateSettings()
 
@@ -114,7 +116,7 @@ export const AgentItem = function AgentItem({
     if (!agent.exists) return
 
     // Row shortcuts bypass the dropdown trigger, so restore their invoker on close.
-    contextInvoker.current = event.currentTarget
+    returnFocusTarget.current = event.currentTarget
     setContextOpen(true)
   }
 
@@ -130,8 +132,8 @@ export const AgentItem = function AgentItem({
   }
 
   const handleMenuOpenChange = (open: boolean): void => {
-    // A regular trigger activation uses Radix's default focus restoration.
-    if (open) contextInvoker.current = null
+    // The named Actions button opens on click or keyboard input and lets Radix restore its focus.
+    if (open) returnFocusTarget.current = null
     setContextOpen(open)
   }
 
@@ -157,9 +159,8 @@ export const AgentItem = function AgentItem({
   }
 
   const handleToggleHidden = (): void => {
-    // Pure visibility toggle — skills, symlinks, and marketplace presence
-    // are untouched. Matching unhide affordances live in Settings → Agents
-    // and inside the "N hidden" sidebar disclosure.
+    // Moving between groups unmounts both row buttons before the menu restores focus.
+    returnFocusTarget.current = focusFallbackRef?.current ?? null
     updateSettings({
       hiddenAgentIds: toggleArrayMember(hiddenAgentIds, agent.id),
     })
@@ -225,10 +226,10 @@ export const AgentItem = function AgentItem({
           <DropdownMenuContent
             align="end"
             onCloseAutoFocus={(event) => {
-              if (contextInvoker.current) {
+              if (returnFocusTarget.current) {
                 event.preventDefault()
-                contextInvoker.current.focus()
-                contextInvoker.current = null
+                returnFocusTarget.current.focus()
+                returnFocusTarget.current = null
               }
             }}
           >

@@ -166,16 +166,23 @@ class SkillsCliService extends EventEmitter {
     const result = await this.execCli(['find', query])
     // A timeout message is generated locally. Other CLI diagnostics can contain private paths.
     if (result.timedOut) throw new Error(result.stderr)
+    const stdout = stripAnsi(result.stdout)
+    // The CLI echoes the entire query on a miss, including any help text or line breaks in it.
+    if (
+      result.success &&
+      stdout.trimEnd().endsWith(`No skills found for "${stripAnsi(query)}"`)
+    )
+      return []
     // skills@1.7.4 prints usage and exits zero when it interprets the query as a CLI option.
     if (
       !result.success ||
       /^Usage: (?:npx skills find |skills <command> \[options\]$)/m.test(
-        stripAnsi(result.stdout + '\n' + result.stderr),
+        stdout + '\n' + stripAnsi(result.stderr),
       )
     ) {
       throw new Error('The skills CLI could not complete the search.')
     }
-    return this.parseSearchOutput(result.stdout)
+    return this.parseSearchOutput(stdout)
   }
 
   /**
@@ -429,14 +436,12 @@ class SkillsCliService extends EventEmitter {
    * vercel-labs/agent-skills@vercel-react-best-practices 402.7K installs
    * └ https://skills.sh/vercel-labs/agent-skills/vercel-react-best-practices
    * ```
-   * @param output - Raw CLI output
+   * @param output - CLI output with ANSI formatting removed
    * @returns Parsed search results
    */
   private parseSearchOutput(output: string): SkillSearchResult[] {
     const results: SkillSearchResult[] = []
-    // Strip ANSI codes and split into lines
-    const cleanOutput = stripAnsi(output)
-    const lines = cleanOutput.split('\n').filter((line) => line.trim())
+    const lines = output.split('\n').filter((line) => line.trim())
 
     let rank = 1
     for (let i = 0; i < lines.length; i++) {

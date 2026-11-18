@@ -1,6 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
@@ -192,6 +193,53 @@ describe('Sidebar → AgentsSection', () => {
 
     // Assert
     await expect.element(screen.getByText(/^1 hidden$/)).toBeInTheDocument()
+  })
+
+  test('hiding an agent from its actions button moves focus to the Agents heading', async () => {
+    // Arrange
+    mockSettingsSet.mockResolvedValueOnce({
+      ...DEFAULT_SETTINGS,
+      hiddenAgentIds: ['claude-code'],
+    })
+    const { screen } = await renderSection()
+    const actions = screen.getByRole('button', {
+      name: 'Actions for Claude Code',
+    })
+    actions.element().focus()
+    await userEvent.keyboard('{Enter}')
+
+    // Act
+    await screen.getByRole('menuitem', { name: 'Hide from sidebar' }).click()
+
+    // Assert
+    await expect.element(screen.getByText('1 hidden')).toBeVisible()
+    await expect
+      .element(screen.getByText('Agents', { exact: true }))
+      .toHaveFocus()
+  })
+
+  test('showing the last hidden agent from its filter shortcut moves focus to the Agents heading', async () => {
+    // Arrange
+    mockSettingsSet.mockResolvedValueOnce({
+      ...DEFAULT_SETTINGS,
+      hiddenAgentIds: [],
+    })
+    const { screen } = await renderSection(['claude-code'])
+    await screen.getByText('1 hidden').click()
+    const filter = screen.getByRole('button', {
+      name: /Filter skills by Claude Code/,
+    })
+    filter.element().focus()
+    await userEvent.keyboard('{Shift>}{F10}{/Shift}')
+
+    // Act
+    await screen.getByRole('menuitem', { name: 'Show in sidebar' }).click()
+
+    // Assert
+    await expect.element(screen.getByText('(2)', { exact: true })).toBeVisible()
+    await expect
+      .element(screen.getByText('Agents', { exact: true }))
+      .toHaveFocus()
   })
 
   test('counts only visible agents in the header, excluding hidden ones', async () => {

@@ -6,6 +6,7 @@ import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import { loadLeaderboard } from '@/renderer/src/redux/slices/marketplaceSlice'
 import type { RankingFilter } from '@/shared/types'
 
+import { formatSearchResultsHeading } from './formatSearchResultsHeading'
 import { LeaderboardSkeleton } from './LeaderboardSkeleton'
 import { MarketplaceSearch } from './MarketplaceSearch'
 import { RankingTabs } from './RankingTabs'
@@ -136,9 +137,11 @@ export const SkillsMarketplace =
                 {searchResults.length > 0 && (
                   <div className="flex flex-col gap-2">
                     <p className="text-sm text-muted-foreground mb-3">
-                      {isSearching
-                        ? `Showing previous results while searching for "${searchQuery}"`
-                        : `Found ${searchResults.length} skill${searchResults.length !== 1 ? 's' : ''} for "${searchQuery}"`}
+                      {formatSearchResultsHeading(
+                        isSearching,
+                        searchQuery,
+                        searchResults.length,
+                      )}
                     </p>
                     {searchResults.map((skill) => (
                       <SkillRowMarketplace

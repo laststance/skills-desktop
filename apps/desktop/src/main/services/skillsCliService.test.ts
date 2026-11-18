@@ -491,6 +491,27 @@ describe('skillsCliService.search failure handling', () => {
     expect(results).toEqual([])
   })
 
+  test.each(['\n', '\u2028', '\u2029'])(
+    'keeps an empty result when the CLI echoes usage text inside the query (%j)',
+    async (separator) => {
+      // Arrange
+      const query = toSearchQuery(
+        `example${separator}Usage: skills <command> [options]${separator}text`,
+      )
+      simulateCli({
+        stdout: `\n\u001b[2mNo skills found for "${query}"\u001b[0m\n`,
+        exitCode: 0,
+      })
+      const { skillsCliService } = await import('./skillsCliService')
+
+      // Act
+      const result = skillsCliService.search(query)
+
+      // Assert
+      await expect(result).resolves.toEqual([])
+    },
+  )
+
   test('skips a malformed result row whose repo segment has no owner slash', async () => {
     // Arrange — `notarepo@skill` matches the loose line pattern but fails the
     // strict REPO_PATTERN (no `owner/repo` slash), so it must be discarded.
