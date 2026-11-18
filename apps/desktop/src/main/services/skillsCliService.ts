@@ -380,14 +380,14 @@ class SkillsCliService extends EventEmitter {
         }, KILL_GRACE_MS)
       }, timeoutMs)
 
-      proc.stdout?.on('data', (data: Buffer) => {
-        const text = data.toString()
+      // Preserve characters split across pipe writes before parsing or forwarding CLI output.
+      proc.stdout?.setEncoding('utf8').on('data', (text: string) => {
         stdout += text
         onOutput?.(text)
       })
 
-      proc.stderr?.on('data', (data: Buffer) => {
-        stderr += data.toString()
+      proc.stderr?.setEncoding('utf8').on('data', (text: string) => {
+        stderr += text
       })
 
       proc.on('close', (code) => {

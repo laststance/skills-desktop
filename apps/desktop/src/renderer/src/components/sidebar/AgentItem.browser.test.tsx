@@ -328,18 +328,22 @@ describe('Sidebar → AgentItem navigation', () => {
     await actions.click()
 
     // Assert
-    await expect.element(screen.getByRole('menu')).toBeVisible()
+    await expect.element(screen.getByRole('menu')).toHaveFocus()
     expect(store.getState().ui.selectedAgentId).toBeNull()
     await userEvent.keyboard('{Escape}')
     await expect.element(actions).toHaveFocus()
   })
 
-  test('a click-only activation opens agent actions and Escape restores focus', async () => {
+  test('after pointer input a click-only activation focuses the first action and Escape restores the trigger', async () => {
     // Arrange
     const { screen, store } = await renderItem()
     const actions = screen.getByRole('button', {
       name: 'Actions for Claude Code',
     })
+
+    await screen
+      .getByRole('button', { name: /Filter skills by Claude Code/ })
+      .click()
 
     // Act
     actions
@@ -349,8 +353,10 @@ describe('Sidebar → AgentItem navigation', () => {
       )
 
     // Assert
-    await expect.element(screen.getByRole('menu')).toBeVisible()
-    expect(store.getState().ui.selectedAgentId).toBeNull()
+    await expect
+      .element(screen.getByRole('menuitem', { name: 'Reveal in Finder' }))
+      .toHaveFocus()
+    expect(store.getState().ui.selectedAgentId).toBe('claude-code')
     await userEvent.keyboard('{Escape}')
     await expect.element(actions).toHaveFocus()
   })

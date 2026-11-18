@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events'
+import { PassThrough } from 'node:stream'
 
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
@@ -8,13 +9,11 @@ import type { InstallProgress } from '@/shared/types'
 
 /**
  * Fake child process so we can drive stdout/stderr/close from the test.
- * The real `ChildProcess` has ~40 fields we do not touch; the cast is safe
- * because execCli() only consumes `.stdout.on('data')`, `.stderr.on('data')`,
- * `.on('close')`, `.on('error')`, and `.kill()`.
+ * Real byte streams let the tests split a UTF-8 character across writes.
  */
 class FakeChildProcess extends EventEmitter {
-  stdout = new EventEmitter()
-  stderr = new EventEmitter()
+  stdout = new PassThrough()
+  stderr = new PassThrough()
   kill = vi.fn()
 }
 
@@ -57,8 +56,8 @@ function simulateCli({
     if (autoClose) {
       // Defer emission until after execCli finishes attaching listeners
       queueMicrotask(() => {
-        if (stdout) fake.stdout.emit('data', Buffer.from(stdout))
-        if (stderr) fake.stderr.emit('data', Buffer.from(stderr))
+        if (stdout) fake.stdout.write(Buffer.from(stdout))
+        if (stderr) fake.stderr.write(Buffer.from(stderr))
         fake.emit('close', exitCode)
       })
     }
@@ -540,6 +539,54 @@ describe('skillsCliService.search failure handling', () => {
     },
   )
 
+  test.each([false, true])(
+    'preserves a split UTF-8 search echo and distinguishes standalone usage (includes usage: %s)',
+    async (hasDiagnostic) => {
+      // Arrange
+      const fake = simulateCli({ autoClose: false })
+      const { skillsCliService } = await import('./skillsCliService')
+      const query = toSearchQuery('猫\nUsage: skills <command> [options]\ntext')
+      const output = Buffer.from(`No skills found for "${query}"`)
+      const splitAt = output.indexOf(Buffer.from('猫')) + 1
+
+      // Act
+      const search = skillsCliService.search(query)
+      if (hasDiagnostic)
+        fake.stdout.write('Usage: skills <command> [options]\n')
+      fake.stdout.write(output.subarray(0, splitAt))
+      fake.stdout.end(output.subarray(splitAt))
+      fake.emit('close', 0)
+
+      // Assert
+      if (hasDiagnostic) {
+        await expect(search).rejects.toThrow(
+          'The skills CLI could not complete the search.',
+        )
+      } else {
+        await expect(search).resolves.toEqual([])
+      }
+    },
+  )
+
+  test('reports CLI usage after a UTF-8 line separator split across stderr writes', async () => {
+    // Arrange
+    const fake = simulateCli({ autoClose: false })
+    const { skillsCliService } = await import('./skillsCliService')
+    const diagnostic = Buffer.from('\u2028Usage: skills <command> [options]')
+
+    // Act
+    const search = skillsCliService.search(toSearchQuery('absent'))
+    fake.stdout.end('No skills found for "absent"')
+    fake.stderr.write(diagnostic.subarray(0, 1))
+    fake.stderr.end(diagnostic.subarray(1))
+    fake.emit('close', 0)
+
+    // Assert
+    await expect(search).rejects.toThrow(
+      'The skills CLI could not complete the search.',
+    )
+  })
+
   test('skips a malformed result row whose repo segment has no owner slash', async () => {
     // Arrange — `notarepo@skill` matches the loose line pattern but fails the
     // strict REPO_PATTERN (no `owner/repo` slash), so it must be discarded.
@@ -596,7 +643,7 @@ describe('skillsCliService.install failure and progress', () => {
       agents: [],
       skills: [toSkillName('task')],
     })
-    fake.stderr.emit('data', Buffer.from('permission denied'))
+    fake.stderr.write(Buffer.from('permission denied'))
     fake.emit('close', 1)
     await installPromise
 
@@ -653,9 +700,9 @@ describe('skillsCliService.install failure and progress', () => {
       agents: [],
       skills: [toSkillName('task')],
     })
-    fake.stdout.emit('data', Buffer.from('Downloading repository archive'))
-    fake.stdout.emit('data', Buffer.from('Installing skill files now'))
-    fake.stdout.emit('data', Buffer.from('Creating symlink for agent'))
+    fake.stdout.write(Buffer.from('Downloading repository archive'))
+    fake.stdout.write(Buffer.from('Installing skill files now'))
+    fake.stdout.write(Buffer.from('Creating symlink for agent'))
     fake.emit('close', 0)
     await installPromise
 

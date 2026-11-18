@@ -98,6 +98,7 @@ export const AgentItem = function AgentItem({
   const isHidden = hiddenAgentIds.includes(agent.id)
   const [contextOpen, setContextOpen] = useState(false)
   const actionsRef = useRef<HTMLButtonElement>(null)
+  const focusFirstActionOnEntry = useRef(false)
   const returnFocusTarget = useRef<HTMLElement | null>(null)
   const { revealInFinder, openInTerminal } = useOpenFolder()
   const updateSettings = useUpdateSettings()
@@ -132,7 +133,11 @@ export const AgentItem = function AgentItem({
     }
   }
 
-  const handleMenuOpenChange = (open: boolean): void => {
+  const handleMenuOpenChange = (
+    open: boolean,
+    activation?: 'click-only',
+  ): void => {
+    focusFirstActionOnEntry.current = open && activation === 'click-only'
     // The named Actions button opens on click or keyboard input and lets Radix restore its focus.
     if (open) returnFocusTarget.current = null
     setContextOpen(open)
@@ -220,7 +225,8 @@ export const AgentItem = function AgentItem({
             className="absolute right-1 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:text-foreground"
             onClick={(event) => {
               // Radix handles pointerdown and keydown; assistive activation can send only a click.
-              if (event.detail === 0) handleMenuOpenChange(!contextOpen)
+              if (event.detail === 0)
+                handleMenuOpenChange(!contextOpen, 'click-only')
             }}
             onKeyDown={handleContextKey}
             onContextMenu={handleContextMenu}
@@ -229,6 +235,23 @@ export const AgentItem = function AgentItem({
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="end"
+            onFocus={(event) => {
+              // A click-only activation does not update Radix's last-input modality.
+              if (
+                !focusFirstActionOnEntry.current ||
+                event.target !== event.currentTarget
+              )
+                return
+              focusFirstActionOnEntry.current = false
+              const firstAction =
+                event.currentTarget.querySelector<HTMLElement>(
+                  '[role="menuitem"]:not([aria-disabled="true"])',
+                )
+              if (firstAction) {
+                event.preventDefault()
+                firstAction.focus({ preventScroll: true })
+              }
+            }}
             onCloseAutoFocus={(event) => {
               const shortcutTarget = returnFocusTarget.current
               returnFocusTarget.current = null
