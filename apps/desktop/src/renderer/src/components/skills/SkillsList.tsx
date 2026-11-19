@@ -1,10 +1,18 @@
 import { SearchX } from 'lucide-react'
-import React from 'react'
-import { List, type RowComponentProps } from 'react-window'
+import React, { useLayoutEffect, useRef } from 'react'
+import {
+  List,
+  type RowComponentProps,
+  type ListImperativeAPI,
+} from 'react-window'
 
 import { Button } from '@/renderer/src/components/ui/button'
 import { useInitialEffect } from '@/renderer/src/hooks/useInitialEffect'
-import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import {
+  useAppDispatch,
+  useAppSelector,
+  useAppStore,
+} from '@/renderer/src/redux/hooks'
 import { selectFilteredSkills } from '@/renderer/src/redux/selectors'
 import {
   fetchSkills,
@@ -20,8 +28,11 @@ import {
   selectSkillTypeFilter,
   setSearchQuery,
 } from '@/renderer/src/redux/slices/uiSlice'
-import type { Skill } from '@/shared/types'
+import type { Skill, SkillName } from '@/shared/types'
 import { toSearchQuery } from '@/shared/types'
+
+import { ALL_CATEGORIES } from '../../redux/bookmarkCategories'
+import { EmptyCategoryFilter } from '../bookmarks/BookmarkCategoryFilter'
 
 import { SkillItem } from './SkillItem'
 import { getEmptyListMessage } from './skillsListHelpers'
@@ -36,6 +47,7 @@ const ROW_HEIGHT_BADGES = 34
 /** Props passed to SkillRow via rowProps */
 interface SkillRowProps {
   data: Skill[]
+  onFilteredBookmarkEdit: (name: SkillName, change: () => void) => void
 }
 
 /**
@@ -50,11 +62,15 @@ function SkillRow({
   index,
   style,
   data,
+  onFilteredBookmarkEdit,
 }: RowComponentProps<SkillRowProps>): React.ReactElement {
   return (
     <div style={style}>
       <div className="pb-3 pr-[5px]">
-        <SkillItem skill={data[index]} />
+        <SkillItem
+          skill={data[index]}
+          onFilteredBookmarkEdit={onFilteredBookmarkEdit}
+        />
       </div>
     </div>
   )
@@ -96,6 +112,52 @@ export const SkillsList = function SkillsList({
     selectExcludedSkillTypeFilters,
   )
   const filteredSkills = useAppSelector(selectFilteredSkills)
+  const filter = useAppSelector((state) => state.ui.installedCategoryFilter)
+  const store = useAppStore()
+  const list = useRef<ListImperativeAPI | null>(null)
+  const pendingFocus = useRef<SkillName | null | undefined>(undefined)
+
+  // Remember the pre-edit order. Only relocate focus if this edit actually removes the row.
+  function editBookmark(name: SkillName, change: () => void): void {
+    change()
+    if (filter === ALL_CATEGORIES) return
+    const remaining = new Set(
+      selectFilteredSkills(store.getState()).map((skill) => skill.name),
+    )
+    if (remaining.has(name)) return
+    const index = filteredSkills.findIndex((skill) => skill.name === name)
+    const next =
+      filteredSkills
+        .slice(index + 1)
+        .find((skill) => remaining.has(skill.name)) ??
+      filteredSkills
+        .slice(0, index)
+        .reverse()
+        .find((skill) => remaining.has(skill.name))
+    pendingFocus.current = next?.name ?? null
+  }
+  function focusRenderedCard(): void {
+    const name = pendingFocus.current
+    if (name === undefined) return
+    const button =
+      name === null
+        ? document.getElementById('installed-bookmark-category-filter')
+        : list.current?.element?.querySelector<HTMLButtonElement>(
+            `[data-category-for="${CSS.escape(name)}"]`,
+          )
+    if (button) {
+      button.focus()
+      pendingFocus.current = undefined
+    }
+  }
+  useLayoutEffect(() => {
+    const target = pendingFocus.current
+    if (target === undefined) return
+    const index = filteredSkills.findIndex((skill) => skill.name === target)
+    if (index >= 0) list.current?.scrollToRow({ index, align: 'auto' })
+    const frame = requestAnimationFrame(focusRenderedCard)
+    return (): void => cancelAnimationFrame(frame)
+  }, [filteredSkills])
 
   useInitialEffect(() => {
     dispatch(fetchSkills())
@@ -119,7 +181,10 @@ export const SkillsList = function SkillsList({
     return height
   }
 
-  const rowProps = { data: filteredSkills }
+  const rowProps = {
+    data: filteredSkills,
+    onFilteredBookmarkEdit: editBookmark,
+  }
   const listStyle = {
     width: '100%',
     height: '100%',
@@ -155,6 +220,9 @@ export const SkillsList = function SkillsList({
       </div>
     )
   }
+
+  if (filteredSkills.length === 0 && filter !== ALL_CATEGORIES)
+    return <EmptyCategoryFilter surface="installed" />
 
   if (filteredSkills.length === 0 && searchQuery.length > 0) {
     return (
@@ -194,6 +262,8 @@ export const SkillsList = function SkillsList({
   return (
     <List<SkillRowProps>
       className="skills-list-scrollbar"
+      listRef={list}
+      onRowsRendered={focusRenderedCard}
       rowComponent={SkillRow}
       rowCount={filteredSkills.length}
       rowHeight={getRowHeight}

@@ -5,6 +5,7 @@ import { COLOR_PRESET_CHROMA, PERSIST_STATE_VERSION } from '@/shared/constants'
 
 import {
   migrateState,
+  type MigratableState,
   V2_WIDGET_MIN_SIZES,
   V4_WIDGET_MIN_SIZES,
 } from './migrations'
@@ -800,6 +801,77 @@ describe('migrateState — v4 → v5 protect lock records', () => {
 
     // Assert
     expect(state.protect).toEqual({ items: [{ name: 'task' }] })
+  })
+})
+
+describe('v5 saved bookmark upgrades', () => {
+  const items = [
+    {
+      name: 'first',
+      repo: 'owner/repo',
+      url: 'https://example.test/a?q=1',
+      bookmarkedAt: '2026-01-01',
+    },
+    {
+      name: 'local',
+      repo: '',
+      url: 'https://github.com/',
+      bookmarkedAt: '2026-01-02',
+    },
+  ]
+
+  test('keeps every saved source and its order while adding editable starter categories', () => {
+    // Arrange
+    const profile = { bookmarks: { items }, unrelated: { enabled: true } }
+
+    // Act
+    const result = migrateState(profile, 5)
+
+    // Assert
+    expect(result).toEqual({
+      bookmarks: {
+        items,
+        categories: [
+          { id: 'code-review', name: 'Code Review', color: 'blue' },
+          { id: 'frontend-design', name: 'Frontend Design', color: 'rose' },
+          { id: 'planning', name: 'Planning', color: 'teal' },
+          { id: 'security', name: 'Security', color: 'violet' },
+        ],
+      },
+      unrelated: { enabled: true },
+    })
+  })
+
+  test.each([
+    { categories: [] },
+    {
+      categories: [{ id: 'security', name: 'Safety', color: 'retired-purple' }],
+    },
+  ])(
+    'does not replenish categories the owner removed on repeat migration',
+    ({ categories }) => {
+      // Arrange
+      const profile = { bookmarks: { items, categories }, untouched: 42 }
+
+      // Act
+      migrateState(profile, 5)
+      migrateState(profile, 5)
+
+      // Assert
+      expect(profile.bookmarks.categories).toEqual(categories)
+      expect(profile.untouched).toBe(42)
+    },
+  )
+
+  test('a missing legacy bookmark slice leaves the other settings available for hydration', () => {
+    // Arrange
+    const profile: MigratableState & { untouched: number } = { untouched: 42 }
+
+    // Act
+    migrateState(profile, 5)
+
+    // Assert
+    expect(profile).toEqual({ untouched: 42 })
   })
 })
 

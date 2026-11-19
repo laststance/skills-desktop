@@ -50,6 +50,36 @@ describe('createReportingLocalStorage', () => {
     expect(onWriteFailure).toHaveBeenCalledTimes(1)
   })
 
+  test('only the recovered key rearms its notification for a later failure', () => {
+    // Arrange
+    const write = vi.fn()
+    vi.stubGlobal('localStorage', { setItem: write })
+    const warn = vi.fn(() => true)
+    const saved = vi.fn()
+    const storage = createReportingLocalStorage(warn, saved)
+    const quota = () => {
+      throw new Error('quota')
+    }
+
+    // Act
+    write.mockImplementationOnce(quota)
+    expect(() => storage.setItem('settings', '1')).toThrow('quota')
+    expect(warn).toHaveBeenCalledTimes(1)
+    write.mockImplementationOnce(quota)
+    expect(() => storage.setItem('settings', '2')).toThrow('quota')
+    expect(warn).toHaveBeenCalledTimes(1)
+    storage.setItem('preview', 'other key')
+    expect(saved).toHaveBeenLastCalledWith(false)
+    storage.setItem('settings', 'now saved')
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(saved).toHaveBeenLastCalledWith(true)
+    write.mockImplementationOnce(quota)
+    expect(() => storage.setItem('settings', '3')).toThrow('quota')
+
+    // Assert
+    expect(warn).toHaveBeenCalledTimes(2)
+  })
+
   test('hands a rejected write back to the middleware after warning, so the next action retries it', () => {
     // Arrange
     const quotaError = new DOMException('quota', 'QuotaExceededError')

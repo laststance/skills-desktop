@@ -17,7 +17,10 @@ import type {
 } from '@/shared/types'
 import { toSkillCount } from '@/shared/types'
 
-import { selectBookmarkItems } from './slices/bookmarkSlice'
+import {
+  selectBookmarkItems,
+  selectCategoryMemberNames,
+} from './slices/bookmarkSlice'
 import { selectProtectedNamesSet } from './slices/protectSlice'
 import {
   selectInFlightDeleteNames,
@@ -31,6 +34,7 @@ import {
   selectExcludedSkillTypeFilters,
   selectSearchQuery,
   selectSearchScope,
+  selectSelectedBookmarkName,
   selectSelectedAgentId,
   selectSelectedSources,
   selectSkillTypeFilter,
@@ -40,6 +44,7 @@ import type {
   ExcludableSkillTypeFilter,
   SkillTypeFilter,
 } from './slices/uiSlice'
+import type { RootState } from './store'
 
 export interface RepoFacetOption {
   source: RepositoryId
@@ -220,7 +225,7 @@ const selectVisibleByAgentAndType = createSelector(
  * @example
  * const filteredSkills = useAppSelector(selectFilteredSkills)
  */
-export const selectFilteredSkills = createSelector(
+const selectSortedSkills = createSelector(
   [
     selectVisibleByAgentAndType,
     selectSearchQuery,
@@ -288,6 +293,17 @@ export const selectFilteredSkills = createSelector(
 
     return sorted
   },
+)
+
+/** Apply the Installed category to the existing sorted results shared by List, Tree, counts and bulk selection. */
+export const selectFilteredSkills = createSelector(
+  [
+    selectSortedSkills,
+    (state: RootState) =>
+      selectCategoryMemberNames(state, state.ui.installedCategoryFilter),
+  ],
+  (skills, included) =>
+    included ? skills.filter((skill) => included.has(skill.name)) : skills,
 )
 
 /**
@@ -557,6 +573,25 @@ export const selectBookmarksWithInstallStatus = createSelector(
       isInstalled: installedNames.has(b.name),
     }))
   },
+)
+
+/** Resolve the current detail directly from the saved bookmark and latest scan. */
+export const selectSelectedBookmarkForDetail = createSelector(
+  [selectSelectedBookmarkName, selectBookmarksWithInstallStatus],
+  (name, bookmarks) =>
+    bookmarks.find((bookmark) => bookmark.name === name) ?? null,
+)
+
+export const selectSidebarBookmarks = createSelector(
+  [
+    selectBookmarksWithInstallStatus,
+    (state: RootState) =>
+      selectCategoryMemberNames(state, state.ui.sidebarCategoryFilter),
+  ],
+  (bookmarks, included) =>
+    included
+      ? bookmarks.filter((bookmark) => included.has(bookmark.name))
+      : bookmarks,
 )
 
 /**

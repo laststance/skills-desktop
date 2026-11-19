@@ -159,16 +159,16 @@ When the **Installed** tab is open and no skill is selected, the detail panel re
 
 **Built-in widgets:**
 
-| Widget         | Shows                                                                                  |
-| -------------- | -------------------------------------------------------------------------------------- |
-| Welcome        | Dismissible introduction card shown on first launch                                    |
-| Skill Stats    | Totals for skills, linked skills, and agents at a glance                               |
-| Symlink Health | Valid vs. broken symlinks across all agents; "Scan issues" opens orphan/broken cleanup |
-| Agent Coverage | Which agents have which skills — quick matrix view                                     |
-| Bookmarks      | Saved skills from the marketplace                                                      |
-| Trending       | Popular marketplace skills right now                                                   |
-| What's New     | Recently added or updated marketplace skills                                           |
-| Quick Actions  | Frequent actions: refresh, open marketplace, reset layout                              |
+| Widget         | Shows                                                                                    |
+| -------------- | ---------------------------------------------------------------------------------------- |
+| Welcome        | Dismissible introduction card shown on first launch                                      |
+| Skill Stats    | Totals for skills, linked skills, and agents at a glance                                 |
+| Symlink Health | Valid vs. broken symlinks across all agents; "Scan issues" opens orphan/broken cleanup   |
+| Agent Coverage | Which agents have which skills — quick matrix view                                       |
+| Bookmarks      | Skills saved from Installed or Marketplace, with their category and original source link |
+| Trending       | Popular marketplace skills right now                                                     |
+| What's New     | Recently added or updated marketplace skills                                             |
+| Quick Actions  | Frequent actions: refresh, open marketplace, reset layout                                |
 
 **Experimental widgets** — hidden from the picker unless `FEATURE_FLAGS.ENABLE_DASHBOARD_EXPERIMENTAL` is enabled:
 

@@ -56,12 +56,12 @@ const rootReducer = combineReducers({
 type RootReducerState = ReturnType<typeof rootReducer>
 
 /**
- * Tell the user their persisted state is not reaching disk, once per app run.
+ * Tell the user when settings stop reaching disk. The shared warning ends after recovery.
  * Fires from {@link createReportingLocalStorage} when a save is rejected —
  * private mode, a disabled storage partition, or a full quota — because until
  * then the failure is a console line nobody reads. The copy names every
  * persisted slice, not just locks: `slices` below covers theme, bookmarks and
- * dashboard too, and all of them reset together.
+ * dashboard too, and an unsaved edit to any of them can be lost.
  * @returns `true` once the toast has been published, so the adapter can latch; `false` while hydration is still running and nothing would be shown
  * @example warnPersistedStateNotSaved() // => true, and a non-expiring error toast
  */
@@ -85,9 +85,10 @@ function warnPersistedStateNotSaved(
       description:
         scope === 'renderer'
           ? 'Your preview choice still applies now, but may reset after restart. The update notice may appear again because preferences could not be saved.'
-          : 'Locked skills, bookmarks, theme and dashboard layout will reset when the app closes — local storage rejected the write.',
+          : 'Your latest changes are unsaved. Keep the app open and switch views to retry.',
       // Non-expiring with an explicit close button: this is the one warning the
       // user gets, and a 4-second auto-dismiss can be missed entirely.
+      id: scope === 'app' ? PERSIST_STORAGE_KEY : undefined,
       duration: Infinity,
       closeButton: true,
     },
@@ -107,7 +108,12 @@ const {
   migrate: migrateState,
   // Replaces the library default, which console.errors a rejected write and
   // returns a silent no-op store when localStorage is unavailable.
-  storage: createReportingLocalStorage(() => warnPersistedStateNotSaved()),
+  storage: createReportingLocalStorage(
+    () => warnPersistedStateNotSaved(),
+    (recovered) => {
+      if (recovered) toast.dismiss(PERSIST_STORAGE_KEY)
+    },
+  ),
 })
 
 const preferencesPersistence = createRendererPreferencesPersistence(

@@ -9,6 +9,71 @@ async function createTestStore() {
 }
 
 describe('bookmarkSlice', () => {
+  test('renaming, recoloring and removing a category preserves every saved source', async () => {
+    // Arrange
+    const {
+      addBookmark,
+      assignBookmarkCategory,
+      saveBookmarkCategory,
+      deleteBookmarkCategory,
+      selectCategoryForSkill,
+    } = await import('./bookmarkSlice')
+    const store = await createTestStore()
+    const name = toSkillName('audit')
+    store.dispatch(
+      addBookmark({
+        name,
+        repo: repositoryId('owner/repo'),
+        url: toHttpUrl('https://example.test/exact?q=1'),
+      }),
+    )
+    const saved = store.getState().bookmarks.items[0]
+
+    // Act
+    store.dispatch(
+      saveBookmarkCategory({
+        category: { id: 'custom', name: '  Auditing  ', color: 'teal' },
+        createFor: name,
+      }),
+    )
+    expect(selectCategoryForSkill(store.getState(), name)).toEqual({
+      id: 'custom',
+      name: 'Auditing',
+      color: 'teal',
+    })
+    for (const invalid of [
+      '   ',
+      ' ALL categories ',
+      'unCATEGORIZED',
+      ' Security ',
+    ]) {
+      store.dispatch(
+        saveBookmarkCategory({
+          category: { id: 'custom', name: invalid, color: 'red' },
+        }),
+      )
+      expect(selectCategoryForSkill(store.getState(), name)?.name).toBe(
+        'Auditing',
+      )
+    }
+    store.dispatch(assignBookmarkCategory({ name, categoryId: 'unknown-id' }))
+    store.dispatch(
+      saveBookmarkCategory({
+        category: { id: 'custom', name: 'Threat review', color: 'rose' },
+      }),
+    )
+    expect(selectCategoryForSkill(store.getState(), name)).toEqual({
+      id: 'custom',
+      name: 'Threat review',
+      color: 'rose',
+    })
+    store.dispatch(deleteBookmarkCategory('custom'))
+
+    // Assert
+    expect(store.getState().bookmarks.items).toEqual([saved])
+    expect(selectCategoryForSkill(store.getState(), name)).toBeUndefined()
+  })
+
   test('starts with an empty saved list', async () => {
     // Arrange
     const store = await createTestStore()

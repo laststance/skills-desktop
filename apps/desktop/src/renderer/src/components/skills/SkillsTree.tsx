@@ -36,6 +36,10 @@ import {
 } from '@/renderer/src/redux/slices/skillsSlice'
 import type { AbsolutePath, Skill } from '@/shared/types'
 
+import { selectCategoryForSkill } from '../../redux/slices/bookmarkSlice'
+import { BookmarkCategoryLabel } from '../bookmarks/BookmarkCategoryLabel'
+import { categoryAppearance } from '../bookmarks/categoryAppearance'
+
 import { computeRangeSelection } from './bulkDeleteHelpers'
 import {
   getBulkIneligibilityReason,
@@ -97,13 +101,20 @@ function SkillTreeRow({
 }: RowComponentProps<TreeRowProps>): ReactElement {
   const row = rows[index]
   const node = nodes.get(row.path)
+  const category = useAppSelector((state) =>
+    node?.kind === 'root'
+      ? selectCategoryForSkill(state, node.skill.name)
+      : undefined,
+  )
   if (!node) return <div style={style} />
   const root = node.kind === 'root'
+  const isChecked = root ? checked.has(node.skill.name) : undefined
   const inspected = root && selectedPath === node.skill.path
   const current = node.kind === 'file' && currentFile === node.file.path
   return (
     <div
-      style={style}
+      style={{ ...style, ...categoryAppearance(category) }}
+      data-bookmark-category={category?.id}
       role="treeitem"
       id={`${idPrefix}-${encodeURIComponent(row.path)}`}
       aria-level={row.level + 1}
@@ -111,14 +122,15 @@ function SkillTreeRow({
       aria-setsize={row.setSize}
       aria-expanded={row.kind === 'directory' ? row.isExpanded : undefined}
       aria-selected={inspected || current}
-      aria-checked={root ? checked.has(node.skill.name) : undefined}
+      aria-checked={isChecked}
       aria-label={node.label}
+      aria-description={category?.name}
       data-tree-kind={node.kind}
       data-focused={row.isFocused || undefined}
       className={cn(
         'group flex min-w-0 items-center gap-1 overflow-hidden rounded-sm pr-1 text-[13px] hover:bg-accent/60',
         inspected && 'bg-primary/10 border-l-2 border-primary',
-        root && checked.has(node.skill.name) && 'bg-accent',
+        isChecked && 'bg-accent',
         current && 'text-foreground bg-primary/10',
         row.isFocused && 'tree-row-focused',
       )}
@@ -161,6 +173,7 @@ function SkillTreeRow({
         />
       </button>
       <TreeRowLabel node={node} expanded={row.isExpanded} />
+      <BookmarkCategoryLabel category={category} />
       {root && (
         <SkillTreeActions
           skill={node.skill}

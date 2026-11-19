@@ -1001,6 +1001,12 @@ avoid decorative effects.
 - Material Design elevation and shadows: https://m1.material.io/material-design/elevation-shadows.html
 - Apple HIG buttons: https://developer.apple.com/design/human-interface-guidelines/buttons
 
+### Bookmark categories
+
+A bookmark can have one user-defined category. Use its name alongside the full-card wash on Installed cards, Tree roots, sidebar rows and the dashboard widget. Files and directories use their usual surface. Use the theme selector’s 17 chromatic swatches. The light wash mixes 8% pigment at OKLCH lightness 0.65 with the card. The dark wash mixes 20% at lightness 0.28. Both use chroma 0.16 and the existing text, ring and status colors. Selection sits above the wash. An unavailable saved hue displays Blue until the user picks another swatch.
+
+Keep a single category button beside the title. Below 20rem of card content width, move it to the right end of the source line. Preserve the source action, the row height and a 24px minimum target. Show full truncated names on hover and focus. Save before offering to classify. Escape leaves the bookmark saved. If a keyboard edit removes the current match, focus the next surviving category control, the preceding control at the end, or the Installed filter when none remain.
+
 ### Installed Tree presentation
 
 Use a separate 36px view strip above the existing 36px bulk header. Place the compact connected List/Tree segmented control at the trailing edge; reserve a 24px Collapse all target at the leading edge in both modes. List is the default. The strip does not displace or duplicate the filter controls.

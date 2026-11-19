@@ -2,8 +2,8 @@ import { readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { chromium, type Browser, type Page } from '@playwright/test'
 import { wcagContrast } from 'culori'
+import { chromium, type Browser, type Page } from 'playwright'
 import { compile } from 'tailwindcss'
 import { afterAll, beforeAll, expect, test } from 'vitest'
 
@@ -202,6 +202,69 @@ test.each(Object.entries(THEME_PRESETS))(
   },
   30_000,
 )
+
+test('shows readable Security text on light and dark category washes over black and white desktop backgrounds', async () => {
+  // Arrange — use CSS from the real category, including the secondary label on dashboard and sidebar rows.
+  const samples = await page.evaluate((hue) => {
+    const root = document.documentElement
+    root.style.setProperty('--theme-chroma', '0')
+    document.body.innerHTML =
+      '<main><article data-bookmark-category="security"><span class="bookmark-category-label">Security</span></article></main>'
+    const pane = document.querySelector('main')!
+    const card = document.querySelector('article')!
+    const label = document.querySelector('span')!
+    card.style.setProperty('--bookmark-hue', String(hue))
+    const canvas = document.createElement('canvas')
+    canvas.width = canvas.height = 1
+    const context = canvas.getContext('2d', { willReadFrequently: true })!
+    const result: {
+      mode: string
+      opacity: number
+      fg: number[]
+      bg: number[]
+      backdrop: string
+    }[] = []
+    // Act — resolve Chromium's painted colors on both backdrops at each opacity in the supported AA band.
+    for (const mode of ['light', 'dark']) {
+      root.className = mode
+      for (let percent = 85; percent <= 100; percent++) {
+        pane.style.setProperty(
+          '--window-surface-opacity',
+          String(percent / 100),
+        )
+        for (const backdrop of ['black', 'white']) {
+          context.fillStyle = backdrop
+          context.fillRect(0, 0, 1, 1)
+          context.fillStyle = getComputedStyle(card).backgroundColor
+          context.fillRect(0, 0, 1, 1)
+          const bg = Array.from(context.getImageData(0, 0, 1, 1).data)
+          context.fillStyle = getComputedStyle(label).color
+          context.fillRect(0, 0, 1, 1)
+          result.push({
+            mode,
+            opacity: percent,
+            backdrop,
+            bg,
+            fg: Array.from(context.getImageData(0, 0, 1, 1).data),
+          })
+        }
+      }
+    }
+    return result
+  }, THEME_PRESETS.violet.hue)
+
+  // Assert
+  for (const { mode, opacity, backdrop, bg, fg } of samples) {
+    const ratio = wcagContrast(
+      { mode: 'rgb', r: fg[0] / 255, g: fg[1] / 255, b: fg[2] / 255 },
+      { mode: 'rgb', r: bg[0] / 255, g: bg[1] / 255, b: bg[2] / 255 },
+    )
+    expect(
+      ratio,
+      `${mode}/${opacity}% over ${backdrop}`,
+    ).toBeGreaterThanOrEqual(4.5)
+  }
+})
 
 test('resets both colors and alpha at opaque boundaries without changing solid action fills or inverse labels', async () => {
   // Arrange

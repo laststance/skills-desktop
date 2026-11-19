@@ -538,6 +538,125 @@
   }
 }
 
+/* Category color sits below the selection overlay and follows window opacity. */
+[data-bookmark-category] {
+  --bookmark-pigment: oklch(0.65 0.16 var(--bookmark-hue));
+  --bookmark-wash: color-mix(in srgb, var(--bookmark-pigment) 8%, var(--card));
+  background-color: oklch(
+    from var(--bookmark-wash) l c h / var(--window-surface-opacity, 1)
+  );
+}
+.dark [data-bookmark-category] {
+  --bookmark-pigment: oklch(0.28 0.16 var(--bookmark-hue));
+  --bookmark-wash: color-mix(in srgb, var(--bookmark-pigment) 20%, var(--card));
+}
+[data-bookmark-category]:is([role='treeitem'], [role='button'], li):is(
+    :hover,
+    [aria-selected='true'],
+    [aria-checked='true']
+  ) {
+  background-image: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--primary) 5%, transparent),
+    color-mix(in srgb, var(--primary) 5%, transparent)
+  );
+}
+.category-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  flex: none;
+  border-radius: 50%;
+  background: oklch(0.65 0.16 var(--bookmark-hue));
+}
+.bookmark-category-label {
+  font-size: 0.6875rem;
+  @apply text-muted-foreground;
+  max-width: 40%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.bookmark-card-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: start;
+}
+.bookmark-card-layout > :first-child {
+  grid-row: 1;
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+.bookmark-card-layout:has(.bookmark-card-category) {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+.bookmark-card-layout:has(.bookmark-card-category) > .bookmark-card-title {
+  display: contents;
+}
+.bookmark-card-layout:has(.bookmark-card-category) .bookmark-card-title > h3 {
+  grid-column: 1;
+  grid-row: 1;
+}
+.bookmark-card-layout:has(.bookmark-card-category) .bookmark-card-title > div {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
+}
+
+.bookmark-card-category {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: start;
+  justify-self: end;
+  max-width: min(9rem, 10cqi + 3.5rem);
+}
+.bookmark-card-description {
+  grid-row: 2;
+  grid-column: 1 / -1;
+}
+.bookmark-card-source {
+  grid-row: 3;
+  grid-column: 1 / -1;
+  display: flex;
+  min-width: 0;
+  height: 1.75rem;
+  align-items: start;
+}
+.bookmark-card-status {
+  grid-row: 4;
+  grid-column: 1 / -1;
+}
+@container (width < 20rem) {
+  .bookmark-card-layout:has(.bookmark-card-category) {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  /* The corner actions share the first line only. Let the source and swatch use the full lower line. */
+  .bookmark-card-content:has(.bookmark-card-category) {
+    padding-inline-end: 1rem;
+  }
+  .bookmark-card-content.pr-22 {
+    --bookmark-corner-space: 4.5rem;
+  }
+  .bookmark-card-content.pr-15 {
+    --bookmark-corner-space: 2.75rem;
+  }
+  .bookmark-card-content.pr-8 {
+    --bookmark-corner-space: 1rem;
+  }
+  .bookmark-card-layout:has(.bookmark-card-category) > .bookmark-card-title {
+    display: flex;
+    grid-column: 1 / -1;
+    padding-inline-end: var(--bookmark-corner-space, 0rem);
+  }
+
+  .bookmark-card-category {
+    grid-row: 3;
+    max-width: min(7rem, 38cqi);
+  }
+  .bookmark-card-layout:has(.bookmark-card-category) .bookmark-card-source {
+    grid-column: 1;
+  }
+}
+
 /* Tree uses one tab stop; the active descendant gets the visible keyboard ring. */
 .skills-tree:focus-visible .tree-row-focused {
   outline: 2px solid var(--ring);

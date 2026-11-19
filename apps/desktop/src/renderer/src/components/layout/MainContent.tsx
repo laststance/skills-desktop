@@ -150,6 +150,8 @@ import type {
 } from '@/shared/types'
 import { toIsoTimestamp } from '@/shared/types'
 
+import { BookmarkCategoryFilter } from '../bookmarks/BookmarkCategoryFilter'
+
 /** One row of the skill-type include menu: the filter it selects plus its presentation. */
 interface SkillTypeFilterOption {
   value: SkillTypeFilter
@@ -1417,6 +1419,7 @@ const InstalledToolbar = function InstalledToolbar({
         <SearchBox />
       </div>
 
+      <BookmarkCategoryFilter surface="installed" />
       <SourceRepositoryFilterMenu
         sourceFilter={sourceFilter}
         disabled={orphanMode}

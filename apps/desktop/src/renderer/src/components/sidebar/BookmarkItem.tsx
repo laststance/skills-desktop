@@ -7,11 +7,17 @@ import {
   TooltipTrigger,
 } from '@/renderer/src/components/ui/tooltip'
 import { cn } from '@/renderer/src/lib/utils'
-import { useAppDispatch } from '@/renderer/src/redux/hooks'
-import { removeBookmark } from '@/renderer/src/redux/slices/bookmarkSlice'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import {
+  removeBookmark,
+  selectCategoryForSkill,
+} from '@/renderer/src/redux/slices/bookmarkSlice'
 import { selectSkillForInstall } from '@/renderer/src/redux/slices/marketplaceSlice'
 import type { BookmarkForDetail } from '@/renderer/src/redux/slices/uiSlice'
 import { setSelectedBookmarkForDetail } from '@/renderer/src/redux/slices/uiSlice'
+
+import { BookmarkCategoryLabel } from '../bookmarks/BookmarkCategoryLabel'
+import { categoryAppearance } from '../bookmarks/categoryAppearance'
 
 interface BookmarkItemProps {
   bookmark: BookmarkForDetail
@@ -28,6 +34,9 @@ export const BookmarkItem = function BookmarkItem({
   bookmark,
 }: BookmarkItemProps): React.ReactElement {
   const dispatch = useAppDispatch()
+  const category = useAppSelector((state) =>
+    selectCategoryForSkill(state, bookmark.name),
+  )
 
   // Open the shared InstallModal (the exact marketplace install path) seeded
   // with this bookmark, instead of firing a hardcoded universal-only install.
@@ -46,11 +55,11 @@ export const BookmarkItem = function BookmarkItem({
   }
 
   const handleClick = (): void => {
-    dispatch(setSelectedBookmarkForDetail(bookmark))
+    dispatch(setSelectedBookmarkForDetail(bookmark.name))
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>): void => {
-    if (e.key === 'Enter' || e.key === ' ') {
+    if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
       e.preventDefault()
       handleClick()
     }
@@ -61,7 +70,10 @@ export const BookmarkItem = function BookmarkItem({
       // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- the row contains a nested Remove <button>; a native <button> cannot nest interactive children, so role="button" + tabIndex={0} + Enter/Space onKeyDown is the accessible equivalent.
       role="button"
       tabIndex={0}
+      data-bookmark-category={category?.id}
+      style={categoryAppearance(category)}
       aria-label={`View details for ${bookmark.name}`}
+      aria-description={category?.name}
       className={cn(
         'relative flex w-full items-center py-1.5 px-2 rounded-md transition-colors group cursor-pointer hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
       )}
@@ -74,7 +86,10 @@ export const BookmarkItem = function BookmarkItem({
         <Tooltip>
           <TooltipTrigger asChild>
             <div className="flex flex-col min-w-0 flex-1">
-              <span className="text-sm truncate">{bookmark.name}</span>
+              <span className="flex min-w-0 items-center gap-1">
+                <span className="text-sm truncate">{bookmark.name}</span>
+                <BookmarkCategoryLabel category={category} />
+              </span>
               <span className="text-xs text-muted-foreground truncate">
                 {bookmark.repo}
               </span>

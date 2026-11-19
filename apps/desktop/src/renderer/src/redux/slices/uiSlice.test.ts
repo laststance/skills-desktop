@@ -604,11 +604,11 @@ describe('uiSlice bookmark detail modal', () => {
     const { setSelectedBookmarkForDetail } = await import('./uiSlice')
 
     // Act
-    store.dispatch(setSelectedBookmarkForDetail(sampleBookmark))
+    store.dispatch(setSelectedBookmarkForDetail(sampleBookmark.name))
 
     // Assert
     expect(store.getState().ui.selectedBookmarkForDetail).toEqual(
-      sampleBookmark,
+      sampleBookmark.name,
     )
   })
 
@@ -617,7 +617,7 @@ describe('uiSlice bookmark detail modal', () => {
     const store = await createTestStore()
     const { setSelectedBookmarkForDetail, clearSelectedBookmarkForDetail } =
       await import('./uiSlice')
-    store.dispatch(setSelectedBookmarkForDetail(sampleBookmark))
+    store.dispatch(setSelectedBookmarkForDetail(sampleBookmark.name))
     expect(store.getState().ui.selectedBookmarkForDetail).not.toBeNull()
 
     // Act
@@ -1730,20 +1730,12 @@ describe('uiSlice selectors read the live ui state', () => {
       setBulkConfirm,
       openSymlinkCleanupDialog,
       setCleanupAgentTarget,
-      selectSelectedBookmarkForDetail,
+      selectSelectedBookmarkName,
       selectBulkConfirm,
       selectCleanupAgentTarget,
       selectSymlinkCleanupDialogOpen,
     } = await import('./uiSlice')
-    store.dispatch(
-      setSelectedBookmarkForDetail({
-        name: toSkillName('task'),
-        repo: repositoryId('vercel-labs/skills'),
-        url: toHttpUrl('https://github.com/vercel-labs/skills'),
-        bookmarkedAt: toIsoTimestamp('2026-04-01T08:00:00.000Z'),
-        isInstalled: false,
-      }),
-    )
+    store.dispatch(setSelectedBookmarkForDetail(toSkillName('task')))
     store.dispatch(
       setBulkConfirm({
         kind: 'delete',
@@ -1767,7 +1759,7 @@ describe('uiSlice selectors read the live ui state', () => {
     const rootState = store.getState() as RootState
 
     // Act + Assert
-    expect(selectSelectedBookmarkForDetail(rootState)).not.toBeNull()
+    expect(selectSelectedBookmarkName(rootState)).not.toBeNull()
     expect(selectBulkConfirm(rootState)).not.toBeNull()
     expect(selectCleanupAgentTarget(rootState)).toBe('cursor')
     // setCleanupAgentTarget closes the dashboard dialog (one surface at a time).

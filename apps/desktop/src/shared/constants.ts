@@ -35,8 +35,9 @@ export const PERSIST_STORAGE_KEY = 'skills-desktop-state'
  *    so a lock can remember the inode behind the name and survive a rename.
  *    The migration wraps each persisted name; it cannot invent an inode, so
  *    upgraded locks carry no identity until the first scan backfills them.
+ *  - v5 → v6: introduce bookmark category definitions. Existing links retain their order and values.
  */
-export const PERSIST_STATE_VERSION = 5
+export const PERSIST_STATE_VERSION = 6
 
 /**
  * Chroma value applied to OKLCH tokens for fully-saturated (color) presets.
@@ -852,6 +853,11 @@ export const AGENT_DEFINITIONS = [
  * @example 'cyan', 'rose', 'neutral-dark'
  */
 export type ThemePresetName = keyof typeof THEME_PRESETS
+
+/** Named chromatic swatches in the display order of the theme and bookmark pickers. */
+export const COLOR_PRESET_NAMES = (
+  Object.keys(THEME_PRESETS) as ThemePresetName[]
+).filter((key) => !('mode' in THEME_PRESETS[key]))
 
 /**
  * Agent IDs used in app state and IPC.

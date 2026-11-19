@@ -21,12 +21,14 @@ import type {
   SymlinkInfo,
 } from '@/shared/types'
 
+import { STARTER_CATEGORIES } from './bookmarkCategories'
 import {
   selectAnyInFlightRemovalSet,
   selectBookmarksWithInstallStatus,
   selectBulkSelectableVisibleSkillNames,
   selectFilteredSkills,
   selectFilteredSkillCount,
+  selectSidebarBookmarks,
   selectHiddenSelectedCount,
   selectOrphanCount,
   selectRepoFacetOptions,
@@ -51,6 +53,8 @@ function buildState(overrides: {
   sortOrder?: 'asc' | 'desc'
   skillTypeFilter?: SkillTypeFilter
   excludedSkillTypeFilters?: ExcludableSkillTypeFilter[]
+  installedCategoryFilter?: string
+  sidebarCategoryFilter?: string
   bookmarks?: BookmarkedSkill[]
   selectedSkillNames?: SkillName[]
   inFlightDeleteNames?: SkillName[]
@@ -99,6 +103,8 @@ function buildState(overrides: {
       syncResult: null,
       error: null,
       selectedBookmarkForDetail: null,
+      installedCategoryFilter: overrides.installedCategoryFilter ?? 'all',
+      sidebarCategoryFilter: overrides.sidebarCategoryFilter ?? 'all',
       undoToast: null,
     },
     // Other slices needed for RootState shape
@@ -133,6 +139,7 @@ function buildState(overrides: {
     },
     bookmarks: {
       items: overrides.bookmarks ?? [],
+      categories: STARTER_CATEGORIES,
     },
     protect: {
       // `protect.items` holds ProtectedSkill records; these fixtures only care
@@ -1357,6 +1364,66 @@ describe('selectBookmarksWithInstallStatus', () => {
 
     // Assert
     expect(result1).toBe(result2)
+  })
+})
+
+describe('bookmark category scopes', () => {
+  test('combines Installed search and category for visible rows and bulk actions while the sidebar includes an uninstalled bookmark', () => {
+    // Arrange
+    const state = buildState({
+      skills: ['audit-code', 'audit-local', 'package-check', 'never-saved'].map(
+        (name) => makeSkill(name, 'claude-code'),
+      ),
+      bookmarks: [
+        { ...makeBookmark('audit-code', 'acme/tools'), categoryId: 'security' },
+        {
+          ...makeBookmark('package-check', 'acme/tools'),
+          categoryId: 'security',
+        },
+        {
+          ...makeBookmark('audit-local', 'acme/tools'),
+          categoryId: 'retired-category',
+        },
+        makeBookmark('uninstalled', 'acme/tools'),
+      ],
+      searchQuery: 'audit',
+      installedCategoryFilter: 'security',
+      sidebarCategoryFilter: 'uncategorized',
+    })
+
+    // Act
+    const visible = selectVisibleSkillNames(state as never)
+    const eligible = selectBulkSelectableVisibleSkillNames(state as never)
+    const sidebar = selectSidebarBookmarks(state as never)
+
+    // Assert
+    expect(visible).toEqual(['audit-code'])
+    expect(eligible).toEqual(['audit-code'])
+    expect(selectFilteredSkillCount(state as never)).toBe(1)
+    expect(sidebar.map(({ name, isInstalled }) => [name, isInstalled])).toEqual(
+      [
+        ['audit-local', true],
+        ['uninstalled', false],
+      ],
+    )
+  })
+
+  test('keeps the Installed list reference while All categories is active and a bookmark changes', () => {
+    // Arrange
+    const state = buildState({ skills: [makeSkill('audit', 'claude-code')] })
+    const original = selectFilteredSkills(state as never)
+
+    // Act
+    const saved = {
+      ...state,
+      bookmarks: {
+        ...state.bookmarks,
+        items: [makeBookmark('audit', 'acme/tools')],
+      },
+    }
+
+    // Assert
+    expect(selectFilteredSkills(saved as never)).toBe(original)
   })
 })
 

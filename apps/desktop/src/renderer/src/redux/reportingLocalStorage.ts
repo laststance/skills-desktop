@@ -20,7 +20,7 @@ import type { SyncStorage } from '@laststance/redux-storage-middleware'
  */
 export function createReportingLocalStorage(
   reportWriteFailure: (error: unknown) => boolean,
-  onWriteSuccess?: () => void,
+  onWriteSuccess?: (recovered: boolean) => void,
   onReadFailure?: (error: unknown) => void,
 ): SyncStorage {
   // Latched on DELIVERY, not on failure, and deliberately not persisted. Saves
@@ -29,7 +29,7 @@ export function createReportingLocalStorage(
   // performs one UNDEBOUNCED write while hydrating (the persist-version
   // migration), long before React has mounted a toast surface. Spending the
   // latch there would swallow the only warning the user ever gets.
-  let reported = false
+  const reportedKeys = new Set<string>()
 
   return {
     getItem: (key) => {
@@ -47,7 +47,6 @@ export function createReportingLocalStorage(
     setItem: (key, value): void => {
       try {
         globalThis.localStorage.setItem(key, value)
-        onWriteSuccess?.()
       } catch (error) {
         // Private mode, a disabled storage partition and a quota overflow all
         // surface here — either as a throwing `setItem` or as a `localStorage`
@@ -63,10 +62,14 @@ export function createReportingLocalStorage(
           key,
           error,
         )
-        if (!reported) reported = reportWriteFailure(error)
+        if (!reportedKeys.has(key) && reportWriteFailure(error))
+          reportedKeys.add(key)
         // Rethrow so the middleware marks the save failed and retries it on the next action.
         throw error
       }
+      // A durable write rearms only its own warning, including after manual dismissal.
+      const recovered = reportedKeys.delete(key)
+      onWriteSuccess?.(recovered)
     },
     removeItem: (key): void => {
       try {

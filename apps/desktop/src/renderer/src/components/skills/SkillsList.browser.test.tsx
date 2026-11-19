@@ -1,6 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
@@ -337,6 +338,302 @@ describe('SkillsList scrollbar gutter layout', () => {
     expect(metrics.reservedGutterLeftSpacingPx).toBe(5)
     expect(metrics.reservedGutterRightSpacingPx).toBe(5)
   })
+})
+
+describe('personal bookmark categories in Installed', () => {
+  async function renderCollection(names: string[]) {
+    mockGetAll.mockReturnValue(new Promise(() => {}))
+    const store = await createStore({
+      items: names.map((name) => makeSkill({ name: toSkillName(name) })),
+    })
+    const { SkillsList } = await import('./SkillsList')
+    const { BookmarkCategoryFilter } =
+      await import('../bookmarks/BookmarkCategoryFilter')
+    const screen = await render(
+      <Provider store={store}>
+        <TooltipProvider>
+          <BookmarkCategoryFilter surface="installed" />
+          <div style={{ width: 450, height: 400 }}>
+            <SkillsList />
+          </div>
+        </TooltipProvider>
+      </Provider>,
+    )
+    return { store, screen }
+  }
+
+  test('saving before classification, editing a custom color and canceling a used deletion preserve the source', async () => {
+    // Arrange
+    const { screen, store } = await renderCollection(['audit'])
+    const card = screen.getByRole('button', {
+      name: 'Bookmark audit',
+      exact: true,
+    })
+
+    // Act
+    await card.click()
+    await expect
+      .element(screen.getByRole('menu', { name: 'Category for audit' }))
+      .toBeVisible()
+    await userEvent.keyboard('{Escape}')
+    expect(store.getState().bookmarks.items[0].categoryId).toBeUndefined()
+    const savedUrl = store.getState().bookmarks.items[0].url
+    await screen
+      .getByRole('button', { name: 'Set category', exact: true })
+      .click()
+    await screen.getByRole('menuitem', { name: 'New category' }).click()
+    await expect
+      .element(screen.getByRole('radio', { name: 'Blue', exact: true }))
+      .toBeChecked()
+    await screen.getByRole('textbox', { name: 'Name' }).fill(' Uncategorized ')
+    await screen.getByRole('button', { name: 'Apply', exact: true }).click()
+    await expect
+      .element(screen.getByRole('alert'))
+      .toHaveTextContent('This name is used by the category filter.')
+    await screen.getByRole('textbox', { name: 'Name' }).fill('Audit tools')
+    await screen.getByRole('radio', { name: 'Teal', exact: true }).click()
+    await screen.getByRole('button', { name: 'Apply', exact: true }).click()
+    const trigger = screen.getByRole('button', {
+      name: 'Audit tools',
+      exact: true,
+    })
+    await expect.element(trigger).toBeVisible()
+    await trigger.click()
+    await screen.getByRole('menuitem', { name: 'Edit Audit tools' }).click()
+    await screen.getByRole('button', { name: 'Delete category' }).click()
+    await expect
+      .element(
+        screen.getByText(
+          'Deleting Audit tools makes 1 bookmark uncategorized. Your bookmarks will stay saved.',
+        ),
+      )
+      .toBeVisible()
+    await screen.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await screen.getByRole('button', { name: 'Cancel', exact: true }).click()
+
+    // Assert
+    await expect.element(trigger).toBeVisible()
+    expect(store.getState().bookmarks.items[0].url).toBe(savedUrl)
+    expect(store.getState().bookmarks.categories.at(-1)).toMatchObject({
+      name: 'Audit tools',
+      color: 'teal',
+    })
+  })
+
+  test('deleting an unused starter is immediate and confirming a used starter counts saved skills that were uninstalled', async () => {
+    // Arrange
+    const { store, screen } = await renderCollection(['audit'])
+    const { addBookmark, assignBookmarkCategory } =
+      await import('../../redux/slices/bookmarkSlice')
+    for (const name of ['audit', 'removed-skill']) {
+      store.dispatch(
+        addBookmark({
+          name: toSkillName(name),
+          repo: '',
+          url: toHttpUrl('https://example.test/original'),
+        }),
+      )
+      store.dispatch(
+        assignBookmarkCategory({
+          name: toSkillName(name),
+          categoryId: 'security',
+        }),
+      )
+    }
+    const trigger = screen.getByRole('button', {
+      name: 'Security',
+      exact: true,
+    })
+
+    // Act
+    await trigger.click()
+    await screen.getByRole('menuitem', { name: 'Edit Planning' }).click()
+    await screen.getByRole('button', { name: 'Delete category' }).click()
+    expect(
+      store
+        .getState()
+        .bookmarks.categories.some((category) => category.id === 'planning'),
+    ).toBe(false)
+    await trigger.click()
+    await screen.getByRole('menuitem', { name: 'Edit Security' }).click()
+    const field = screen.getByRole('textbox', { name: 'Name' })
+    await field.fill('  aLL caTEGOries  ')
+    await screen.getByRole('button', { name: 'Apply', exact: true }).click()
+    await expect.element(field).toHaveValue('  aLL caTEGOries  ')
+    await expect
+      .element(screen.getByRole('alert'))
+      .toHaveTextContent('This name is used by the category filter.')
+    expect(
+      store
+        .getState()
+        .bookmarks.items.every((item) => item.categoryId === 'security'),
+    ).toBe(true)
+    await screen.getByRole('button', { name: 'Delete category' }).click()
+    await expect
+      .element(
+        screen.getByText(
+          'Deleting Security makes 2 bookmarks uncategorized. Your bookmarks will stay saved.',
+        ),
+      )
+      .toBeVisible()
+    await screen.getByRole('button', { name: 'Delete category' }).click()
+
+    // Assert
+    await expect
+      .element(
+        screen.getByRole('button', { name: 'Set category', exact: true }),
+      )
+      .toBeVisible()
+    expect(
+      store
+        .getState()
+        .bookmarks.items.map((item) => [item.name, item.url, item.categoryId]),
+    ).toEqual([
+      ['audit', 'https://example.test/original', undefined],
+      ['removed-skill', 'https://example.test/original', undefined],
+    ])
+  })
+
+  // Generated by /ship. Value: protects=keyboard use continues on an initially offscreen successor;
+  // fails_when=focus is lost after removing the bottom visible card; why_new=three-row fixtures never scroll;
+  // seam=none; no_claim=Electron window focus (real Chromium with a mocked scan).
+  test('opens the next initially offscreen category by keyboard after removing the bottom visible bookmark', async () => {
+    // Arrange
+    const names = Array.from(
+      { length: 30 },
+      (_, i) => 'audit-' + String(i).padStart(2, '0'),
+    )
+    const { store, screen } = await renderCollection(names)
+    const { addBookmark } = await import('../../redux/slices/bookmarkSlice')
+    const { setBookmarkCategoryFilter } =
+      await import('../../redux/slices/uiSlice')
+    for (const name of names) {
+      store.dispatch(
+        addBookmark({
+          name: toSkillName(name),
+          repo: '',
+          url: toHttpUrl('https://example.test'),
+        }),
+      )
+    }
+    store.dispatch(
+      setBookmarkCategoryFilter({ surface: 'installed', id: 'uncategorized' }),
+    )
+    const list = screen.getByRole('list').element()
+    const firstRow = list.firstElementChild!
+    list.scrollTop =
+      firstRow.getBoundingClientRect().height * 11 - list.clientHeight
+    const remove = screen.getByRole('button', {
+      name: 'Remove bookmark from audit-10',
+    })
+    await expect.element(remove).toBeVisible()
+    const successor = screen.getByRole('button', {
+      name: 'Remove bookmark from audit-11',
+    })
+    expect(
+      successor.element().getBoundingClientRect().top,
+    ).toBeGreaterThanOrEqual(list.getBoundingClientRect().bottom)
+
+    // Act
+    ;(remove.element() as HTMLElement).focus()
+    await userEvent.keyboard('{Enter}')
+
+    // Assert
+    await expect
+      .poll(() => document.activeElement?.getAttribute('data-category-for'))
+      .toBe('audit-11')
+    await userEvent.keyboard('{Enter}')
+    await expect
+      .element(screen.getByRole('menu', { name: 'Category for audit-11' }))
+      .toBeVisible()
+    expect(store.getState().bookmarks.items).toHaveLength(29)
+  })
+
+  test.each([
+    { operation: 'unbookmark', filter: 'security' },
+    { operation: 'reclassify', filter: 'security' },
+    { operation: 'unbookmark', filter: 'uncategorized' },
+    { operation: 'reclassify', filter: 'uncategorized' },
+  ])(
+    'keyboard $operation in $filter recovers at the next category, previous category or empty filter',
+    async ({ operation, filter }) => {
+      // Arrange
+      const { store, screen } = await renderCollection([
+        'alpha',
+        'bravo',
+        'charlie',
+      ])
+      const { addBookmark, assignBookmarkCategory } =
+        await import('../../redux/slices/bookmarkSlice')
+      const { setBookmarkCategoryFilter } =
+        await import('../../redux/slices/uiSlice')
+      for (const name of ['alpha', 'bravo', 'charlie']) {
+        store.dispatch(
+          addBookmark({
+            name: toSkillName(name),
+            repo: '',
+            url: toHttpUrl('https://example.test'),
+          }),
+        )
+        if (filter === 'security')
+          store.dispatch(
+            assignBookmarkCategory({
+              name: toSkillName(name),
+              categoryId: 'security',
+            }),
+          )
+      }
+      store.dispatch(
+        setBookmarkCategoryFilter({ surface: 'installed', id: filter }),
+      )
+      await expect
+        .element(
+          screen
+            .getByRole('button', {
+              name: filter === 'security' ? 'Security' : 'Set category',
+              exact: true,
+            })
+            .first(),
+        )
+        .toBeVisible()
+      // Act and assert after each disappearance, using real keyboard events against the rendered card.
+      for (const [name, next] of [
+        ['bravo', 'charlie'],
+        ['charlie', 'alpha'],
+        ['alpha', ''],
+      ]) {
+        const button = document.querySelector<HTMLButtonElement>(
+          operation === 'unbookmark'
+            ? `[aria-label="Remove bookmark from ${name}"]`
+            : `[data-category-for="${name}"]`,
+        )
+        if (!button)
+          throw new Error('Missing visible bookmark action for ' + name)
+        button.focus()
+        await userEvent.keyboard('{Enter}')
+        if (operation === 'reclassify') {
+          const planning = screen.getByRole('menuitem', {
+            name: 'Planning',
+            exact: true,
+          })
+          await expect.element(planning).toBeVisible()
+          ;(planning.element() as HTMLElement).focus()
+          await userEvent.keyboard('{Enter}')
+        }
+        await expect
+          .poll(() =>
+            next
+              ? document.activeElement?.getAttribute('data-category-for')
+              : document.activeElement?.id,
+          )
+          .toBe(next || 'installed-bookmark-category-filter')
+      }
+      await expect
+        .element(screen.getByRole('button', { name: 'Clear category filter' }))
+        .toBeVisible()
+      expect(store.getState().ui.installedCategoryFilter).toBe(filter)
+    },
+  )
 })
 
 describe('SkillsList global card spacing', () => {

@@ -969,6 +969,8 @@ export type InstallIntent = Pick<SkillSearchResult, 'name' | 'repo'>
  * }
  */
 export interface BookmarkedSkill {
+  /** Optional category owned by the user's bookmark collection. */
+  categoryId?: string
   /** Skill name (used as unique key within the bookmark list). @example "task" */
   name: SkillName
   /** Source repository in owner/repo format — passed to InstallOptions.repo on reinstall. Empty string for local skills without a remote source. @example "vercel-labs/skills" */
