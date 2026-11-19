@@ -318,7 +318,7 @@ describe('skillsCliService.install', () => {
     process.env.PATH = ORIGINAL_PATH
   })
 
-  test('installs globally without agent flags for a Universal-only Marketplace install', async () => {
+  test('limits Universal-only installation to the shared directory even when the CLI detects other agents', async () => {
     // Arrange
     simulateCli({ stdout: 'Installation complete' })
     const { skillsCliService } = await import('./skillsCliService')
@@ -340,6 +340,8 @@ describe('skillsCliService.install', () => {
         'vercel-labs/skills',
         '-y',
         '--global',
+        '--agent',
+        'codex',
         '--skill',
         'task',
       ],
@@ -347,7 +349,7 @@ describe('skillsCliService.install', () => {
     )
   })
 
-  test('adds one --agent flag per selected symlink target for Universal plus agents', async () => {
+  test('keeps the shared directory alongside explicitly selected agent links', async () => {
     // Arrange
     simulateCli({ stdout: 'Installation complete' })
     const { skillsCliService } = await import('./skillsCliService')
@@ -369,6 +371,8 @@ describe('skillsCliService.install', () => {
         'vercel-labs/skills',
         '-y',
         '--global',
+        '--agent',
+        'codex',
         '--agent',
         'claude-code',
         '--agent',
@@ -429,6 +433,8 @@ describe('skillsCliService.install', () => {
         'vercel-labs/skills',
         '-y',
         '--global',
+        '--agent',
+        'codex',
       ],
       expect.any(Object),
     )

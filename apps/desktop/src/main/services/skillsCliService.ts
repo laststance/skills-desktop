@@ -198,7 +198,12 @@ class SkillsCliService extends EventEmitter {
       args.push(CLI_FLAGS.GLOBAL)
     }
 
-    for (const agent of options.agents) {
+    // Codex explicitly targets ~/.agents/skills in the pinned CLI. Omitting a
+    // target enables autodetection, and a lone non-universal target installs a copy.
+    const targets = options.global
+      ? new Set(['codex', ...options.agents] as const)
+      : options.agents
+    for (const agent of targets) {
       // Map internal agent ID to CLI identifier (e.g., 'claude' → 'claude-code')
       /* v8 ignore next -- AgentId is derived from AGENT_DEFINITIONS and AGENT_ID_TO_CLI_NAME is built from the same source, so install()'s typed `agents` always map; the `?? agent` fallback is unreachable via the public surface */
       const cliAgentName = AGENT_ID_TO_CLI_NAME[agent] ?? agent

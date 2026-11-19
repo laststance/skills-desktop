@@ -568,6 +568,17 @@ export interface Skill {
 }
 
 /**
+ * Identify a shared source entry owned through a symlink. Installed lists it,
+ * while directory operations require a real folder owned by the scanned root.
+ * @example isLinkedSourceSkill(skill)
+ */
+export function isLinkedSourceSkill(
+  skill: Pick<Skill, 'filesystemIdentity'>,
+): boolean {
+  return skill.filesystemIdentity?.kind === 'symlink'
+}
+
+/**
  * An AI coding agent that can use skills via symlinks.
  * Each agent has a home directory (e.g. ~/.claude) containing a skills/ subdirectory.
  * @example

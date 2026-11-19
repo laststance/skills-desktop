@@ -15,7 +15,7 @@ import type {
   SkillName,
   SymlinkInfo,
 } from '@/shared/types'
-import { toSkillCount } from '@/shared/types'
+import { isLinkedSourceSkill, toSkillCount } from '@/shared/types'
 
 import {
   selectBookmarkItems,
@@ -624,6 +624,7 @@ function isBulkSelectableSkill(
   selectedAgentId: AgentId | null,
   protectedNames: ReadonlySet<SkillName>,
 ): boolean {
+  if (isLinkedSourceSkill(skill)) return false
   if (selectedAgentId === null) return true
   if (protectedNames.has(skill.name)) return false
 

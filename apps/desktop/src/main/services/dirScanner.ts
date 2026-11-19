@@ -42,12 +42,15 @@ export type SourceSkillDirListing =
  * Filters out hidden entries (e.g. .git, .DS_Store) and directories the probe
  * proved are not skills. Used by skillScanner and syncService to avoid
  * duplicating the readdir + filter + probe pattern.
+ * @param options - Display scans also include symlinks with a skill manifest. Cleanup only distributes real directories.
  * @returns `listed` with one entry per kept directory, or `unreadable` when the source directory itself could not be read
  * @example
  * await listSourceSkillDirs()
  * // => { status: 'listed', entries: [{ name: 'theme-generator', path: '/Users/x/.agents/skills/theme-generator', isUnreadable: false }] }
  */
-export async function listSourceSkillDirs(): Promise<SourceSkillDirListing> {
+export async function listSourceSkillDirs(
+  options: { includeLinkedSkills?: boolean } = {},
+): Promise<SourceSkillDirListing> {
   let entries: Dirent[]
   try {
     entries = await readdir(SOURCE_DIR, { withFileTypes: true })
@@ -64,7 +67,12 @@ export async function listSourceSkillDirs(): Promise<SourceSkillDirListing> {
     return { status: 'unreadable' }
   }
 
-  const dirs = entries.filter((e) => e.isDirectory() && !e.name.startsWith('.'))
+  const dirs = entries.filter(
+    (entry) =>
+      !entry.name.startsWith('.') &&
+      (entry.isDirectory() ||
+        (options.includeLinkedSkills && entry.isSymbolicLink())),
+  )
 
   const results: SkillDirEntry[] = []
   for (const dir of dirs) {

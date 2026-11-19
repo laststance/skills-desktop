@@ -440,7 +440,7 @@ async function readTrashedSourceDirNames(): Promise<TrashReadResult> {
  * @returns Unambiguous directory name to lock key pairs.
  * @example buildUniqueDirNameIndex(['a', 'A']) // => Map {}
  */
-function buildUniqueDirNameIndex(
+export function buildUniqueDirNameIndex(
   keys: readonly SkillName[],
 ): Map<string, SkillName> {
   const byDirName = new Map<string, SkillName>()

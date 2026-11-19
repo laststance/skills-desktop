@@ -21,11 +21,13 @@ import {
   installSkill,
 } from '@/renderer/src/redux/slices/marketplaceSlice'
 import { fetchSkills } from '@/renderer/src/redux/slices/skillsSlice'
+import { UNIVERSAL_AGENT_IDS } from '@/shared/constants'
 import type { AgentId, InstallOptions } from '@/shared/types'
 
 type InstallTargetMode = 'universal-only' | 'universal-and-agents'
 
 const DEFAULT_INSTALL_TARGET_MODE: InstallTargetMode = 'universal-and-agents'
+const SHARED_SOURCE_AGENTS: ReadonlySet<AgentId> = new Set(UNIVERSAL_AGENT_IDS)
 const DEFAULT_SELECTED_AGENT_IDS: AgentId[] = ['claude-code']
 
 /**
@@ -68,7 +70,10 @@ export const InstallModal = function InstallModal(): React.ReactElement {
   ])
 
   const isInstalling = status === 'installing'
-  const existingAgents = agents.filter((a) => a.exists)
+  // Universal agents already read the shared directory. The CLI creates separate links only for the others.
+  const existingAgents = agents.filter(
+    (agent) => agent.exists && !SHARED_SOURCE_AGENTS.has(agent.id),
+  )
 
   const existingAgentIds = new Set(existingAgents.map((agent) => agent.id))
 

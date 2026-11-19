@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 
 import type { AgentId, Skill, SymlinkInfo } from '@/shared/types'
-import { toAbsolutePath } from '@/shared/types'
+import { toAbsolutePath, toFileSizeBytes } from '@/shared/types'
 
 import {
   getBulkIneligibilityReason,
@@ -52,6 +52,28 @@ function makeSkill(
 
 describe('getSkillItemVisibility', () => {
   describe('global view (no agent selected)', () => {
+    test('keeps a shared source symlink visible without offering to delete or distribute its target', () => {
+      // Arrange
+      const linked: SkillVisibilityInput = {
+        ...makeSkill([]),
+        filesystemIdentity: {
+          kind: 'symlink',
+          dev: 1,
+          ino: 2,
+          size: toFileSizeBytes(8),
+          ctimeMs: 0,
+          mtimeMs: 0,
+        },
+      }
+
+      // Act
+      const actions = getSkillItemVisibility(null, linked)
+
+      // Assert
+      expect(actions.showDeleteButton).toBe(false)
+      expect(actions.showAddButton).toBe(false)
+    })
+
     test('offers Delete and Add but no Unlink in the global view of a skill with no symlinks', () => {
       // Arrange — global view (no agent selected), skill with no symlinks.
       // Act

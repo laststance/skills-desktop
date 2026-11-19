@@ -1,5 +1,6 @@
 import { isGStackManagedForAgent } from '@/renderer/src/utils/gstackSkill'
 import type { AgentId, Skill, SymlinkInfo } from '@/shared/types'
+import { isLinkedSourceSkill } from '@/shared/types'
 
 /**
  * Why a rendered agent-view row cannot join the bulk selection, phrased for a
@@ -16,12 +17,15 @@ import type { AgentId, Skill, SymlinkInfo } from '@/shared/types'
  */
 export function getBulkIneligibilityReason(input: {
   isProtected: boolean
+  isLinkedSource?: boolean
   isLocalSkill: boolean
   selectedAgentSymlinkStatus: SymlinkInfo['status'] | null
 }): string | null {
   if (input.isProtected) {
     return 'Protected — unlock to include in bulk actions'
   }
+  if (input.isLinkedSource)
+    return 'Linked source folder — manage this link on disk'
   // A valid non-local link for the agent IS the eligibility condition, so the
   // row is selectable and has no reason to report.
   if (input.selectedAgentSymlinkStatus === 'valid') return null
@@ -76,7 +80,10 @@ export interface SkillItemVisibility {
  * the test factory so a future field addition is a one-line change instead
  * of three (function signature, factory return, factory overrides).
  */
-export type SkillVisibilityInput = Pick<Skill, 'symlinks' | 'isOrphan'>
+export type SkillVisibilityInput = Pick<
+  Skill,
+  'symlinks' | 'isOrphan' | 'filesystemIdentity'
+>
 
 /**
  * Compute which action buttons to show on a SkillItem card.
@@ -143,6 +150,7 @@ export function getSkillItemVisibility(
     : null
 
   const isLocalSkill = Boolean(selectedLocalSkillInfo)
+  const linkedSource = isLinkedSourceSkill(skill)
   const hasUsableSkillInSelectedAgent =
     isLocalSkill || selectedAgentSymlink?.status === 'valid'
   const isInaccessibleSkill =
@@ -156,19 +164,21 @@ export function getSkillItemVisibility(
     // Delete is the primary cleanup action for orphans in global view —
     // sweeping the dangling row removes every agent-side symlink at once.
     // Protected skills keep this slot visible but disabled; unlock before deleting.
-    showDeleteButton: !selectedAgentId,
+    showDeleteButton: !selectedAgentId && !linkedSource,
     // Orphan skills have no live source to symlink _to_, so the Add button
     // (which opens AddSymlinkModal / CopyToAgentsModal) would surface a flow
     // that can only fail.
     showAddButton:
       (!selectedAgentId || hasUsableSkillInSelectedAgent) &&
       !isOrphan &&
-      !isInaccessibleSkill,
+      !isInaccessibleSkill &&
+      !linkedSource,
     // Broken and inaccessible non-local symlinks need reviewed cleanup paths
     // that recheck the target; generic unlink only stays for valid symlinks.
     showUnlinkButton:
       isLocalSkill ||
-      (selectedAgentSymlink !== null &&
+      (!linkedSource &&
+        selectedAgentSymlink !== null &&
         selectedAgentSymlink.status === 'valid'),
     isLinked:
       selectedAgentSymlink !== null && selectedAgentSymlink.status === 'valid',
@@ -183,7 +193,8 @@ export function getSkillItemVisibility(
       selectedAgentId !== null &&
       hasUsableSkillInSelectedAgent &&
       !isOrphan &&
-      !isInaccessibleSkill,
+      !isInaccessibleSkill &&
+      !linkedSource,
     showGStackBadge,
   }
 }

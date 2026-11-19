@@ -2,6 +2,8 @@ import {
   chmodSync,
   existsSync,
   mkdirSync,
+  lstatSync,
+  realpathSync,
   readFileSync,
   writeFileSync,
 } from 'node:fs'
@@ -104,6 +106,25 @@ async function waitForClaudeCodeAgent(appWindow: Page): Promise<void> {
   })
 }
 
+/** Provide a catalogue result while exercising the real install dialog, IPC and child process.
+ * @example await showMarketplaceResult(page, MARKETPLACE_SKILL)
+ */
+async function showMarketplaceResult(
+  page: Page,
+  skill: typeof MARKETPLACE_SKILL,
+): Promise<void> {
+  const meta = { arg: skill.name, requestId: `install-${skill.name}` }
+  await dispatchAction(page, {
+    type: 'marketplace/search/pending',
+    meta: { ...meta, requestStatus: 'pending' },
+  })
+  await dispatchAction(page, {
+    type: 'marketplace/search/fulfilled',
+    payload: [skill],
+    meta: { ...meta, requestStatus: 'fulfilled' },
+  })
+}
+
 test('Marketplace Install works when Electron starts with sparse macOS GUI PATH', async ({
   isolatedHome,
 }) => {
@@ -126,23 +147,7 @@ test('Marketplace Install works when Electron starts with sparse macOS GUI PATH'
     // Seed the Marketplace search results without hitting skills.sh. The
     // Install button below still goes through IPC, skillsCliService, and
     // child_process.spawn.
-    await dispatchAction(appWindow, {
-      type: 'marketplace/search/pending',
-      meta: {
-        arg: 'find-skills',
-        requestId: 'e2e-marketplace-install-path',
-        requestStatus: 'pending',
-      },
-    })
-    await dispatchAction(appWindow, {
-      type: 'marketplace/search/fulfilled',
-      payload: [MARKETPLACE_SKILL],
-      meta: {
-        arg: 'find-skills',
-        requestId: 'e2e-marketplace-install-path',
-        requestStatus: 'fulfilled',
-      },
-    })
+    await showMarketplaceResult(appWindow, MARKETPLACE_SKILL)
 
     // Act — open the Marketplace tab and confirm the install through the dialog.
     await appWindow.getByRole('tab', { name: 'Marketplace' }).click()
@@ -170,5 +175,86 @@ test('Marketplace Install works when Electron starts with sparse macOS GUI PATH'
     ).toBeVisible()
   } finally {
     await electronApp.close()
+  }
+})
+
+test('Marketplace installs into the shared folder and links only the chosen agents with the pinned CLI', async ({
+  isolatedHome,
+}) => {
+  test.setTimeout(120_000)
+  // Arrange. The catalogue points at a local skill collection so its contents stay deterministic.
+  const collection = join(isolatedHome, 'collection')
+  const claude = join(isolatedHome, '.claude', 'skills')
+  const goose = join(isolatedHome, '.config', 'goose', 'skills')
+  const shared = join(isolatedHome, '.agents', 'skills')
+  for (const name of ['qa-shared', 'qa-linked']) {
+    const folder = join(collection, 'skills', name)
+    mkdirSync(folder, { recursive: true })
+    writeFileSync(
+      join(folder, 'SKILL.md'),
+      `---\nname: ${name}\ndescription: An install fixture.\n---\n`,
+    )
+  }
+  for (const dir of [claude, goose, shared]) mkdirSync(dir, { recursive: true })
+  const stateDir = join(isolatedHome, 'qa-state')
+  const app = await launchIsolatedElectron(isolatedHome, {
+    XDG_STATE_HOME: stateDir,
+    DISABLE_TELEMETRY: '1',
+  })
+  try {
+    const page = await app.firstWindow()
+    await waitForClaudeCodeAgent(page)
+    await page.getByRole('tab', { name: 'Marketplace' }).click()
+    for (const name of ['qa-linked', 'qa-shared']) {
+      // Act through the same Marketplace control a user presses.
+      await showMarketplaceResult(page, {
+        ...MARKETPLACE_SKILL,
+        name,
+        repo: collection,
+      })
+      await page
+        .getByRole('button', { name: 'Install', exact: true })
+        .first()
+        .click()
+      const dialog = page.getByRole('dialog', { name: 'Install Skill' })
+      if (name === 'qa-shared')
+        await dialog.getByRole('radio', { name: 'Universal only' }).click()
+      await dialog.getByRole('button', { name: 'Install', exact: true }).click()
+      await expect(
+        page.getByRole('img', {
+          name: new RegExp(`${name} is installed`, 'i'),
+        }),
+      ).toBeVisible({ timeout: 50_000 })
+    }
+
+    // Assert physical folders, exact link target, untouched agent and the CLI's own lock.
+    expect(
+      readFileSync(join(shared, 'qa-linked', 'SKILL.md'), 'utf8'),
+    ).toContain('name: qa-linked')
+    expect(
+      readFileSync(join(shared, 'qa-shared', 'SKILL.md'), 'utf8'),
+    ).toContain('name: qa-shared')
+    expect(lstatSync(join(claude, 'qa-linked')).isSymbolicLink()).toBe(true)
+    expect(realpathSync(join(claude, 'qa-linked'))).toBe(
+      realpathSync(join(shared, 'qa-linked')),
+    )
+    expect(
+      lstatSync(join(claude, 'qa-shared'), { throwIfNoEntry: false }),
+    ).toBeUndefined()
+    expect(
+      lstatSync(join(goose, 'qa-linked'), { throwIfNoEntry: false }),
+    ).toBeUndefined()
+    expect(
+      lstatSync(join(goose, 'qa-shared'), { throwIfNoEntry: false }),
+    ).toBeUndefined()
+    expect(
+      Object.keys(
+        JSON.parse(
+          readFileSync(join(stateDir, 'skills', '.skill-lock.json'), 'utf8'),
+        ).skills,
+      ).sort(),
+    ).toEqual(['qa-linked', 'qa-shared'])
+  } finally {
+    await app.close()
   }
 })
