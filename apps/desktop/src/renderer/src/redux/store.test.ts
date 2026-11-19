@@ -4,6 +4,7 @@ import {
   PERSIST_STATE_VERSION,
   PERSIST_STORAGE_KEY,
   THEME_PRESETS,
+  RENDERER_PREFERENCES_STORAGE_KEY,
 } from '@/shared/constants'
 import type { Skill } from '@/shared/types'
 import { toAbsolutePath, toSkillName, toSymlinkCount } from '@/shared/types'
@@ -360,6 +361,181 @@ describe('persisted state boot (full localStorage)', () => {
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
     vi.resetModules()
+  })
+
+  // Value: protects=deleted starter choices survive a real store restart; fails_when=hydration reseeds categories;
+  // why_new=migration unit tests do not pass through the stored root merge; seam=none.
+  test('keeps deleted starters absent across store restarts, even after the last category is deleted', async () => {
+    // Arrange
+    const bookmark = {
+      name: 'audit',
+      repo: 'owner/tools',
+      url: 'https://example.test/pinned?rev=1',
+      bookmarkedAt: '2026-11-01T00:00:00Z',
+    }
+    const values = new Map([
+      [
+        PERSIST_STORAGE_KEY,
+        JSON.stringify({
+          version: 5,
+          state: { bookmarks: { items: [bookmark] } },
+        }),
+      ],
+    ])
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, bytes: string) => {
+        values.set(key, bytes)
+      },
+      removeItem: (key: string) => {
+        values.delete(key)
+      },
+    })
+    vi.resetModules()
+    const { store: first } = await import('./store')
+    const { assignBookmarkCategory, deleteBookmarkCategory } =
+      await import('./slices/bookmarkSlice')
+    await vi.waitFor(() =>
+      expect(first.getState().bookmarks.items).toEqual([bookmark]),
+    )
+    first.dispatch(
+      assignBookmarkCategory({
+        name: toSkillName('audit'),
+        categoryId: 'security',
+      }),
+    )
+
+    // Act — cross a durable save and a fresh root merge after one deletion, then after deleting every starter.
+    first.dispatch(deleteBookmarkCategory('security'))
+    await vi.waitFor(() =>
+      expect(
+        JSON.parse(
+          values.get(PERSIST_STORAGE_KEY)!,
+        ).state.bookmarks.categories.map((c: { id: string }) => c.id),
+      ).toEqual(['code-review', 'frontend-design', 'planning']),
+    )
+    vi.resetModules()
+    const { store: second } = await import('./store')
+    await vi.waitFor(() =>
+      expect(second.getState().bookmarks.items).toEqual([bookmark]),
+    )
+    expect(
+      second.getState().bookmarks.categories.map((category) => category.id),
+    ).toEqual(['code-review', 'frontend-design', 'planning'])
+    for (const id of ['code-review', 'frontend-design', 'planning'])
+      second.dispatch(deleteBookmarkCategory(id))
+    await vi.waitFor(() =>
+      expect(
+        JSON.parse(values.get(PERSIST_STORAGE_KEY)!).state.bookmarks.categories,
+      ).toEqual([]),
+    )
+    vi.resetModules()
+    const { store: third } = await import('./store')
+
+    // Assert — an intentional empty collection remains empty and the original URL and timestamp survive.
+    await vi.waitFor(() =>
+      expect(third.getState().bookmarks.items).toEqual([bookmark]),
+    )
+    expect(third.getState().bookmarks.categories).toEqual([])
+  })
+
+  test('the shared warning survives dismissal and preview saves, clears on settings recovery, then reports a new failure', async () => {
+    // Arrange — upgrade an actual v5 envelope with an exact source URL.
+    const legacy = {
+      version: 5,
+      state: {
+        bookmarks: {
+          items: [
+            {
+              name: 'audit',
+              repo: 'owner/tools',
+              url: 'https://example.test/pinned?rev=1',
+              bookmarkedAt: '2026-11-01T00:00:00Z',
+            },
+          ],
+        },
+      },
+    }
+    const values = new Map([[PERSIST_STORAGE_KEY, JSON.stringify(legacy)]])
+    let full = false
+    const setItem = vi.fn((key: string, bytes: string) => {
+      if (full && key === PERSIST_STORAGE_KEY)
+        throw new DOMException('full', 'QuotaExceededError')
+      values.set(key, bytes)
+    })
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem,
+      removeItem: (key: string) => values.delete(key),
+    })
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.resetModules()
+    const { toast } = await import('sonner')
+    const notify = vi.spyOn(toast, 'error')
+    const dismiss = vi
+      .spyOn(toast, 'dismiss')
+      .mockReturnValue(PERSIST_STORAGE_KEY)
+    const { store } = await import('./store')
+    const { assignBookmarkCategory } = await import('./slices/bookmarkSlice')
+    const { setMarkdownPreviewMode } =
+      await import('./slices/rendererPreferencesSlice')
+    await vi.waitFor(() =>
+      expect(JSON.parse(values.get(PERSIST_STORAGE_KEY)!).version).toBe(6),
+    )
+    const lastSaved = values.get(PERSIST_STORAGE_KEY)
+    full = true
+
+    // Act — closing a toast or persisting the preview preference must not end the shared failure series.
+    store.dispatch(
+      assignBookmarkCategory({
+        name: toSkillName('audit'),
+        categoryId: 'security',
+      }),
+    )
+    await vi.waitFor(() => expect(notify).toHaveBeenCalledTimes(1))
+    expect(values.get(PERSIST_STORAGE_KEY)).toBe(lastSaved)
+    toast.dismiss(PERSIST_STORAGE_KEY)
+    dismiss.mockClear()
+    const failedCalls = setItem.mock.calls.filter(
+      ([key]) => key === PERSIST_STORAGE_KEY,
+    ).length
+    store.dispatch(setMarkdownPreviewMode('reading'))
+    await vi.waitFor(() =>
+      expect(
+        JSON.parse(values.get(RENDERER_PREFERENCES_STORAGE_KEY) ?? '{}').state
+          ?.rendererPreferences?.markdownPreviewMode,
+      ).toBe('reading'),
+    )
+    await vi.waitFor(() =>
+      expect(
+        setItem.mock.calls.filter(([key]) => key === PERSIST_STORAGE_KEY)
+          .length,
+      ).toBeGreaterThan(failedCalls),
+    )
+    expect(notify).toHaveBeenCalledTimes(1)
+    expect(dismiss).not.toHaveBeenCalledWith(PERSIST_STORAGE_KEY)
+    full = false
+    store.dispatch(setActiveTab('marketplace'))
+    await vi.waitFor(() =>
+      expect(dismiss).toHaveBeenCalledWith(PERSIST_STORAGE_KEY),
+    )
+    expect(
+      JSON.parse(values.get(PERSIST_STORAGE_KEY)!).state.bookmarks.items,
+    ).toEqual([{ ...legacy.state.bookmarks.items[0], categoryId: 'security' }])
+    full = true
+    store.dispatch(
+      assignBookmarkCategory({
+        name: toSkillName('audit'),
+        categoryId: 'planning',
+      }),
+    )
+
+    // Assert — a second warning arrives while the last successful classification stays on disk.
+    await vi.waitFor(() => expect(notify).toHaveBeenCalledTimes(2))
+    expect(
+      JSON.parse(values.get(PERSIST_STORAGE_KEY)!).state.bookmarks.items[0]
+        .categoryId,
+    ).toBe('security')
   })
 
   test('boots on the migrated theme and keeps the old saved copy when localStorage rejects the migration write-back', async () => {

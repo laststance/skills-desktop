@@ -46,6 +46,7 @@ import {
   addBookmark,
   removeBookmark,
   selectIsBookmarked,
+  selectCategoryForSkill,
 } from '@/renderer/src/redux/slices/bookmarkSlice'
 import {
   addProtection,
@@ -77,6 +78,9 @@ import type {
   SymlinkInfo,
 } from '@/shared/types'
 import { toSymlinkCount } from '@/shared/types'
+
+import { BookmarkCategoryPicker } from '../bookmarks/BookmarkCategoryPicker'
+import { categoryAppearance } from '../bookmarks/categoryAppearance'
 
 import { canBookmarkSkill, skillToBookmarkData } from './bookmarkHelpers'
 import { computeRangeSelection } from './bulkDeleteHelpers'
@@ -186,6 +190,7 @@ const ProtectButton = function ProtectButton({
 }
 
 interface SkillItemProps {
+  onFilteredBookmarkEdit?: (name: SkillName, change: () => void) => void
   skill: Skill
 }
 
@@ -414,7 +419,7 @@ const SkillTitleRow = function SkillTitleRow({
   onAddClick,
 }: SkillTitleRowProps): React.ReactElement {
   return (
-    <div className="flex items-start gap-2">
+    <div className="bookmark-card-title flex items-start gap-2">
       <h3 className="font-medium truncate flex min-w-0 flex-1 items-center gap-1.5">
         {isLinked && (
           <Link2
@@ -530,6 +535,7 @@ const SkillTitleRow = function SkillTitleRow({
  */
 export const SkillItem = function SkillItem({
   skill,
+  onFilteredBookmarkEdit,
 }: SkillItemProps): React.ReactElement {
   const dispatch = useAppDispatch()
   const selectedSkill = useAppSelector((state) => state.skills.selectedSkill)
@@ -543,6 +549,14 @@ export const SkillItem = function SkillItem({
     selectIsProtected(state, skill.name),
   )
   const showBookmark = canBookmarkSkill(skill)
+  const category = useAppSelector((state) =>
+    selectCategoryForSkill(state, skill.name),
+  )
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const applyBookmarkEdit = (change: () => void): void => {
+    if (onFilteredBookmarkEdit) onFilteredBookmarkEdit(skill.name, change)
+    else change()
+  }
 
   const selectedNamesSet = useAppSelector(selectSelectedSkillNamesSet)
   // Per-row boolean subscription: unaffected rows keep a stable `false` and
@@ -681,10 +695,14 @@ export const SkillItem = function SkillItem({
   const handleToggleBookmark = (e: React.MouseEvent): void => {
     e.stopPropagation()
     if (isBookmarked) {
-      dispatch(removeBookmark(skill.name))
+      setPickerOpen(false)
+      if (e.detail === 0)
+        applyBookmarkEdit(() => dispatch(removeBookmark(skill.name)))
+      else dispatch(removeBookmark(skill.name))
     } else {
       const { repo, url } = skillToBookmarkData(skill)
       dispatch(addBookmark({ name: skill.name, repo, url }))
+      setPickerOpen(true)
     }
   }
 
@@ -841,6 +859,8 @@ export const SkillItem = function SkillItem({
       <DropdownMenuTrigger asChild disabled={!showCopyButton}>
         <Card
           data-skill-name={skill.name}
+          data-bookmark-category={category?.id}
+          style={categoryAppearance(category)}
           className={cn(
             // `@container` so {@link SkillTitleRow}'s icon tier keys off the
             // card's own width (panel-driven), not the window — same pattern
@@ -903,7 +923,7 @@ export const SkillItem = function SkillItem({
 
           <CardContent
             className={cn(
-              'p-4',
+              'bookmark-card-content p-4',
               // Reserve right space for the absolute-positioned X/bookmark
               // overlays so the always-visible "+ Add" control never slides
               // under them. Bookmark + X stack to 56px, so that case needs
@@ -931,7 +951,7 @@ export const SkillItem = function SkillItem({
                 onClick={handleCheckboxClick}
               />
 
-              <div className="flex-1 min-w-0">
+              <div className="bookmark-card-layout flex-1 min-w-0">
                 <SkillTitleRow
                   skill={skill}
                   isLinked={isLinked}
@@ -943,17 +963,33 @@ export const SkillItem = function SkillItem({
                   onAddClick={handleAddClick}
                 />
 
+                {isBookmarked && (
+                  <BookmarkCategoryPicker
+                    className="bookmark-card-category"
+                    skillName={skill.name}
+                    open={pickerOpen}
+                    onOpenChange={(open) => setPickerOpen(open)}
+                    onChangeBookmark={applyBookmarkEdit}
+                  />
+                )}
                 {skill.description && (
-                  <p className="text-sm text-muted-foreground line-clamp-2 mt-1 min-h-10">
+                  <p className="bookmark-card-description text-sm text-muted-foreground line-clamp-2 mt-1 min-h-10">
                     {skill.description}
                   </p>
                 )}
-                <SourceLink source={skill.source} sourceUrl={skill.sourceUrl} />
+                <div className="bookmark-card-source">
+                  <SourceLink
+                    source={skill.source}
+                    sourceUrl={skill.sourceUrl}
+                  />
+                </div>
 
                 {/* Status badges — global view only. They sit in the text
                     column so they start under the title, not the checkbox. */}
                 {!selectedAgentId && (
-                  <GlobalStatusBadges buckets={symlinkStatusBuckets} />
+                  <div className="bookmark-card-status">
+                    <GlobalStatusBadges buckets={symlinkStatusBuckets} />
+                  </div>
                 )}
               </div>
             </div>
@@ -1081,6 +1117,11 @@ const SkillItemOverlayActions = function SkillItemOverlayActions({
           <TooltipTrigger asChild>
             <button
               type="button"
+              onKeyDown={(event) => {
+                // Keep native bookmark activation inside the card; list shortcuts still bubble.
+                if (event.key === 'Enter' || event.key === ' ')
+                  event.stopPropagation()
+              }}
               onClick={onToggleBookmark}
               aria-label={
                 isBookmarked

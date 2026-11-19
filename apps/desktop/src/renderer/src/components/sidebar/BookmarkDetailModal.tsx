@@ -1,5 +1,5 @@
 import { Check, ExternalLink } from 'lucide-react'
-import React from 'react'
+import { useRef, useState } from 'react'
 
 import { Button } from '@/renderer/src/components/ui/button'
 import {
@@ -11,114 +11,151 @@ import {
 } from '@/renderer/src/components/ui/dialog'
 import { Separator } from '@/renderer/src/components/ui/separator'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import { selectSelectedBookmarkForDetail } from '@/renderer/src/redux/selectors'
 import { removeBookmark } from '@/renderer/src/redux/slices/bookmarkSlice'
 import { selectSkillForInstall } from '@/renderer/src/redux/slices/marketplaceSlice'
 import {
   clearSelectedBookmarkForDetail,
-  selectSelectedBookmarkForDetail,
+  type BookmarkForDetail,
 } from '@/renderer/src/redux/slices/uiSlice'
 import { LOCAL_SOURCE_LABEL } from '@/shared/constants'
 
-/**
- * Modal dialog showing bookmark details with install/remove actions.
- * Controlled by uiSlice.selectedBookmarkForDetail (transient, not persisted).
- * @example
- * <BookmarkDetailModal /> // Renders when a bookmark is selected in sidebar
+import { BookmarkCategoryPicker } from '../bookmarks/BookmarkCategoryPicker'
+
+/** Resolve the open sidebar detail by name so editing a category or rescanning skills updates the dialog.
+ * @example <BookmarkDetailModal />
  */
-export const BookmarkDetailModal =
-  function BookmarkDetailModal(): React.ReactElement | null {
-    const dispatch = useAppDispatch()
-    const bookmark = useAppSelector(selectSelectedBookmarkForDetail)
+export function BookmarkDetailModal() {
+  const bookmark = useAppSelector(selectSelectedBookmarkForDetail)
+  return bookmark ? (
+    <BookmarkDetail key={bookmark.name} bookmark={bookmark} />
+  ) : null
+}
 
-    const handleClose = (): void => {
-      dispatch(clearSelectedBookmarkForDetail())
-    }
-
-    // Hand off to the shared InstallModal (the exact marketplace install path):
-    // close this detail dialog, then open the agent-target picker seeded with
-    // this bookmark. No local install state — InstallModal owns progress/errors
-    // and refreshes the skill list, so the sidebar's Installed badge updates.
-    const handleInstall = (): void => {
-      if (!bookmark || !bookmark.repo) return
-      dispatch(
-        selectSkillForInstall({ name: bookmark.name, repo: bookmark.repo }),
-      )
-      dispatch(clearSelectedBookmarkForDetail())
-    }
-
-    const handleRemoveBookmark = (): void => {
-      if (!bookmark) return
-      dispatch(removeBookmark(bookmark.name))
-      handleClose()
-    }
-
-    const handleOpenChange = (open: boolean): void => {
-      if (!open) handleClose()
-    }
-
-    const isInstalled = bookmark?.isInstalled ?? false
-
-    return (
-      <Dialog open={bookmark !== null} onOpenChange={handleOpenChange}>
-        <DialogContent className="max-w-sm">
-          {bookmark && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="text-base font-semibold">
-                  {bookmark.name}
-                </DialogTitle>
-                <DialogDescription className="sr-only">
-                  Bookmark details for {bookmark.name}. Review install status,
-                  open the source repository, or remove this bookmark.
-                </DialogDescription>
-              </DialogHeader>
-
-              {bookmark.repo ? (
-                <button
-                  type="button"
-                  // Excluded from tab order so Radix Dialog auto-focus skips it
-                  // (the bright focus ring obscured the repo text on open).
-                  tabIndex={-1}
-                  onClick={() => {
-                    window.electron.shell
-                      .openExternal(bookmark.url)
-                      .catch(() => {
-                        // URL validation failed or shell.openExternal errored
-                      })
-                  }}
-                  className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 text-left focus:outline-none"
-                >
-                  {bookmark.repo}
-                  <ExternalLink className="h-3 w-3" />
-                </button>
-              ) : (
-                <span className="text-sm text-muted-foreground/70">
-                  {LOCAL_SOURCE_LABEL}
-                </span>
-              )}
-
-              <Separator />
-
-              <div className="flex items-center gap-3">
-                {isInstalled ? (
-                  <span className="text-sm text-emerald-500 flex items-center gap-1">
-                    <Check className="h-4 w-4" />
-                    Installed
-                  </span>
-                ) : bookmark.repo ? (
-                  <Button onClick={handleInstall}>Install</Button>
-                ) : (
-                  <span className="text-sm text-muted-foreground">
-                    Not installed
-                  </span>
-                )}
-                <Button variant="ghost" onClick={handleRemoveBookmark}>
-                  Remove Bookmark
-                </Button>
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+function BookmarkDetail({ bookmark }: { bookmark: BookmarkForDetail }) {
+  const dispatch = useAppDispatch()
+  const title = useRef<HTMLHeadingElement>(null)
+  const opener = useRef<HTMLElement | null>(null)
+  const attempt = useRef(0)
+  const [failed, setFailed] = useState(false)
+  const [picker, setPicker] = useState(false)
+  const close = () => dispatch(clearSelectedBookmarkForDetail())
+  const install = (): void => {
+    if (!bookmark.repo) return
+    dispatch(
+      selectSkillForInstall({ name: bookmark.name, repo: bookmark.repo }),
     )
+    close()
   }
+  async function openSource(
+    event: React.MouseEvent<HTMLAnchorElement>,
+  ): Promise<void> {
+    event.preventDefault()
+    const current = ++attempt.current
+    try {
+      await window.electron.shell.openExternal(bookmark.url)
+      if (current === attempt.current) setFailed(false)
+    } catch (error) {
+      // Only known error kinds reach the local console. Shell errors may embed private URLs in their message.
+      const kind =
+        error instanceof TypeError
+          ? 'TypeError'
+          : error instanceof Error
+            ? 'Error'
+            : 'unknown'
+      console.warn('[bookmarks] source handoff failed', {
+        operation: 'open-bookmark-source',
+        stage: 'openExternal',
+        kind,
+      })
+      if (current === attempt.current) setFailed(true)
+    }
+  }
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) close()
+      }}
+    >
+      <DialogContent
+        className="max-w-sm"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault()
+          opener.current =
+            document.activeElement instanceof HTMLElement
+              ? document.activeElement
+              : null
+          title.current?.focus()
+        }}
+        onCloseAutoFocus={(event) => {
+          if (opener.current?.isConnected) {
+            event.preventDefault()
+            opener.current.focus()
+          }
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle
+            ref={title}
+            tabIndex={-1}
+            className="text-base font-semibold outline-none"
+          >
+            {bookmark.name}
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            Bookmark details for {bookmark.name}. Open the source, change its
+            category or manage the bookmark.
+          </DialogDescription>
+        </DialogHeader>
+        {bookmark.repo ? (
+          <div>
+            <a
+              href={bookmark.url}
+              onClick={openSource}
+              className="inline-flex items-center gap-1 rounded-sm text-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {bookmark.repo}
+              <ExternalLink aria-hidden="true" className="size-3" />
+            </a>
+            {failed && (
+              <p role="alert" className="mt-1 text-xs text-destructive">
+                Couldn’t open the source. If it isn’t open in your browser, try
+                the link again.
+              </p>
+            )}
+          </div>
+        ) : (
+          <span className="text-sm text-muted-foreground/70">
+            {LOCAL_SOURCE_LABEL}
+          </span>
+        )}
+        <BookmarkCategoryPicker
+          className="justify-self-start"
+          skillName={bookmark.name}
+          open={picker}
+          onOpenChange={(open) => setPicker(open)}
+        />
+        <Separator />
+        <div className="flex items-center gap-3">
+          {bookmark.isInstalled ? (
+            <span className="flex items-center gap-1 text-sm text-emerald-500">
+              <Check className="size-4" />
+              Installed
+            </span>
+          ) : bookmark.repo ? (
+            <Button onClick={install}>Install</Button>
+          ) : (
+            <span className="text-sm text-muted-foreground">Not installed</span>
+          )}
+          <Button
+            variant="ghost"
+            onClick={() => dispatch(removeBookmark(bookmark.name))}
+          >
+            Remove Bookmark
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}

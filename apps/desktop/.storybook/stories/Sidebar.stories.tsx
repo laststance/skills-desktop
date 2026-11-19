@@ -88,8 +88,9 @@ export const BookmarkDetailOpen: Story = {
   parameters: {
     skillsDesktop: {
       state: {
+        bookmarks: { items: [bookmarkForDetail] },
         ui: {
-          selectedBookmarkForDetail: bookmarkForDetail,
+          selectedBookmarkForDetail: bookmarkForDetail.name,
         },
       },
     },

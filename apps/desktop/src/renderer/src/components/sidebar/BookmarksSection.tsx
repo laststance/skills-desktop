@@ -1,8 +1,14 @@
 import { Bookmark } from 'lucide-react'
 import React from 'react'
 
+import { ALL_CATEGORIES } from '@/renderer/src/redux/bookmarkCategories'
 import { useAppSelector } from '@/renderer/src/redux/hooks'
-import { selectBookmarksWithInstallStatus } from '@/renderer/src/redux/selectors'
+import { selectSidebarBookmarks } from '@/renderer/src/redux/selectors'
+
+import {
+  BookmarkCategoryFilter,
+  EmptyCategoryFilter,
+} from '../bookmarks/BookmarkCategoryFilter'
 
 import { BookmarkDetailModal } from './BookmarkDetailModal'
 import { BookmarkItem } from './BookmarkItem'
@@ -14,7 +20,10 @@ import { BookmarkItem } from './BookmarkItem'
  */
 export const BookmarksSection =
   function BookmarksSection(): React.ReactElement {
-    const bookmarks = useAppSelector(selectBookmarksWithInstallStatus)
+    const bookmarks = useAppSelector(selectSidebarBookmarks)
+    const hasCategoryFilter = useAppSelector(
+      (state) => state.ui.sidebarCategoryFilter !== ALL_CATEGORIES,
+    )
 
     return (
       <div className="space-y-2">
@@ -28,7 +37,16 @@ export const BookmarksSection =
           </span>
         </div>
 
+        <BookmarkCategoryFilter surface="sidebar" />
         <div className="space-y-1">
+          {bookmarks.length === 0 &&
+            (hasCategoryFilter ? (
+              <EmptyCategoryFilter surface="sidebar" />
+            ) : (
+              <p className="px-2 py-4 text-center text-xs text-muted-foreground">
+                Save a skill from Installed to find it here.
+              </p>
+            ))}
           {bookmarks.map((bookmark) => (
             <BookmarkItem key={bookmark.name} bookmark={bookmark} />
           ))}

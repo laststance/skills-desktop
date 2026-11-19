@@ -13,6 +13,7 @@ import {
 } from '@/shared/constants'
 import { toSkillName } from '@/shared/types'
 
+import { STARTER_CATEGORIES } from './bookmarkCategories'
 import type { ProtectedSkill } from './slices/protectSlice'
 import type { ThemeState } from './slices/themeSlice'
 
@@ -35,6 +36,7 @@ export interface MigratableState {
    * v5. Typed `unknown` because {@link migrateV4ToV5} reads the legacy array
    * shape before writing the current one.
    */
+  bookmarks?: unknown
   protect?: unknown
 }
 
@@ -266,6 +268,25 @@ function migrateV4ToV5(state: MigratableState): void {
   }
 }
 
+/** Initialize only the absent v5 category registry. Previously edited and empty registries are authoritative.
+ * @example migrateV5ToV6({ bookmarks: { items: [] } })
+ */
+function migrateV5ToV6(state: MigratableState): void {
+  const old = state.bookmarks
+  if (!old || typeof old !== 'object' || Array.isArray(old)) {
+    delete state.bookmarks
+    return
+  }
+  const slot = old as { items?: unknown; categories?: unknown }
+  state.bookmarks = {
+    ...slot,
+    items: Array.isArray(slot.items) ? slot.items : [],
+    categories: Array.isArray(slot.categories)
+      ? slot.categories
+      : STARTER_CATEGORIES,
+  }
+}
+
 /**
  * Chain migrations up to `PERSIST_STATE_VERSION`. Each `case` must advance
  * `current` to the next schema version; unknown sources throw so bumping
@@ -302,6 +323,10 @@ export function migrateState<T extends MigratableState>(
       case 4:
         migrateV4ToV5(state)
         current = 5
+        break
+      case 5:
+        migrateV5ToV6(state)
+        current = 6
         break
       default:
         throw new Error(

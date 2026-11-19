@@ -1,4 +1,4 @@
-import { chromium, type Browser, type Page } from '@playwright/test'
+import { chromium, type Browser, type Page } from 'playwright'
 import { renderToStaticMarkup } from 'react-dom/server'
 import sharp from 'sharp'
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'

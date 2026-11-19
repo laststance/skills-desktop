@@ -5,8 +5,12 @@ import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   removeBookmark,
   selectBookmarkItems,
+  selectCategoryForSkill,
 } from '@/renderer/src/redux/slices/bookmarkSlice'
 import type { BookmarkedSkill, SkillName } from '@/shared/types'
+
+import { BookmarkCategoryLabel } from '../../bookmarks/BookmarkCategoryLabel'
+import { categoryAppearance } from '../../bookmarks/categoryAppearance'
 
 // ----------------------------------------------------------------------------
 // BookmarkRow — single saved skill entry with open + remove affordances.
@@ -22,8 +26,15 @@ const BookmarkRow = function BookmarkRow({
   bookmark,
   onRemove,
 }: BookmarkRowProps): React.ReactElement {
+  const category = useAppSelector((state) =>
+    selectCategoryForSkill(state, bookmark.name),
+  )
   return (
-    <li className="group relative flex items-center gap-2 rounded-md px-2 py-1.5 pr-1 hover:bg-muted">
+    <li
+      data-bookmark-category={category?.id}
+      style={categoryAppearance(category)}
+      className="group relative flex items-center gap-2 rounded-md px-2 py-1.5 pr-1 hover:bg-muted"
+    >
       <Bookmark className="h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
       <a
         href={bookmark.url}
@@ -36,6 +47,7 @@ const BookmarkRow = function BookmarkRow({
         "
       >
         <span className="truncate font-medium">{bookmark.name}</span>
+        <BookmarkCategoryLabel category={category} />
         {bookmark.repo && (
           <span className="truncate text-muted-foreground">
             {bookmark.repo}
@@ -97,7 +109,7 @@ export const BookmarksWidget = function BookmarksWidget(): React.ReactElement {
         />
 
         <p className="text-xs text-muted-foreground">
-          Saved marketplace skills land here.
+          Save a skill from Installed to find it here.
         </p>
       </div>
     )

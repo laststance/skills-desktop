@@ -34,7 +34,8 @@ Renderer (React, Redux Toolkit)  ──window.electron──▶  Preload (contex
 
   Both are React apps. State lives in Redux Toolkit slices, and some of it is persisted.
   `@laststance/redux-storage-middleware` owns renderer persistence. Theme,
-  bookmarks, protection and dashboard state use `skills-desktop-state`.
+  bookmarks, their category registry, protection and dashboard state use `skills-desktop-state`.
+  The main window owns writes to this key. Settings reads it on startup and follows theme broadcasts.
   Installed List/Tree mode, Markdown preview mode and the last-seen release version use the dedicated
   `skills-desktop-renderer-preferences` key. Its version 1 envelope is:
 

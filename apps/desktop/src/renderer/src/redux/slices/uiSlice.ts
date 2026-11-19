@@ -29,6 +29,9 @@ import type {
 } from '@/shared/types'
 import { toSearchQuery } from '@/shared/types'
 
+import { ALL_CATEGORIES } from '../bookmarkCategories'
+
+import { deleteBookmarkCategory, removeBookmark } from './bookmarkSlice'
 import type {
   DeleteSelectedSkillTarget,
   UnlinkSelectedSkillTarget,
@@ -43,6 +46,12 @@ import {
 
 /** Bookmark with install status, used for the detail modal */
 export type BookmarkForDetail = BookmarkedSkill & { isInstalled: boolean }
+
+/** The picker ID distinguishes simultaneous Installed and detail controls for the same bookmark. */
+interface BookmarkCategoryEditorTarget {
+  pickerId: string
+  categoryId: string | null
+}
 
 /** Sidebar group whose folders are being reviewed for bulk deletion. */
 export type AgentFolderGroup = 'hidden' | 'unused'
@@ -204,7 +213,11 @@ interface UiState {
   syncResult: SyncExecuteResult | null
   error: string | null
   /** Bookmark selected for detail modal (null when modal closed) */
-  selectedBookmarkForDetail: BookmarkForDetail | null
+  selectedBookmarkForDetail: SkillName | null
+  bookmarkCategoryEditor:
+    (BookmarkCategoryEditorTarget & { confirmingDelete: boolean }) | null
+  installedCategoryFilter: string
+  sidebarCategoryFilter: string
   /**
    * Active undo toast after a bulk delete/unlink. Null when no toast is live.
    * Cleared atomically when any competing surface starts: a new bulk op, a sync
@@ -266,6 +279,9 @@ const initialState: UiState = {
   syncResult: null,
   error: null,
   selectedBookmarkForDetail: null,
+  bookmarkCategoryEditor: null,
+  installedCategoryFilter: ALL_CATEGORIES,
+  sidebarCategoryFilter: ALL_CATEGORIES,
   undoToast: null,
   bulkConfirm: null,
   cleanupAgentTarget: null,
@@ -466,11 +482,42 @@ const uiSlice = createSlice({
     clearSyncResult: (state) => {
       state.syncResult = null
     },
-    setSelectedBookmarkForDetail: (
-      state,
-      action: PayloadAction<BookmarkForDetail>,
-    ) => {
+    setSelectedBookmarkForDetail: (state, action: PayloadAction<SkillName>) => {
       state.selectedBookmarkForDetail = action.payload
+    },
+    /** Open the category form from its originating picker and discard any prior confirmation. */
+    openBookmarkCategoryEditor: (
+      state,
+      { payload }: PayloadAction<BookmarkCategoryEditorTarget>,
+    ) => {
+      state.bookmarkCategoryEditor = { ...payload, confirmingDelete: false }
+    },
+    /** Only an existing category can enter the deletion step. Cancel returns to its draft. */
+    setBookmarkCategoryDeleteConfirmation: (
+      state,
+      { payload }: PayloadAction<boolean>,
+    ) => {
+      const editor = state.bookmarkCategoryEditor
+      if (editor && editor.categoryId !== null)
+        editor.confirmingDelete = payload
+    },
+    /** A disappearing card must not dismiss a newer editor owned by a different picker. */
+    closeBookmarkCategoryEditor: (
+      state,
+      { payload }: PayloadAction<string>,
+    ) => {
+      if (state.bookmarkCategoryEditor?.pickerId === payload)
+        state.bookmarkCategoryEditor = null
+    },
+    setBookmarkCategoryFilter: (
+      state,
+      {
+        payload,
+      }: PayloadAction<{ surface: 'installed' | 'sidebar'; id: string }>,
+    ) => {
+      if (payload.surface === 'installed')
+        state.installedCategoryFilter = payload.id
+      else state.sidebarCategoryFilter = payload.id
     },
     clearSelectedBookmarkForDetail: (state) => {
       state.selectedBookmarkForDetail = null
@@ -641,6 +688,19 @@ const uiSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      .addCase(deleteBookmarkCategory, (state, { payload }) => {
+        // Close the form when its target disappears, including deletion from another surface.
+        if (state.bookmarkCategoryEditor?.categoryId === payload)
+          state.bookmarkCategoryEditor = null
+        if (state.installedCategoryFilter === payload)
+          state.installedCategoryFilter = ALL_CATEGORIES
+        if (state.sidebarCategoryFilter === payload)
+          state.sidebarCategoryFilter = ALL_CATEGORIES
+      })
+      .addCase(removeBookmark, (state, { payload }) => {
+        if (state.selectedBookmarkForDetail === payload)
+          state.selectedBookmarkForDetail = null
+      })
       // ── Source stats refresh — drives the spinner on the Refresh button ──
       // `isRefreshing` is the source of truth for `selectIsRefreshing`, which
       // SourceCard and QuickActionsWidget read to disable the button and spin
@@ -745,6 +805,10 @@ const uiSlice = createSlice({
 export const {
   setActiveTab,
   setSearchQuery,
+  setBookmarkCategoryFilter,
+  openBookmarkCategoryEditor,
+  setBookmarkCategoryDeleteConfirmation,
+  closeBookmarkCategoryEditor,
   setSearchScope,
   toggleSource,
   setSelectedSources,
@@ -800,9 +864,9 @@ export const selectSkillTypeFilter = (state: RootState): SkillTypeFilter =>
 export const selectExcludedSkillTypeFilters = (
   state: RootState,
 ): ExcludableSkillTypeFilter[] => state.ui.excludedSkillTypeFilters
-export const selectSelectedBookmarkForDetail = (
+export const selectSelectedBookmarkName = (
   state: RootState,
-): BookmarkForDetail | null => state.ui.selectedBookmarkForDetail
+): SkillName | null => state.ui.selectedBookmarkForDetail
 export const selectBulkConfirm = (state: RootState): BulkConfirmState | null =>
   state.ui.bulkConfirm
 /**

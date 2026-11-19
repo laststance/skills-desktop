@@ -164,7 +164,7 @@ describe('BookmarkItem detail view', () => {
     await screen.getByRole('button', { name: 'View details for task' }).click()
 
     // Assert
-    expect(store.getState().ui.selectedBookmarkForDetail).toEqual(bookmark)
+    expect(store.getState().ui.selectedBookmarkForDetail).toEqual(bookmark.name)
   })
 
   test('opens the skill detail view when Enter is pressed on the focused row', async () => {
@@ -188,7 +188,7 @@ describe('BookmarkItem detail view', () => {
     await userEvent.keyboard('{Enter}')
 
     // Assert
-    expect(store.getState().ui.selectedBookmarkForDetail).toEqual(bookmark)
+    expect(store.getState().ui.selectedBookmarkForDetail).toEqual(bookmark.name)
   })
 })
 

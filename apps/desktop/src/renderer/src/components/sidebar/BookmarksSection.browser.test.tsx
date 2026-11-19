@@ -63,6 +63,73 @@ async function createStore() {
 }
 
 describe('BookmarksSection', () => {
+  test('shows the empty collection without a filter reset before the first bookmark is saved', async () => {
+    // Arrange
+    const store = await createStore()
+    const { BookmarksSection } = await import('./BookmarksSection')
+
+    // Act
+    const screen = await render(
+      <Provider store={store}>
+        <TooltipProvider>
+          <BookmarksSection />
+        </TooltipProvider>
+      </Provider>,
+    )
+
+    // Assert
+    await expect
+      .element(screen.getByText('Save a skill from Installed to find it here.'))
+      .toBeVisible()
+    expect(
+      screen.getByRole('button', { name: 'Clear category filter' }).query(),
+    ).toBeNull()
+  })
+
+  test('clears an empty sidebar category while keeping the Installed category and search', async () => {
+    // Arrange
+    const store = await createStore()
+    const { BookmarksSection } = await import('./BookmarksSection')
+    const { addBookmark } = await import('../../redux/slices/bookmarkSlice')
+    const { setBookmarkCategoryFilter, setSearchQuery } =
+      await import('../../redux/slices/uiSlice')
+    const { toSearchQuery } = await import('@/shared/types')
+    store.dispatch(
+      addBookmark({
+        name: toSkillName('task'),
+        repo: repositoryId('vercel-labs/skills'),
+        url: toHttpUrl('https://skills.sh/task'),
+      }),
+    )
+    store.dispatch(setSearchQuery(toSearchQuery('audit')))
+    store.dispatch(
+      setBookmarkCategoryFilter({ surface: 'installed', id: 'planning' }),
+    )
+    store.dispatch(
+      setBookmarkCategoryFilter({ surface: 'sidebar', id: 'security' }),
+    )
+    const screen = await render(
+      <Provider store={store}>
+        <TooltipProvider>
+          <BookmarksSection />
+        </TooltipProvider>
+      </Provider>,
+    )
+
+    // Act
+    await screen.getByRole('button', { name: 'Clear category filter' }).click()
+
+    // Assert
+    await expect
+      .element(screen.getByRole('button', { name: 'View details for task' }))
+      .toBeVisible()
+    expect(store.getState().ui).toMatchObject({
+      installedCategoryFilter: 'planning',
+      sidebarCategoryFilter: 'all',
+      searchQuery: 'audit',
+    })
+  })
+
   test('lists each bookmarked skill under a count that matches how many are bookmarked', async () => {
     // Arrange
     const store = await createStore()

@@ -153,6 +153,7 @@ async function renderDashboard(preloadedState: {
         ...preloadedState.skills,
       } satisfies RootState['skills'],
       bookmarks: {
+        ...bookmarkReducer(undefined, { type: '@@init' }),
         items: [],
         ...preloadedState.bookmarks,
       } satisfies RootState['bookmarks'],

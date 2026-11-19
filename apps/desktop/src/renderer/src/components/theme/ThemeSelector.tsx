@@ -21,7 +21,7 @@ import {
   setTheme,
 } from '@/renderer/src/redux/slices/themeSlice'
 import type { ThemePresetName } from '@/shared/constants'
-import { THEME_PRESETS } from '@/shared/constants'
+import { COLOR_PRESET_NAMES, THEME_PRESETS } from '@/shared/constants'
 
 // Derive preset groups from THEME_PRESETS so adding a new hue in the
 // constants table automatically surfaces in the dropdown. Neutral presets
@@ -29,9 +29,6 @@ import { THEME_PRESETS } from '@/shared/constants'
 // discriminator. `Object.keys` preserves insertion order per spec, so
 // swatches render in the declaration order defined in THEME_PRESETS.
 const PRESET_NAMES = Object.keys(THEME_PRESETS) as ThemePresetName[]
-const COLOR_PRESET_NAMES = PRESET_NAMES.filter(
-  (name) => !('mode' in THEME_PRESETS[name]),
-)
 const NEUTRAL_PRESET_NAMES = PRESET_NAMES.filter(
   (name) => 'mode' in THEME_PRESETS[name],
 )

@@ -159,16 +159,16 @@ When the **Installed** tab is open and no skill is selected, the detail panel re
 
 **Built-in widgets:**
 
-| Widget         | Shows                                                                                  |
-| -------------- | -------------------------------------------------------------------------------------- |
-| Welcome        | Dismissible introduction card shown on first launch                                    |
-| Skill Stats    | Totals for skills, linked skills, and agents at a glance                               |
-| Symlink Health | Valid vs. broken symlinks across all agents; "Scan issues" opens orphan/broken cleanup |
-| Agent Coverage | Which agents have which skills — quick matrix view                                     |
-| Bookmarks      | Saved skills from the marketplace                                                      |
-| Trending       | Popular marketplace skills right now                                                   |
-| What's New     | Recently added or updated marketplace skills                                           |
-| Quick Actions  | Frequent actions: refresh, open marketplace, reset layout                              |
+| Widget         | Shows                                                                                    |
+| -------------- | ---------------------------------------------------------------------------------------- |
+| Welcome        | Dismissible introduction card shown on first launch                                      |
+| Skill Stats    | Totals for skills, linked skills, and agents at a glance                                 |
+| Symlink Health | Valid vs. broken symlinks across all agents; "Scan issues" opens orphan/broken cleanup   |
+| Agent Coverage | Which agents have which skills — quick matrix view                                       |
+| Bookmarks      | Skills saved from Installed or Marketplace, their optional category and known repository |
+| Trending       | Popular marketplace skills right now                                                     |
+| What's New     | Recently added or updated marketplace skills                                             |
+| Quick Actions  | Frequent actions: refresh, open marketplace, reset layout                                |
 
 **Experimental widgets** — hidden from the picker unless `FEATURE_FLAGS.ENABLE_DASHBOARD_EXPERIMENTAL` is enabled:
 
@@ -893,14 +893,16 @@ The `KEYBINDINGS` constant is the single source of truth for the read-only Keybi
 
 ### No Skills Installed
 
-When no skills are installed (`skills.length === 0`):
+When no skills are installed and the Installed filter is set to **All categories**:
 
 - Show "No skills installed" message
 - Display installation guide: `npx skills add <skill-name>`
 
 ### Search Miss
 
-When a search query yields no results (`filteredSkills.length === 0 && searchQuery.length > 0`):
+When the Installed list has an active category filter and no matches, it offers **Clear category filter**. Clearing the category keeps the search and other filters in place.
+
+When **All categories** is selected and a search query yields no results:
 
 - Show a `SearchX` icon (`h-8 w-8 text-muted-foreground/40`, decorative — `aria-hidden`)
 - Echo the query: `No skills match "{searchQuery}"` (`text-sm text-muted-foreground`)

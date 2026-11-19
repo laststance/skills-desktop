@@ -590,6 +590,43 @@ describe('uiSlice sync thunks', () => {
 })
 
 describe('uiSlice bookmark detail modal', () => {
+  test('closing an old picker preserves the current editor until its category is deleted', async () => {
+    // Arrange
+    const store = await createTestStore()
+    const {
+      openBookmarkCategoryEditor,
+      closeBookmarkCategoryEditor,
+      setBookmarkCategoryDeleteConfirmation,
+    } = await import('./uiSlice')
+    const { deleteBookmarkCategory } = await import('./bookmarkSlice')
+    store.dispatch(
+      openBookmarkCategoryEditor({
+        pickerId: 'installed',
+        categoryId: 'planning',
+      }),
+    )
+    store.dispatch(
+      openBookmarkCategoryEditor({
+        pickerId: 'detail',
+        categoryId: 'security',
+      }),
+    )
+    store.dispatch(setBookmarkCategoryDeleteConfirmation(true))
+
+    // Act
+    store.dispatch(closeBookmarkCategoryEditor('installed'))
+    store.dispatch(deleteBookmarkCategory('planning'))
+
+    // Assert
+    expect(store.getState().ui.bookmarkCategoryEditor).toEqual({
+      pickerId: 'detail',
+      categoryId: 'security',
+      confirmingDelete: true,
+    })
+    store.dispatch(deleteBookmarkCategory('security'))
+    expect(store.getState().ui.bookmarkCategoryEditor).toBeNull()
+  })
+
   const sampleBookmark = {
     name: toSkillName('task'),
     repo: repositoryId('vercel-labs/skills'),
@@ -604,11 +641,11 @@ describe('uiSlice bookmark detail modal', () => {
     const { setSelectedBookmarkForDetail } = await import('./uiSlice')
 
     // Act
-    store.dispatch(setSelectedBookmarkForDetail(sampleBookmark))
+    store.dispatch(setSelectedBookmarkForDetail(sampleBookmark.name))
 
     // Assert
     expect(store.getState().ui.selectedBookmarkForDetail).toEqual(
-      sampleBookmark,
+      sampleBookmark.name,
     )
   })
 
@@ -617,7 +654,7 @@ describe('uiSlice bookmark detail modal', () => {
     const store = await createTestStore()
     const { setSelectedBookmarkForDetail, clearSelectedBookmarkForDetail } =
       await import('./uiSlice')
-    store.dispatch(setSelectedBookmarkForDetail(sampleBookmark))
+    store.dispatch(setSelectedBookmarkForDetail(sampleBookmark.name))
     expect(store.getState().ui.selectedBookmarkForDetail).not.toBeNull()
 
     // Act
@@ -1730,20 +1767,12 @@ describe('uiSlice selectors read the live ui state', () => {
       setBulkConfirm,
       openSymlinkCleanupDialog,
       setCleanupAgentTarget,
-      selectSelectedBookmarkForDetail,
+      selectSelectedBookmarkName,
       selectBulkConfirm,
       selectCleanupAgentTarget,
       selectSymlinkCleanupDialogOpen,
     } = await import('./uiSlice')
-    store.dispatch(
-      setSelectedBookmarkForDetail({
-        name: toSkillName('task'),
-        repo: repositoryId('vercel-labs/skills'),
-        url: toHttpUrl('https://github.com/vercel-labs/skills'),
-        bookmarkedAt: toIsoTimestamp('2026-04-01T08:00:00.000Z'),
-        isInstalled: false,
-      }),
-    )
+    store.dispatch(setSelectedBookmarkForDetail(toSkillName('task')))
     store.dispatch(
       setBulkConfirm({
         kind: 'delete',
@@ -1767,7 +1796,7 @@ describe('uiSlice selectors read the live ui state', () => {
     const rootState = store.getState() as RootState
 
     // Act + Assert
-    expect(selectSelectedBookmarkForDetail(rootState)).not.toBeNull()
+    expect(selectSelectedBookmarkName(rootState)).not.toBeNull()
     expect(selectBulkConfirm(rootState)).not.toBeNull()
     expect(selectCleanupAgentTarget(rootState)).toBe('cursor')
     // setCleanupAgentTarget closes the dashboard dialog (one surface at a time).
