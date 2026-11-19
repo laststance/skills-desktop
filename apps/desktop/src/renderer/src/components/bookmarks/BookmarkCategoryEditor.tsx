@@ -12,6 +12,7 @@ import {
 } from '@/renderer/src/components/ui/dialog'
 import { Input } from '@/renderer/src/components/ui/input'
 import {
+  bookmarkSwatch,
   categoryNameError,
   type BookmarkCategory,
 } from '@/renderer/src/redux/bookmarkCategories'
@@ -57,6 +58,7 @@ export function BookmarkCategoryEditor({
   )
   const [name, setName] = useState(category?.name ?? '')
   const [color, setColor] = useState(category?.color ?? 'blue')
+  const selectedSwatch = bookmarkSwatch(color)
   const [error, setError] = useState<string>()
   const field = useId()
   function save(event: React.FormEvent): void {
@@ -170,8 +172,13 @@ export function BookmarkCategoryEditor({
                       value={key}
                       aria-label={THEME_PRESETS[key].label}
                       className="absolute inset-0 z-10 m-0 size-full cursor-pointer opacity-0"
-                      checked={color === key}
+                      checked={selectedSwatch === key}
                       onChange={() => setColor(key)}
+                      // A checked radio emits no change when the user explicitly chooses its fallback.
+                      onClick={() => {
+                        if (key === selectedSwatch && key !== color)
+                          setColor(key)
+                      }}
                     />
                     <span
                       className="flex size-5 items-center justify-center rounded-full"
@@ -179,7 +186,7 @@ export function BookmarkCategoryEditor({
                         backgroundColor: `oklch(0.65 0.16 ${THEME_PRESETS[key].hue})`,
                       }}
                     >
-                      {color === key && (
+                      {selectedSwatch === key && (
                         <Check
                           className="size-3 text-black"
                           aria-hidden="true"

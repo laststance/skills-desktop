@@ -203,6 +203,66 @@ describe('BookmarkDetailModal dismiss', () => {
 })
 
 describe('BookmarkDetailModal categories', () => {
+  test('shows Blue for a retired swatch and preserves its stored key until Blue is explicitly selected', async () => {
+    // Arrange
+    const store = await createStore()
+    const { BookmarkDetailModal } = await import('./BookmarkDetailModal')
+    const { saveBookmarkCategory, assignBookmarkCategory } =
+      await import('../../redux/slices/bookmarkSlice')
+    const { setSelectedBookmarkForDetail } =
+      await import('../../redux/slices/uiSlice')
+    store.dispatch(
+      saveBookmarkCategory({
+        category: { id: 'security', name: 'Security', color: 'retired-violet' },
+      }),
+    )
+    store.dispatch(
+      assignBookmarkCategory({
+        name: toSkillName('task'),
+        categoryId: 'security',
+      }),
+    )
+    store.dispatch(setSelectedBookmarkForDetail(toSkillName('task')))
+    const screen = await render(
+      <Provider store={store}>
+        <TooltipProvider>
+          <BookmarkDetailModal />
+        </TooltipProvider>
+      </Provider>,
+    )
+    const blue = screen.getByRole('radio', { name: 'Blue', exact: true })
+    const apply = screen.getByRole('button', { name: 'Apply', exact: true })
+
+    // Act — edit just the category name while the saved color is unavailable.
+    await screen.getByRole('button', { name: 'Security', exact: true }).click()
+    await screen.getByRole('menuitem', { name: 'Edit Security' }).click()
+    await expect.element(blue).toBeChecked()
+    await screen.getByRole('textbox', { name: 'Name' }).fill('Security checks')
+    await apply.click()
+
+    // Assert — a name edit preserves the key, and an explicit click on the fallback commits Blue.
+    expect(
+      store
+        .getState()
+        .bookmarks.categories.find((item) => item.id === 'security'),
+    ).toEqual({
+      id: 'security',
+      name: 'Security checks',
+      color: 'retired-violet',
+    })
+    await screen
+      .getByRole('button', { name: 'Security checks', exact: true })
+      .click()
+    await screen.getByRole('menuitem', { name: 'Edit Security checks' }).click()
+    await blue.click()
+    await apply.click()
+    expect(
+      store
+        .getState()
+        .bookmarks.categories.find((item) => item.id === 'security')?.color,
+    ).toBe('blue')
+  })
+
   // Value: protects=live details keep the original link after repeated Apply, rename and clearing;
   // fails_when=an open detail snapshots the category or a rapid submit creates two categories; why_new=Installed tests do not render the detail; seam=none.
   test('applies a new category once and shows its renamed and cleared state in the same open detail', async () => {
