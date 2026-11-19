@@ -34,6 +34,9 @@ export async function getEmptyAgentFolder(
   agent: Pick<Agent, 'id' | 'path'>,
 ): Promise<EmptyAgentFolder | undefined> {
   const folderPath = toAbsolutePath(dirname(agent.path))
+  // A custom Claude profile can point at an independently owned empty folder.
+  if (agent.id === 'claude-code' && folderPath !== join(homedir(), '.claude'))
+    return undefined
   const otherFolders = [
     dirname(SOURCE_DIR),
     ...AGENTS.filter((candidate) => candidate.id !== agent.id).map(

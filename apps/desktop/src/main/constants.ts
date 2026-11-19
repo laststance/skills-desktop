@@ -39,6 +39,20 @@ export const MANUAL_RECOVERY_MARKER = '.manual-recovery'
 export const STAGED_ENTRY_PREFIX = '.staging-'
 
 /**
+ * Resolve the skills directory used by the scanner and the CLI removal guard.
+ * Claude Code's global destination follows the profile selected at app launch.
+ * @param homeSubdir - The scan or install directory from {@link AGENT_DEFINITIONS}.
+ * @example resolveAgentSkillsPath('.claude')
+ */
+export function resolveAgentSkillsPath(homeSubdir: string) {
+  const configured =
+    homeSubdir === '.claude' && process.env.CLAUDE_CONFIG_DIR?.trim()
+  return toAbsolutePath(
+    resolve(configured || join(homedir(), homeSubdir), 'skills'),
+  )
+}
+
+/**
  * Supported AI agents with their full skills directory paths.
  *
  * Built from `scanDir` (always required on AGENT_DEFINITIONS). For most
@@ -50,7 +64,7 @@ export const STAGED_ENTRY_PREFIX = '.staging-'
 export const AGENTS = AGENT_DEFINITIONS.map((agent) => ({
   id: agent.id,
   name: agent.name,
-  path: toAbsolutePath(join(homedir(), agent.scanDir, 'skills')),
+  path: resolveAgentSkillsPath(agent.scanDir),
 }))
 
 /**

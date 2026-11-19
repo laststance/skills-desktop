@@ -31,8 +31,7 @@ import {
   setActiveTab,
   setCleanupAgentTarget,
 } from '@/renderer/src/redux/slices/uiSlice'
-import { AGENT_DEFINITIONS } from '@/shared/constants'
-import type { Agent, AgentId, SkillCount } from '@/shared/types'
+import type { AbsolutePath, Agent, SkillCount } from '@/shared/types'
 
 interface AgentItemProps {
   agent: Agent
@@ -63,22 +62,19 @@ function buildSkillCountText(
 }
 
 /**
- * Get the tilde-notation display path for an agent's skills folder.
- *
- * Reads `scanDir` directly — the same field `src/main/constants.ts`
- * uses to build `AGENTS.path`. Cline and Warp diverge from `installDir`
- * here so the tooltip matches what the scanner actually reads (their
- * own home dirs, not the universal source).
- * @param agentId - Agent ID to look up
- * @returns "~/.claude/skills/" style path, or undefined if not found
- * @example
- * getAgentTooltipPath('claude-code') // => "~/.claude/skills/"
- * getAgentTooltipPath('cline')       // => "~/.cline/skills/"
+ * Show the scanned path on hover, abbreviating the home shared by both paths.
+ * @example getAgentTooltipPath(agent.path, sourceStats?.path)
  */
-function getAgentTooltipPath(agentId: AgentId): string | undefined {
-  const def = AGENT_DEFINITIONS.find((d) => d.id === agentId)
-  if (!def) return undefined
-  return `~/${def.scanDir}/skills/`
+function getAgentTooltipPath(
+  path: AbsolutePath,
+  sourcePath?: AbsolutePath,
+): string {
+  const sourceSuffix = '/.agents/skills'
+  const home =
+    sourcePath?.endsWith(sourceSuffix) &&
+    sourcePath.slice(0, -sourceSuffix.length)
+  if (home && path.startsWith(`${home}/`)) return `~${path.slice(home.length)}/`
+  return `${path}/`
 }
 
 /**
@@ -92,7 +88,7 @@ export const AgentItem = function AgentItem({
   focusFallbackRef,
 }: AgentItemProps): React.ReactElement {
   const dispatch = useAppDispatch()
-  const { selectedAgentId } = useAppSelector((state) => state.ui)
+  const { selectedAgentId, sourceStats } = useAppSelector((state) => state.ui)
   const hiddenAgentIds = useAppSelector(selectHiddenAgentIds)
   const isSelected = selectedAgentId === agent.id
   const isHidden = hiddenAgentIds.includes(agent.id)
@@ -175,7 +171,7 @@ export const AgentItem = function AgentItem({
     ? buildSkillCountText(agent.skillCount, agent.localSkillCount)
     : null
 
-  const tooltipPath = getAgentTooltipPath(agent.id)
+  const tooltipPath = getAgentTooltipPath(agent.path, sourceStats?.path)
 
   return (
     <div className="group/agent relative">
@@ -211,11 +207,9 @@ export const AgentItem = function AgentItem({
             )}
           </button>
         </TooltipTrigger>
-        {tooltipPath && (
-          <TooltipContent side="right">
-            <span>{tooltipPath}</span>
-          </TooltipContent>
-        )}
+        <TooltipContent side="right">
+          <span>{tooltipPath}</span>
+        </TooltipContent>
       </Tooltip>
       {agent.exists && (
         <DropdownMenu open={contextOpen} onOpenChange={handleMenuOpenChange}>

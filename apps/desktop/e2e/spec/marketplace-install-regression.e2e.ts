@@ -184,7 +184,8 @@ test('Marketplace installs into the shared folder and links only the chosen agen
   test.setTimeout(120_000)
   // Arrange. The catalogue points at a local skill collection so its contents stay deterministic.
   const collection = join(isolatedHome, 'collection')
-  const claude = join(isolatedHome, '.claude', 'skills')
+  const claudeConfig = join(isolatedHome, 'configured-claude')
+  const claude = join(claudeConfig, 'skills')
   const goose = join(isolatedHome, '.config', 'goose', 'skills')
   const shared = join(isolatedHome, '.agents', 'skills')
   for (const name of ['qa-shared', 'qa-linked']) {
@@ -199,6 +200,7 @@ test('Marketplace installs into the shared folder and links only the chosen agen
   const stateDir = join(isolatedHome, 'qa-state')
   const app = await launchIsolatedElectron(isolatedHome, {
     XDG_STATE_HOME: stateDir,
+    CLAUDE_CONFIG_DIR: claudeConfig,
     DISABLE_TELEMETRY: '1',
   })
   try {
@@ -227,7 +229,13 @@ test('Marketplace installs into the shared folder and links only the chosen agen
       ).toBeVisible({ timeout: 50_000 })
     }
 
-    // Assert physical folders, exact link target, untouched agent and the CLI's own lock.
+    // Assert that the installed view reads the same configured directory the CLI wrote.
+    await page
+      .getByRole('button', { name: /Filter skills by Claude Code/ })
+      .click()
+    await expect(page.locator('[data-skill-name="qa-linked"]')).toBeVisible()
+    await expect(page.locator('[data-skill-name="qa-shared"]')).toHaveCount(0)
+    // Check physical folders, exact link target, untouched agent and the CLI's own lock.
     expect(
       readFileSync(join(shared, 'qa-linked', 'SKILL.md'), 'utf8'),
     ).toContain('name: qa-linked')
@@ -238,6 +246,11 @@ test('Marketplace installs into the shared folder and links only the chosen agen
     expect(realpathSync(join(claude, 'qa-linked'))).toBe(
       realpathSync(join(shared, 'qa-linked')),
     )
+    expect(
+      lstatSync(join(isolatedHome, '.claude', 'skills', 'qa-linked'), {
+        throwIfNoEntry: false,
+      }),
+    ).toBeUndefined()
     expect(
       lstatSync(join(claude, 'qa-shared'), { throwIfNoEntry: false }),
     ).toBeUndefined()

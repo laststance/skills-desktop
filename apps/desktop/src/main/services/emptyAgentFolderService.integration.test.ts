@@ -75,6 +75,23 @@ async function reviewEmptyClineFolder() {
 }
 
 describe('not-installed agent empty folder cleanup', () => {
+  test('keeps an independently chosen Claude profile folder when it contains no skills', async () => {
+    // Arrange
+    const profile = join(tempHome, 'my-profile')
+    await mkdir(profile)
+    const { getEmptyAgentFolder } = await import('./emptyAgentFolderService')
+
+    // Act
+    const review = await getEmptyAgentFolder({
+      id: 'claude-code',
+      path: toAbsolutePath(join(profile, 'skills')),
+    })
+
+    // Assert
+    expect(review).toBeUndefined()
+    expect(await readdir(profile)).toEqual([])
+  })
+
   test('offers only a real empty parent in the scanned not-installed agents', async () => {
     // Arrange
     const options = await reviewEmptyClineFolder()
