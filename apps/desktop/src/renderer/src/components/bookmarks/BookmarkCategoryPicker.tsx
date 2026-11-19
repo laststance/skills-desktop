@@ -1,5 +1,5 @@
 import { Check, Pencil, Plus, Tag } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 
 import {
   DropdownMenu,
@@ -13,14 +13,23 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/renderer/src/components/ui/tooltip'
+import { useUnmountEffect } from '@/renderer/src/hooks/useUnmountEffect'
 import { cn } from '@/renderer/src/lib/utils'
 import type { BookmarkCategory } from '@/renderer/src/redux/bookmarkCategories'
-import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import {
+  useAppDispatch,
+  useAppSelector,
+  useAppStore,
+} from '@/renderer/src/redux/hooks'
 import {
   assignBookmarkCategory,
   selectBookmarkCategories,
   selectCategoryForSkill,
 } from '@/renderer/src/redux/slices/bookmarkSlice'
+import {
+  closeBookmarkCategoryEditor,
+  openBookmarkCategoryEditor,
+} from '@/renderer/src/redux/slices/uiSlice'
 import type { SkillName } from '@/shared/types'
 
 import { BookmarkCategoryEditor } from './BookmarkCategoryEditor'
@@ -49,7 +58,18 @@ export function BookmarkCategoryPicker({
   const current = useAppSelector((state) =>
     selectCategoryForSkill(state, skillName),
   )
-  const [editor, setEditor] = useState<{ category?: BookmarkCategory }>()
+  const pickerId = useId()
+  const store = useAppStore()
+  const editor = useAppSelector((state) => {
+    const active = state.ui.bookmarkCategoryEditor
+    return active?.pickerId === pickerId ? active : null
+  })
+  useUnmountEffect(() => {
+    // Virtualized cards and nested bookmark details can unmount while their editor is open.
+    if (store.getState().ui.bookmarkCategoryEditor?.pickerId === pickerId) {
+      dispatch(closeBookmarkCategoryEditor(pickerId))
+    }
+  })
   const trigger = useRef<HTMLButtonElement>(null)
   const label = useRef<HTMLSpanElement>(null)
   const [showFullName, setShowFullName] = useState(false)
@@ -65,7 +85,12 @@ export function BookmarkCategoryPicker({
     )
   const edit = (category?: BookmarkCategory): void => {
     movingToEditor.current = true
-    setEditor({ category })
+    dispatch(
+      openBookmarkCategoryEditor({
+        pickerId,
+        categoryId: category?.id ?? null,
+      }),
+    )
     onOpenChange(false)
   }
   const restore = (event: Event): void => {
@@ -175,8 +200,11 @@ export function BookmarkCategoryPicker({
       {editor && (
         <BookmarkCategoryEditor
           skillName={skillName}
-          category={editor.category}
-          onClose={() => setEditor(undefined)}
+          category={categories.find(
+            (category) => category.id === editor.categoryId,
+          )}
+          confirming={editor.confirmingDelete}
+          onClose={() => dispatch(closeBookmarkCategoryEditor(pickerId))}
           apply={apply}
           restoreFocus={restore}
         />

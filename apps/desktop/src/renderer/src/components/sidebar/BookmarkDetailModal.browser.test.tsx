@@ -209,12 +209,19 @@ describe('BookmarkDetailModal categories', () => {
     // Arrange
     const store = await createStore()
     const { BookmarkDetailModal } = await import('./BookmarkDetailModal')
-    const { setSelectedBookmarkForDetail } =
+    const { setSelectedBookmarkForDetail, clearSelectedBookmarkForDetail } =
       await import('../../redux/slices/uiSlice')
+    const { BookmarkCategoryPicker } =
+      await import('../bookmarks/BookmarkCategoryPicker')
     store.dispatch(setSelectedBookmarkForDetail(toSkillName('task')))
     const screen = await render(
       <Provider store={store}>
         <TooltipProvider>
+          <BookmarkCategoryPicker
+            skillName={toSkillName('task')}
+            open={false}
+            onOpenChange={() => {}}
+          />
           <BookmarkDetailModal />
         </TooltipProvider>
       </Provider>,
@@ -226,6 +233,10 @@ describe('BookmarkDetailModal categories', () => {
       .getByRole('button', { name: 'Set category', exact: true })
       .click()
     await screen.getByRole('menuitem', { name: 'New category' }).click()
+    // Both pickers target the same bookmark. Only the detail and its own editor may be mounted.
+    expect(
+      document.querySelectorAll('[role="dialog"][data-state="open"]'),
+    ).toHaveLength(2)
     await screen
       .getByRole('textbox', { name: 'Name' })
       .fill('Dependency review')
@@ -275,6 +286,19 @@ describe('BookmarkDetailModal categories', () => {
     await expect.element(link).toHaveAttribute('href', 'https://skills.sh/task')
     expect(store.getState().bookmarks.items).toHaveLength(1)
     expect(store.getState().bookmarks.items[0].categoryId).toBeUndefined()
+
+    // Closing the detail also releases its editor, even while the Installed picker survives.
+    await screen
+      .getByRole('button', { name: 'Set category', exact: true })
+      .click()
+    await screen.getByRole('menuitem', { name: 'New category' }).click()
+    await expect
+      .element(screen.getByRole('dialog', { name: 'New category' }))
+      .toBeVisible()
+    store.dispatch(clearSelectedBookmarkForDetail())
+    await expect
+      .poll(() => store.getState().ui.bookmarkCategoryEditor)
+      .toBeNull()
   })
 })
 

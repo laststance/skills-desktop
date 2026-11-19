@@ -63,6 +63,29 @@ async function createStore() {
 }
 
 describe('BookmarksSection', () => {
+  test('shows the empty collection without a filter reset before the first bookmark is saved', async () => {
+    // Arrange
+    const store = await createStore()
+    const { BookmarksSection } = await import('./BookmarksSection')
+
+    // Act
+    const screen = await render(
+      <Provider store={store}>
+        <TooltipProvider>
+          <BookmarksSection />
+        </TooltipProvider>
+      </Provider>,
+    )
+
+    // Assert
+    await expect
+      .element(screen.getByText('Save a skill from Installed to find it here.'))
+      .toBeVisible()
+    expect(
+      screen.getByRole('button', { name: 'Clear category filter' }).query(),
+    ).toBeNull()
+  })
+
   test('clears an empty sidebar category while keeping the Installed category and search', async () => {
     // Arrange
     const store = await createStore()

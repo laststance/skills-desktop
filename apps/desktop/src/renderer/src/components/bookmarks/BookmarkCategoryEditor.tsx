@@ -22,23 +22,26 @@ import {
   selectBookmarkCategories,
   selectBookmarkItems,
 } from '@/renderer/src/redux/slices/bookmarkSlice'
+import { setBookmarkCategoryDeleteConfirmation } from '@/renderer/src/redux/slices/uiSlice'
 import { COLOR_PRESET_NAMES, THEME_PRESETS } from '@/shared/constants'
 import type { SkillName } from '@/shared/types'
 
 interface EditorProps {
   skillName: SkillName
   category?: BookmarkCategory
+  confirming: boolean
   onClose: () => void
   apply: (change: () => void) => void
   restoreFocus: (event: Event) => void
 }
 
 /** Edit a draft privately until Apply, and confirm deletion only when assignments would be cleared.
- * @example <BookmarkCategoryEditor skillName={name} category={category} onClose={close} apply={apply} restoreFocus={restore} />
+ * @example <BookmarkCategoryEditor skillName={name} category={category} confirming={false} onClose={close} apply={apply} restoreFocus={restore} />
  */
 export function BookmarkCategoryEditor({
   skillName,
   category,
+  confirming,
   onClose,
   apply,
   restoreFocus,
@@ -55,7 +58,6 @@ export function BookmarkCategoryEditor({
   const [name, setName] = useState(category?.name ?? '')
   const [color, setColor] = useState(category?.color ?? 'blue')
   const [error, setError] = useState<string>()
-  const [confirming, setConfirming] = useState(false)
   const field = useId()
   function save(event: React.FormEvent): void {
     event.preventDefault()
@@ -77,7 +79,7 @@ export function BookmarkCategoryEditor({
   function remove(): void {
     if (!category) return
     if (usage && !confirming) {
-      setConfirming(true)
+      dispatch(setBookmarkCategoryDeleteConfirmation(true))
       return
     }
     apply(() => dispatch(deleteBookmarkCategory(category.id)))
@@ -114,7 +116,12 @@ export function BookmarkCategoryEditor({
         </DialogHeader>
         {confirming ? (
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirming(false)}>
+            <Button
+              variant="outline"
+              onClick={() =>
+                dispatch(setBookmarkCategoryDeleteConfirmation(false))
+              }
+            >
               Cancel
             </Button>
             <Button variant="destructive" onClick={remove}>

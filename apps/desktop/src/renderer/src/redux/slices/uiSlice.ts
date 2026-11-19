@@ -47,6 +47,12 @@ import {
 /** Bookmark with install status, used for the detail modal */
 export type BookmarkForDetail = BookmarkedSkill & { isInstalled: boolean }
 
+/** The picker ID distinguishes simultaneous Installed and detail controls for the same bookmark. */
+interface BookmarkCategoryEditorTarget {
+  pickerId: string
+  categoryId: string | null
+}
+
 /** Sidebar group whose folders are being reviewed for bulk deletion. */
 export type AgentFolderGroup = 'hidden' | 'unused'
 
@@ -208,6 +214,8 @@ interface UiState {
   error: string | null
   /** Bookmark selected for detail modal (null when modal closed) */
   selectedBookmarkForDetail: SkillName | null
+  bookmarkCategoryEditor:
+    (BookmarkCategoryEditorTarget & { confirmingDelete: boolean }) | null
   installedCategoryFilter: string
   sidebarCategoryFilter: string
   /**
@@ -271,6 +279,7 @@ const initialState: UiState = {
   syncResult: null,
   error: null,
   selectedBookmarkForDetail: null,
+  bookmarkCategoryEditor: null,
   installedCategoryFilter: ALL_CATEGORIES,
   sidebarCategoryFilter: ALL_CATEGORIES,
   undoToast: null,
@@ -476,6 +485,30 @@ const uiSlice = createSlice({
     setSelectedBookmarkForDetail: (state, action: PayloadAction<SkillName>) => {
       state.selectedBookmarkForDetail = action.payload
     },
+    /** Open the category form from its originating picker and discard any prior confirmation. */
+    openBookmarkCategoryEditor: (
+      state,
+      { payload }: PayloadAction<BookmarkCategoryEditorTarget>,
+    ) => {
+      state.bookmarkCategoryEditor = { ...payload, confirmingDelete: false }
+    },
+    /** Only an existing category can enter the deletion step. Cancel returns to its draft. */
+    setBookmarkCategoryDeleteConfirmation: (
+      state,
+      { payload }: PayloadAction<boolean>,
+    ) => {
+      const editor = state.bookmarkCategoryEditor
+      if (editor && editor.categoryId !== null)
+        editor.confirmingDelete = payload
+    },
+    /** A disappearing card must not dismiss a newer editor owned by a different picker. */
+    closeBookmarkCategoryEditor: (
+      state,
+      { payload }: PayloadAction<string>,
+    ) => {
+      if (state.bookmarkCategoryEditor?.pickerId === payload)
+        state.bookmarkCategoryEditor = null
+    },
     setBookmarkCategoryFilter: (
       state,
       {
@@ -656,6 +689,9 @@ const uiSlice = createSlice({
   extraReducers: (builder) => {
     builder
       .addCase(deleteBookmarkCategory, (state, { payload }) => {
+        // Close the form when its target disappears, including deletion from another surface.
+        if (state.bookmarkCategoryEditor?.categoryId === payload)
+          state.bookmarkCategoryEditor = null
         if (state.installedCategoryFilter === payload)
           state.installedCategoryFilter = ALL_CATEGORIES
         if (state.sidebarCategoryFilter === payload)
@@ -770,6 +806,9 @@ export const {
   setActiveTab,
   setSearchQuery,
   setBookmarkCategoryFilter,
+  openBookmarkCategoryEditor,
+  setBookmarkCategoryDeleteConfirmation,
+  closeBookmarkCategoryEditor,
   setSearchScope,
   toggleSource,
   setSelectedSources,

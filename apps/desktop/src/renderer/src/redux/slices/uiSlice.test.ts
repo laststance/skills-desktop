@@ -590,6 +590,43 @@ describe('uiSlice sync thunks', () => {
 })
 
 describe('uiSlice bookmark detail modal', () => {
+  test('closing an old picker preserves the current editor until its category is deleted', async () => {
+    // Arrange
+    const store = await createTestStore()
+    const {
+      openBookmarkCategoryEditor,
+      closeBookmarkCategoryEditor,
+      setBookmarkCategoryDeleteConfirmation,
+    } = await import('./uiSlice')
+    const { deleteBookmarkCategory } = await import('./bookmarkSlice')
+    store.dispatch(
+      openBookmarkCategoryEditor({
+        pickerId: 'installed',
+        categoryId: 'planning',
+      }),
+    )
+    store.dispatch(
+      openBookmarkCategoryEditor({
+        pickerId: 'detail',
+        categoryId: 'security',
+      }),
+    )
+    store.dispatch(setBookmarkCategoryDeleteConfirmation(true))
+
+    // Act
+    store.dispatch(closeBookmarkCategoryEditor('installed'))
+    store.dispatch(deleteBookmarkCategory('planning'))
+
+    // Assert
+    expect(store.getState().ui.bookmarkCategoryEditor).toEqual({
+      pickerId: 'detail',
+      categoryId: 'security',
+      confirmingDelete: true,
+    })
+    store.dispatch(deleteBookmarkCategory('security'))
+    expect(store.getState().ui.bookmarkCategoryEditor).toBeNull()
+  })
+
   const sampleBookmark = {
     name: toSkillName('task'),
     repo: repositoryId('vercel-labs/skills'),
