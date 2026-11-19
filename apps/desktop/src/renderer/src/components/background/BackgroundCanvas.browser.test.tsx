@@ -292,9 +292,13 @@ describe('main background integration', () => {
     await expect
       .element(screen.getByText('Background unavailable', { exact: true }))
       .toBeVisible()
-    expect(
-      screen.getByRole('button', { name: 'Retry image' }).elements(),
-    ).toHaveLength(2)
+    // The clicked button is labeled “Retrying…” until its transition commits.
+    await expect
+      .poll(
+        () =>
+          screen.getByRole('button', { name: 'Retry image' }).elements().length,
+      )
+      .toBe(2)
     expect(store.getState().settings.background.selected).toEqual(
       display.selection,
     )
