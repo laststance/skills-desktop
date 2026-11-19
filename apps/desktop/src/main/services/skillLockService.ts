@@ -4,7 +4,12 @@ import { basename, dirname, join } from 'node:path'
 
 import { z } from 'zod'
 
-import { MANUAL_RECOVERY_MARKER, SOURCE_DIR, TRASH_DIR } from '@/main/constants'
+import {
+  MANUAL_RECOVERY_MARKER,
+  resolveAgentSkillsPath,
+  SOURCE_DIR,
+  TRASH_DIR,
+} from '@/main/constants'
 import { manifestSchema, tombstoneIdSchema } from '@/main/ipc/ipc-schemas'
 import { errorCode, isMissingPathError } from '@/main/utils/errorCode'
 import { extractErrorMessage } from '@/main/utils/errors'
@@ -440,7 +445,7 @@ async function readTrashedSourceDirNames(): Promise<TrashReadResult> {
  * @returns Unambiguous directory name to lock key pairs.
  * @example buildUniqueDirNameIndex(['a', 'A']) // => Map {}
  */
-function buildUniqueDirNameIndex(
+export function buildUniqueDirNameIndex(
   keys: readonly SkillName[],
 ): Map<string, SkillName> {
   const byDirName = new Map<string, SkillName>()
@@ -508,7 +513,7 @@ async function holdsRealAgentDirectory(dirName: string): Promise<boolean> {
     AGENT_DEFINITIONS.map(async (agent) => {
       try {
         const stats = await fs.lstat(
-          join(homedir(), agent.installDir, 'skills', dirName),
+          join(resolveAgentSkillsPath(agent.installDir), dirName),
         )
         return !stats.isSymbolicLink()
       } catch (error) {

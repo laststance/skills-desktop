@@ -174,9 +174,11 @@ beforeEach(async () => {
   // Clear on the way in as well as out: the afterEach only protects tests that
   // run after one of ours, not against a value already in the dev's shell.
   delete process.env.XDG_STATE_HOME
+  vi.stubEnv('CLAUDE_CONFIG_DIR', join(sharedHome, '.claude'))
 })
 
 afterEach(async () => {
+  vi.unstubAllEnvs()
   delete process.env.XDG_STATE_HOME
   // One test drops write permission on `.agents` to make the lock repair fail.
   // Restoring it here rather than in that test keeps a failure there from
@@ -686,6 +688,29 @@ describe('pruneLockEntries', () => {
       failed: ['agent-owned'],
     })
     expect(await readLockKeys()).toEqual(['agent-owned'])
+  })
+
+  test('preserves an independent Claude skill and its lock when Claude uses a configured directory', async () => {
+    // Arrange
+    const { pruneLockEntries } = await serviceModule
+    const configured = join(sharedHome, 'custom-claude')
+    const skillDir = join(configured, 'skills', 'owned-copy')
+    vi.stubEnv('CLAUDE_CONFIG_DIR', configured)
+    await writeLock(['owned-copy'])
+    const originalLock = await readFile(lockPath, 'utf8')
+    await mkdir(skillDir, { recursive: true })
+    await writeFile(join(skillDir, 'SKILL.md'), '# Independent copy\n')
+
+    // Act
+    const result = await pruneLockEntries([toSkillName('owned-copy')])
+
+    // Assert
+    expect(result.failed).toEqual(['owned-copy'])
+    expect(removeSkillsMock).not.toHaveBeenCalled()
+    expect(await readFile(lockPath, 'utf8')).toBe(originalLock)
+    expect(await readFile(join(skillDir, 'SKILL.md'), 'utf8')).toBe(
+      '# Independent copy\n',
+    )
   })
 
   test('still prunes when the agent-side path is only a symlink to the deleted source', async () => {

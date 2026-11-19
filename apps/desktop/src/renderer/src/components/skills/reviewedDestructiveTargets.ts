@@ -1,3 +1,4 @@
+import { isLinkedSourceSkill } from '@/shared/types'
 import type {
   AbsolutePath,
   AgentId,
@@ -87,7 +88,7 @@ export function partitionGlobalDeleteTargets(
 
     const skill = skillsByName.get(skillName)
     if (!skill?.isOrphan) {
-      if (skill?.filesystemIdentity) {
+      if (skill?.filesystemIdentity && !isLinkedSourceSkill(skill)) {
         deleteTargets.push({
           skillName,
           skillPath: skill.path,

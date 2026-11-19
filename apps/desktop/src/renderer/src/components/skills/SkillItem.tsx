@@ -77,7 +77,7 @@ import type {
   SymlinkCount,
   SymlinkInfo,
 } from '@/shared/types'
-import { toSymlinkCount } from '@/shared/types'
+import { isLinkedSourceSkill, toSymlinkCount } from '@/shared/types'
 
 import { BookmarkCategoryPicker } from '../bookmarks/BookmarkCategoryPicker'
 import { categoryAppearance } from '../bookmarks/categoryAppearance'
@@ -598,17 +598,16 @@ export const SkillItem = function SkillItem({
   // Global Delete keeps its slot while protected so the disabled action explains why it cannot run.
   const showDeleteButton = showDeleteButtonBase
   const showUnlinkButton = showUnlinkButtonBase && !isProtected
-  const isBulkSelectable = canBulkSelectRenderedSkill(
-    selectedAgentId,
-    eligibleNamesSet,
-    skill.name,
-  )
+  const isBulkSelectable =
+    !isLinkedSourceSkill(skill) &&
+    canBulkSelectRenderedSkill(selectedAgentId, eligibleNamesSet, skill.name)
   // A disabled box reads as a glitch without a reason — name it for the
   // tooltip and the accessible label. Busy-disabled rows keep no reason:
   // their spinner already explains the state.
   const bulkIneligibilityReason = isBulkSelectable
     ? null
     : getBulkIneligibilityReason({
+        isLinkedSource: isLinkedSourceSkill(skill),
         isProtected,
         isLocalSkill,
         selectedAgentSymlinkStatus: selectedAgentSymlink?.status ?? null,

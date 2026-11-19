@@ -207,35 +207,41 @@ describe('InstallModal target selection', () => {
     })
   })
 
-  test('falls back to Universal only when no agent directories are available', async () => {
-    // Arrange
-    const { screen } = await renderInstallModal({
-      skill: makeSkill(),
-      agents: [],
-    })
+  test.each([
+    { agents: [] },
+    { agents: [makeAgent({ id: 'cursor', name: 'Cursor' })] },
+  ])(
+    'offers only the shared directory when no separate agent link is available (%#)',
+    async ({ agents }) => {
+      // Arrange
+      const { screen } = await renderInstallModal({
+        skill: makeSkill(),
+        agents,
+      })
 
-    // Assert
-    await expect
-      .element(screen.getByRole('radio', { name: 'Universal only' }))
-      .toBeChecked()
-    await expect
-      .element(
-        screen.getByRole('radio', { name: 'Universal plus selected agents' }),
-      )
-      .toBeDisabled()
+      // Assert
+      await expect
+        .element(screen.getByRole('radio', { name: 'Universal only' }))
+        .toBeChecked()
+      await expect
+        .element(
+          screen.getByRole('radio', { name: 'Universal plus selected agents' }),
+        )
+        .toBeDisabled()
 
-    // Act
-    await screen.getByRole('button', { name: 'Install' }).click()
+      // Act
+      await screen.getByRole('button', { name: 'Install' }).click()
 
-    // Assert
-    await expect.poll(() => mockInstall.mock.calls.length).toBe(1)
-    expect(mockInstall).toHaveBeenCalledWith({
-      repo: repositoryId('vercel-labs/skills'),
-      global: true,
-      agents: [],
-      skills: ['task'],
-    })
-  })
+      // Assert
+      await expect.poll(() => mockInstall.mock.calls.length).toBe(1)
+      expect(mockInstall).toHaveBeenCalledWith({
+        repo: repositoryId('vercel-labs/skills'),
+        global: true,
+        agents: [],
+        skills: ['task'],
+      })
+    },
+  )
 
   test('requires at least one symlink agent when Universal plus agents is selected', async () => {
     // Arrange
@@ -261,7 +267,7 @@ describe('InstallModal target selection', () => {
     // Arrange
     const { screen } = await renderInstallModal({
       skill: makeSkill(),
-      agents: [makeAgent({ id: 'cursor', name: 'Cursor' })],
+      agents: [makeAgent({ id: 'goose', name: 'Goose' })],
     })
 
     // Assert
@@ -273,7 +279,7 @@ describe('InstallModal target selection', () => {
       .toBeInTheDocument()
 
     // Act
-    await screen.getByRole('checkbox', { name: 'Cursor' }).click()
+    await screen.getByRole('checkbox', { name: 'Goose' }).click()
     await screen.getByRole('button', { name: 'Install' }).click()
 
     // Assert
@@ -281,7 +287,7 @@ describe('InstallModal target selection', () => {
     expect(mockInstall).toHaveBeenCalledWith({
       repo: repositoryId('vercel-labs/skills'),
       global: true,
-      agents: ['cursor'],
+      agents: ['goose'],
       skills: ['task'],
     })
   })
@@ -292,12 +298,12 @@ describe('InstallModal target selection', () => {
       skill: makeSkill(),
       agents: [
         makeAgent({ id: 'claude-code', name: 'Claude Code' }),
-        makeAgent({ id: 'cursor', name: 'Cursor' }),
+        makeAgent({ id: 'goose', name: 'Goose' }),
       ],
     })
 
     // Act
-    await screen.getByRole('checkbox', { name: 'Cursor' }).click()
+    await screen.getByRole('checkbox', { name: 'Goose' }).click()
     await screen.getByRole('button', { name: 'Install' }).click()
 
     // Assert
@@ -305,7 +311,7 @@ describe('InstallModal target selection', () => {
     expect(mockInstall).toHaveBeenCalledWith({
       repo: repositoryId('vercel-labs/skills'),
       global: true,
-      agents: ['claude-code', 'cursor'],
+      agents: ['claude-code', 'goose'],
       skills: ['task'],
     })
   })

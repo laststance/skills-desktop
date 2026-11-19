@@ -47,6 +47,8 @@ export async function launchIsolatedElectron(
     env: {
       ...process.env,
       HOME: isolatedHome,
+      // The real skills CLI reads this independently of HOME.
+      CLAUDE_CONFIG_DIR: resolve(isolatedHome, '.claude'),
       // Force Electron's `userData` into the isolated HOME — without
       // this, `app.getPath('userData')` resolves via the OS user (NOT
       // `$HOME`) and tests writing settings.json or session storage

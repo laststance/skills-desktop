@@ -1,6 +1,8 @@
 import { lstat, readdir, readFile, stat } from 'fs/promises'
 import { basename, join } from 'path'
 
+import { z } from 'zod'
+
 import { AGENTS, SOURCE_DIR } from '@/main/constants'
 import { isMissingPathError } from '@/main/utils/errorCode'
 import { formatBytes } from '@/shared/fileTypes'
@@ -18,8 +20,6 @@ import {
 import type {
   AbsolutePath,
   FileSizeBytes,
-  HttpUrl,
-  RepositoryId,
   Skill,
   SkillName,
   SourceStats,
@@ -30,7 +30,7 @@ import type {
 import { listSourceSkillDirs } from './dirScanner'
 import { filesystemIdentityFromStats } from './filesystemIdentity'
 import { parseSkillMetadata } from './metadataParser'
-import { getSkillLockPath } from './skillLockService'
+import { buildUniqueDirNameIndex, getSkillLockPath } from './skillLockService'
 import { isValidSkillDir } from './skillValidation'
 import {
   checkSkillSymlinks,
@@ -39,38 +39,13 @@ import {
   readSymlinkTargetIfPresent,
 } from './symlinkChecker'
 
-/**
- * Entry from ~/.agents/.skill-lock.json
- * @example
- * {
- *   source: 'pbakaus/impeccable',
- *   sourceType: 'github',
- *   sourceUrl: 'https://github.com/pbakaus/impeccable.git',
- * }
- */
-interface SkillLockEntry {
-  /** Repository identifier in GitHub owner/repo form. @example "pbakaus/impeccable" */
-  source: RepositoryId
-  /**
-   * Source kind tag (free-form string from skills CLI). `local` entries (CLI
-   * 1.7.1+) carry an absolute filesystem path as `source`, not a repository.
-   * @example "github"
-   */
-  sourceType: string
-  /** Full clone URL to the source repository. */
-  sourceUrl: HttpUrl
-}
-
-/**
- * Top-level shape of `~/.agents/.skill-lock.json` — the skills CLI writes
- * `{ skills: { <name>: SkillLockEntry } }`. Older lock files (or a
- * partially-initialized agents dir) may omit the `skills` key entirely,
- * so the field is optional.
- * @example { skills: { 'frontend-design': { source: 'pbakaus/impeccable', sourceType: 'github', sourceUrl: '...' } } }
- */
-interface SkillLockContent {
-  skills?: Record<string, SkillLockEntry>
-}
+// Validate provenance one record at a time so a damaged sibling cannot take down Installed.
+const lockEnvelope = z.object({ skills: z.record(z.string(), z.unknown()) })
+const lockSource = z.object({
+  source: z.string().trim().min(1),
+  sourceType: z.string().optional(),
+  sourceUrl: z.string().catch(''),
+})
 
 type AgentDefinition = (typeof AGENTS)[number]
 
@@ -186,14 +161,14 @@ async function scanAgentSymlinkStatusHits(
  * readSkillLock()
  * // => Map { 'frontend-design' => { source: 'pbakaus/impeccable', sourceUrl: '...' } }
  */
-async function readSkillLock(): Promise<Map<SkillName, SkillLockEntry>> {
+async function readSkillLock(): Promise<Map<SkillName, unknown>> {
   try {
     // Shared resolver, not a hardcoded path: `XDG_STATE_HOME` moves the lock,
     // and display attribution has to read the same file prune writes to.
     const content = await readFile(getSkillLockPath(), 'utf-8')
-    const parsed = JSON.parse(content) as SkillLockContent
+    const parsed = lockEnvelope.parse(JSON.parse(content))
     return new Map(
-      Object.entries(parsed.skills ?? {}).map(([name, entry]) => [
+      Object.entries(parsed.skills).map(([name, entry]) => [
         toSkillName(name),
         entry,
       ]),
@@ -212,8 +187,8 @@ async function readSkillLock(): Promise<Map<SkillName, SkillLockEntry>> {
  * the renderer and `HealthWidget` reports 100% even when agents have dangling
  * links — see issue #127.
  *
- * Dedup precedence: source > local > orphan. A name that exists as a source
- * skill never becomes an orphan record (broken agent links for live source
+ * Group by installed slot, with precedence source > local > linked > orphan. A live source slot
+ * never becomes an orphan record (broken agent links for live source
  * skills are already represented inside `Skill.symlinks`).
  *
  * @returns Array of Skill objects with symlink info
@@ -228,7 +203,7 @@ export async function scanSkills(): Promise<Skill[]> {
   // Promise.all.
   const sourceSkillsPromise = scanSourceSkills()
   const sourceNamesPromise = sourceSkillsPromise.then(
-    (src) => new Set(src.map((s) => s.name)),
+    (src) => new Set(src.map((skill) => toSkillName(basename(skill.path)))),
   )
   const linkedAgentSkillsPromise = sourceNamesPromise.then(
     async (sourceNames) => scanAgentLinkedSymlinks(sourceNames),
@@ -259,16 +234,21 @@ export async function scanSkills(): Promise<Skill[]> {
   // failure mode resurfaces). Same agent slot can't legitimately have both
   // 'valid+local' and 'broken' (a path is either a directory or a symlink),
   // so per-slot non-missing-wins is conflict-free.
-  const byName = new Map<SkillName, Skill>()
+  const bySlot = new Map<SkillName, Skill>()
   for (const skill of [
     ...sourceSkills,
     ...localSkills,
     ...linkedAgentSkills,
     ...orphanSkills,
   ]) {
-    const existing = byName.get(skill.name)
+    // Copies and source records carry their installed path. An agent-only link
+    // carries the destination path, so its slot key is the observed link name.
+    const slot = skill.filesystemIdentity
+      ? toSkillName(basename(skill.path))
+      : skill.name
+    const existing = bySlot.get(slot)
     if (!existing) {
-      byName.set(skill.name, skill)
+      bySlot.set(slot, skill)
       continue
     }
     for (let i = 0; i < existing.symlinks.length; i++) {
@@ -286,27 +266,45 @@ export async function scanSkills(): Promise<Skill[]> {
     /* v8 ignore next -- on a name collision the surviving `existing` record is always a non-orphan (orphans merge last & are name-deduped), so existing.isOrphan is always false and skill.isOrphan is never evaluated */
     existing.isOrphan = existing.isOrphan && skill.isOrphan
   }
-  const allSkills = Array.from(byName.values())
+  applyInstalledNamesAndSources(bySlot, lockEntries)
+  return [...bySlot.values()].sort((a, b) => a.name.localeCompare(b.name))
+}
 
-  // Attach source info from lock file
-  for (const skill of allSkills) {
-    const dirName = basename(skill.path)
-    const lock =
-      lockEntries.get(toSkillName(dirName)) ?? lockEntries.get(skill.name)
-    // A local-path install has no repository: leave source unset so the row
-    // reads "Local" and the absolute path never becomes a repository filter.
-    if (lock && lock.sourceType !== 'local') {
-      skill.source = repositoryId(lock.source)
-      // The lock file is untrusted input — validate the scheme so a
-      // `javascript:`/`file:` URL can never reach a rendered anchor behind
-      // the HttpUrl brand. A rejected URL just leaves sourceUrl unset: the
-      // skill still lists its source id (SourceLink `text` mode).
-      skill.sourceUrl = tryHttpUrl(lock.sourceUrl)
-    }
+/**
+ * Give each installed slot a unique display name and its independently validated lock source.
+ * Called after {@link scanSkills} merges observations from the source and agent directories.
+ * @example applyInstalledNamesAndSources(installedBySlot, lockEntries)
+ */
+function applyInstalledNamesAndSources(
+  bySlot: ReadonlyMap<SkillName, Skill>,
+  lockEntries: ReadonlyMap<SkillName, unknown>,
+): void {
+  const uniqueOwners = buildUniqueDirNameIndex([...lockEntries.keys()])
+  // Older installs can retain the raw directory or manifest spelling. Only unambiguous keys may supply either alias.
+  for (const owner of [...uniqueOwners.values()]) uniqueOwners.set(owner, owner)
+  const titleCounts = new Map<SkillName, number>()
+  for (const skill of bySlot.values()) {
+    titleCounts.set(skill.name, (titleCounts.get(skill.name) ?? 0) + 1)
   }
 
-  // Sort by name
-  return allSkills.sort((a, b) => a.name.localeCompare(b.name))
+  for (const [slot, skill] of bySlot) {
+    // A fallback to the physical slot must never collide with another row's title.
+    const ambiguousTitle =
+      titleCounts.get(skill.name) !== 1 ||
+      (skill.name !== slot && bySlot.has(skill.name))
+    if (ambiguousTitle) skill.name = slot
+
+    const directory = toSkillName(basename(skill.path))
+    const owner =
+      uniqueOwners.get(directory) ??
+      uniqueOwners.get(slot) ??
+      (lockEntries.has(skill.name) ? uniqueOwners.get(skill.name) : undefined)
+    if (!owner) continue
+    const entry = lockSource.safeParse(lockEntries.get(owner))
+    if (!entry.success || entry.data.sourceType === 'local') continue
+    skill.source = repositoryId(entry.data.source)
+    skill.sourceUrl = tryHttpUrl(entry.data.sourceUrl)
+  }
 }
 
 /**
@@ -314,7 +312,7 @@ export async function scanSkills(): Promise<Skill[]> {
  * @returns Array of source skills
  */
 async function scanSourceSkills(): Promise<Skill[]> {
-  const listing = await listSourceSkillDirs()
+  const listing = await listSourceSkillDirs({ includeLinkedSkills: true })
   // Degrade to an empty source list when the directory itself could not be
   // read, exactly as the old swallow did — but the emptiness is now stated
   // here, and `SourceStats.isUnreadable` is what tells the user about it.
@@ -559,13 +557,13 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
     )
   ).flat()
 
-  // Phase 2 — group by skill name. First sighting builds the full per-agent
+  // Phase 2 — group by installed directory. First sighting builds the full per-agent
   // template (every agent 'missing'); every sighting (including the first)
   // then flips its own agent slot to a valid local entry, carrying the
   // SKILL.md symlink target ON THE SLOT — per-agent attribution prevents
   // cross-agent badge bleed when two agents share a skill name but only one
   // is gstack-managed.
-  const localSkillsByName = new Map<SkillName, Skill>()
+  const localSkillsByDir = new Map<string, Skill>()
   for (const {
     agent,
     dirName,
@@ -574,7 +572,7 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
     metadata,
     skillMdSymlinkTarget,
   } of localHits) {
-    let skill = localSkillsByName.get(metadata.name)
+    let skill = localSkillsByDir.get(dirName)
     if (!skill) {
       skill = {
         name: metadata.name,
@@ -586,7 +584,7 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
         isSource: false,
         isOrphan: false,
       }
-      localSkillsByName.set(metadata.name, skill)
+      localSkillsByDir.set(dirName, skill)
     }
     updateAgentSymlinkSlot(skill, agent.id, {
       status: 'valid',
@@ -597,7 +595,7 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
     })
   }
 
-  return Array.from(localSkillsByName.values())
+  return Array.from(localSkillsByDir.values())
 }
 
 /**
@@ -648,7 +646,7 @@ export async function getSourceStats(): Promise<SourceStats> {
   // rendered the folder as an honest-looking "0 skills" — the exact lie this
   // function exists to stop telling.
   const [listing, stats, totalBytes] = await Promise.all([
-    listSourceSkillDirs(),
+    listSourceSkillDirs({ includeLinkedSkills: true }),
     stat(SOURCE_DIR).catch(() => null),
     calculateDirectorySize(SOURCE_DIR),
   ])
