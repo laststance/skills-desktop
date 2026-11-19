@@ -1117,7 +1117,11 @@ const SkillItemOverlayActions = function SkillItemOverlayActions({
           <TooltipTrigger asChild>
             <button
               type="button"
-              onKeyDown={(event) => event.stopPropagation()}
+              onKeyDown={(event) => {
+                // Keep native bookmark activation inside the card; list shortcuts still bubble.
+                if (event.key === 'Enter' || event.key === ' ')
+                  event.stopPropagation()
+              }}
               onClick={onToggleBookmark}
               aria-label={
                 isBookmarked

@@ -49,6 +49,30 @@ test('a classified bookmark reopens its original source after the skill is unins
     await expect(
       page.locator('[data-skill-name="dependency-audit"]'),
     ).toHaveAttribute('data-bookmark-category', 'security')
+    // The resting bookmark and category buttons both keep the Installed list's shortcuts.
+    const cardActions = [
+      page.getByRole('button', {
+        name: 'Remove bookmark from dependency-audit',
+      }),
+      page.locator('[data-category-for="dependency-audit"]'),
+    ]
+    for (const action of cardActions) {
+      await action.focus()
+      await page.keyboard.press('Meta+a')
+      await expect(
+        page.getByRole('checkbox', {
+          name: 'Deselect dependency-audit',
+          exact: true,
+        }),
+      ).toBeChecked()
+      await page.keyboard.press('Escape')
+      await expect(
+        page.getByRole('checkbox', {
+          name: 'Select dependency-audit',
+          exact: true,
+        }),
+      ).not.toBeChecked()
+    }
     await page.getByRole('radio', { name: 'Tree', exact: true }).click()
     await expect(
       page.getByRole('treeitem', { name: 'dependency-audit', exact: true }),

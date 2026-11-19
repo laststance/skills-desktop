@@ -96,7 +96,6 @@ export function BookmarkCategoryPicker({
                 aria-label={title}
                 data-category-for={skillName}
                 onPointerDown={(event) => event.stopPropagation()}
-                onKeyDown={(event) => event.stopPropagation()}
                 onClick={(event) => event.stopPropagation()}
                 className={cn(
                   'inline-flex h-6 min-w-6 max-w-full items-center gap-1 rounded px-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',

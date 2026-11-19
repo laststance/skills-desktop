@@ -72,7 +72,7 @@ themeSyncTest(
     const settingsWrites = await settingsWindow.evaluateHandle(() => {
       const written: string[] = []
       const write = Storage.prototype.setItem
-      Storage.prototype.setItem = function (key, value) {
+      Storage.prototype.setItem = function (key, value): void {
         if (key === 'skills-desktop-state') written.push(key)
         write.call(this, key, value)
       }
@@ -91,7 +91,7 @@ themeSyncTest(
       type: 'bookmarks/deleteBookmarkCategory',
       payload: 'security',
     })
-    const persisted = () =>
+    const persisted = async () =>
       appWindow.evaluate(
         () =>
           JSON.parse(localStorage.getItem('skills-desktop-state') ?? '{}')
@@ -109,7 +109,8 @@ themeSyncTest(
     await expect(settingsWindow.locator('html')).toHaveClass(/light/)
     // Wait behind the storage middleware's 300ms debounce in this exact renderer.
     await settingsWindow.evaluate(
-      () => new Promise<void>((resolve) => window.setTimeout(resolve, 600)),
+      async () =>
+        new Promise<void>((resolve) => window.setTimeout(resolve, 600)),
     )
     expect(await settingsWrites.jsonValue()).toEqual([])
     await expect.poll(async () => (await persisted())?.theme.mode).toBe('light')
