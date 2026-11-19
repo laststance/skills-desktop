@@ -1,5 +1,6 @@
 appId: io.laststance.skills-desktop
 productName: Skills Desktop
+extends: ./scripts/updater-package-metadata.cjs
 directories:
   buildResources: resources
   output: dist
@@ -41,6 +42,9 @@ mac:
   #   APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID
   notarize: true
   hardenedRuntime: true
+  # The signed Electron framework seals these translation files as resources.
+  signIgnore:
+    - '/Electron Framework\.framework/(?:Versions/[^/]+/)?Resources/[^/]+\.lproj/locale\.pak$'
   gatekeeperAssess: false
 
 dmg:
