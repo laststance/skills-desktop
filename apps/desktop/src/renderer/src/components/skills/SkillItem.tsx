@@ -1117,6 +1117,7 @@ const SkillItemOverlayActions = function SkillItemOverlayActions({
           <TooltipTrigger asChild>
             <button
               type="button"
+              onKeyDown={(event) => event.stopPropagation()}
               onClick={onToggleBookmark}
               aria-label={
                 isBookmarked

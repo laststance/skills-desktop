@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import type { Page } from '@playwright/test'
 
 import { test, expect } from '../fixtures/electron-app'
+import { dispatchAction } from '../helpers/redux'
 
 /**
  * The Settings window is a second BrowserWindow with its own renderer process
@@ -61,6 +62,72 @@ themeSyncTest(
     await expect(settingsWindow.locator('html')).toHaveClass(/light/)
     await expect(settingsWindow.locator('html')).not.toHaveClass(/dark/)
     await expect(appWindow.locator('html')).toHaveClass(/light/)
+  },
+)
+
+themeSyncTest(
+  'keeps the saved bookmark and deleted category when Settings receives a later theme change',
+  async ({ appWindow, settingsWindow }) => {
+    // Arrange — observe which renderer writes while preserving real storage and timer behavior.
+    const settingsWrites = await settingsWindow.evaluateHandle(() => {
+      const written: string[] = []
+      const write = Storage.prototype.setItem
+      Storage.prototype.setItem = function (key, value) {
+        if (key === 'skills-desktop-state') written.push(key)
+        write.call(this, key, value)
+      }
+      return written
+    })
+    await dispatchAction(appWindow, {
+      type: 'bookmarks/addBookmark',
+      payload: {
+        name: 'audit',
+        repo: 'owner/tools',
+        url: 'https://github.com/owner/tools',
+        categoryId: 'security',
+      },
+    })
+    await dispatchAction(appWindow, {
+      type: 'bookmarks/deleteBookmarkCategory',
+      payload: 'security',
+    })
+    const persisted = () =>
+      appWindow.evaluate(
+        () =>
+          JSON.parse(localStorage.getItem('skills-desktop-state') ?? '{}')
+            .state,
+      )
+    await expect
+      .poll(async () => (await persisted())?.bookmarks.items[0]?.name)
+      .toBe('audit')
+
+    // Act — both renderers receive the theme change while only the main window has the new collection.
+    await appWindow
+      .getByRole('button', { name: 'Theme and color options' })
+      .click()
+    await appWindow.getByRole('radio', { name: 'Light mode' }).click()
+    await expect(settingsWindow.locator('html')).toHaveClass(/light/)
+    // Wait behind the storage middleware's 300ms debounce in this exact renderer.
+    await settingsWindow.evaluate(
+      () => new Promise<void>((resolve) => window.setTimeout(resolve, 600)),
+    )
+    expect(await settingsWrites.jsonValue()).toEqual([])
+    await expect.poll(async () => (await persisted())?.theme.mode).toBe('light')
+    await appWindow.reload()
+
+    // Assert — a fresh primary store still has the saved source and the starter stays deleted.
+    await expect(
+      appWindow.getByRole('button', { name: 'View details for audit' }),
+    ).toBeVisible()
+    const saved = await persisted()
+    expect(saved.bookmarks.items[0]).toMatchObject({
+      name: 'audit',
+      url: 'https://github.com/owner/tools',
+    })
+    expect(saved.bookmarks.items[0].categoryId).toBeUndefined()
+    expect(
+      saved.bookmarks.categories.map((category: { id: string }) => category.id),
+    ).not.toContain('security')
   },
 )
 

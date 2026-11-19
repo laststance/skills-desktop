@@ -93,6 +93,8 @@ export function BookmarkCategoryEditor({
       <DialogContent
         className="max-w-sm"
         onCloseAutoFocus={restoreFocus}
+        // React also bubbles portaled editor keys through the agent card's menu trigger.
+        onKeyDown={(event) => event.stopPropagation()}
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >

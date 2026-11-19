@@ -207,6 +207,9 @@ export const SkillsList = function SkillsList({
     )
   }
 
+  if (filteredSkills.length === 0 && filter !== ALL_CATEGORIES)
+    return <EmptyCategoryFilter surface="installed" />
+
   if (skills.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -220,9 +223,6 @@ export const SkillsList = function SkillsList({
       </div>
     )
   }
-
-  if (filteredSkills.length === 0 && filter !== ALL_CATEGORIES)
-    return <EmptyCategoryFilter surface="installed" />
 
   if (filteredSkills.length === 0 && searchQuery.length > 0) {
     return (

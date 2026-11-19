@@ -19,16 +19,10 @@ if (__E2E_BUILD__) {
  * Settings BrowserWindow entry. Loaded from `src/renderer/settings/index.html`,
  * which is registered as a second Rollup input in `electron.vite.config.ts`.
  *
- * Shares the main window's Redux store directly. The Settings UI only
- * touches the `settings` slice — every other slice (skills, agents,
- * ui, theme, etc.) is harmless ballast in this window: `useSettingsSync`
- * keeps `settings` aligned across windows via IPC, and the
- * redux-storage-middleware `slices` array (`theme | bookmarks | dashboard`)
- * intentionally excludes `settings`, so there's no dual-write race
- * with the main window even though both processes hold the same store
- * shape. Rationale: a single source of truth eliminates the slim-store
- * vs full-store divergence that previously required parallel selector
- * typing.
+ * Each renderer owns a Redux store with the same selectors. Settings reads the
+ * primary window's persisted theme and follows live theme broadcasts. It saves
+ * native settings through IPC and shares preview preferences through their own
+ * middleware. Only the primary window writes the bookmark collection.
  *
  * Provider chain order matters:
  *   StrictMode → ErrorBoundary → Provider → TooltipProvider → SettingsApp

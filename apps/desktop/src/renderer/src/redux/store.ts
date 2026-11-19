@@ -1,4 +1,7 @@
-import { createStorageMiddleware } from '@laststance/redux-storage-middleware'
+import {
+  createNoopStorage,
+  createStorageMiddleware,
+} from '@laststance/redux-storage-middleware'
 import { combineReducers, configureStore } from '@reduxjs/toolkit'
 import { setupListeners } from '@reduxjs/toolkit/query'
 import { toast } from 'sonner'
@@ -96,6 +99,17 @@ function warnPersistedStateNotSaved(
   return true
 }
 
+const appStateStorage = createReportingLocalStorage(
+  () => warnPersistedStateNotSaved(),
+  (recovered) => {
+    if (recovered) toast.dismiss(PERSIST_STORAGE_KEY)
+  },
+)
+// Settings hydrates the shared theme and receives live broadcasts. Only the primary
+// window owns this record, which also contains the user's bookmarks, locks and dashboard.
+const isSettingsWindow = globalThis.location?.pathname.endsWith(
+  '/settings/index.html',
+)
 const {
   middleware: storageMiddleware,
   reducer,
@@ -106,14 +120,9 @@ const {
   slices: ['theme', 'bookmarks', 'protect', 'dashboard'],
   version: PERSIST_STATE_VERSION,
   migrate: migrateState,
-  // Replaces the library default, which console.errors a rejected write and
-  // returns a silent no-op store when localStorage is unavailable.
-  storage: createReportingLocalStorage(
-    () => warnPersistedStateNotSaved(),
-    (recovered) => {
-      if (recovered) toast.dismiss(PERSIST_STORAGE_KEY)
-    },
-  ),
+  storage: isSettingsWindow
+    ? { ...createNoopStorage(), getItem: appStateStorage.getItem }
+    : appStateStorage,
 })
 
 const preferencesPersistence = createRendererPreferencesPersistence(

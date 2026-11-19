@@ -420,6 +420,93 @@ describe('personal bookmark categories in Installed', () => {
     })
   })
 
+  test('a linked agent card accepts keyboard bookmarking, multiword category names, swatches, and removal', async () => {
+    // Arrange
+    const { store, screen } = await renderCollection(['audit'])
+    const { fetchSkills } = await import('../../redux/slices/skillsSlice')
+    const { selectAgent } = await import('../../redux/slices/uiSlice')
+    const skill = makeSkill({
+      name: toSkillName('audit'),
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          status: 'valid',
+          isLocal: false,
+          linkPath: toAbsolutePath('/home/user/.cursor/skills/audit'),
+          targetPath: toAbsolutePath('/home/user/.agents/skills/audit'),
+        },
+      ],
+    })
+    store.dispatch(fetchSkills.fulfilled([skill], 'agent-scan'))
+    store.dispatch(selectAgent('cursor'))
+    const bookmark = screen.getByRole('button', {
+      name: 'Bookmark audit',
+      exact: true,
+    })
+    await expect.element(bookmark).toBeVisible()
+
+    // Act — each activation goes through the actual key event and native button behavior.
+    bookmark.element().focus()
+    await userEvent.keyboard('{Enter}')
+    const newCategory = screen.getByRole('menuitem', { name: 'New category' })
+    await expect.element(newCategory).toBeVisible()
+    newCategory.element().focus()
+    await userEvent.keyboard('{Enter}')
+    const name = screen.getByRole('textbox', { name: 'Name' })
+    await expect.element(name).toHaveFocus()
+    await userEvent.keyboard('Review tools')
+    await expect.element(name).toHaveValue('Review tools')
+    const initialColor = screen.getByRole('radio', {
+      name: 'Blue',
+      exact: true,
+    })
+    initialColor.element().focus()
+    await userEvent.keyboard('{ArrowDown}')
+    await expect.element(initialColor).not.toBeChecked()
+    name.element().focus()
+    await userEvent.keyboard('{Enter}')
+
+    // Assert — saving and removing the bookmark also handle the outer card's menu.
+    await expect
+      .element(
+        screen.getByRole('button', { name: 'Review tools', exact: true }),
+      )
+      .toBeVisible()
+    const remove = screen.getByRole('button', {
+      name: 'Remove bookmark from audit',
+    })
+    remove.element().focus()
+    await userEvent.keyboard(' ')
+    await expect.element(bookmark).toBeVisible()
+    expect(store.getState().bookmarks.items).toEqual([])
+  })
+
+  test('an empty installation can clear its category filter and return to the first-install hint', async () => {
+    // Arrange
+    const { store, screen } = await renderCollection([])
+    const { fetchSkills } = await import('../../redux/slices/skillsSlice')
+    const { setBookmarkCategoryFilter } =
+      await import('../../redux/slices/uiSlice')
+    store.dispatch(fetchSkills.fulfilled([], 'empty-scan'))
+
+    // Act
+    store.dispatch(
+      setBookmarkCategoryFilter({ surface: 'installed', id: 'security' }),
+    )
+    await screen.getByRole('button', { name: 'Clear category filter' }).click()
+
+    // Assert
+    await expect.element(screen.getByText('No skills installed')).toBeVisible()
+    await expect
+      .element(
+        screen.getByRole('button', {
+          name: 'Installed category filter: All categories',
+        }),
+      )
+      .toBeVisible()
+  })
+
   test('deleting an unused starter is immediate and confirming a used starter counts saved skills that were uninstalled', async () => {
     // Arrange
     const { store, screen } = await renderCollection(['audit'])
