@@ -1,5 +1,6 @@
 appId: io.laststance.skills-desktop
 productName: Skills Desktop
+extends: ./scripts/updater-package-metadata.cjs
 directories:
   buildResources: resources
   output: dist
