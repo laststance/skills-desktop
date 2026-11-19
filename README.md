@@ -77,7 +77,7 @@ updates, SHA-pinned least-privilege Actions, and branch protection.
 
 ## Browse installed skill files
 
-Save a skill from **Installed** with its bookmark button. Choose a category such as **Security**, or press Escape to classify it later. To find its original page again, filter **Bookmarks** in the sidebar by Security, open the skill, and follow its source link. Click a saved card’s category to rename, recolor, or create a category.
+In the **Installed** list, click a skill’s bookmark button. Choose a category such as **Security**, or press Escape to leave it uncategorized. To find it again, filter **Bookmarks** in the sidebar by the category you chose and open the bookmark. Click the repository link to reopen its source. When the skill has no recorded repository, its details show **Local**. Click a saved card’s category button to rename, recolor, or create a category.
 
 Use **List / Tree** above Installed skills to choose cards or an expandable hierarchy. Tree opens skill folders on demand. Select a file to preview it on the right, or use arrow keys to navigate and Enter to open. Space selects an eligible skill for bulk actions; files and folders never become delete targets. **Collapse all** closes the hierarchy without reloading it. Search and agent/source filters work in either view, and the view choice survives restart.
 
