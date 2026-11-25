@@ -288,7 +288,8 @@ export const THEME_PRESETS = {
  *   (the v0.13.0 regression). Required on every entry so a Skills CLI sync
  *   must consider it for new agents — no silent fallback.
  *
- * When id !== cliId, the skillsCliService maps id → cliId for CLI commands
+ * When id !== cliId, the internal id stays stable for persisted state while
+ * cliId tracks the upstream CLI agent key (kept for Skills CLI syncs).
  */
 export const AGENT_DEFINITIONS = [
   // Agents supported by skills CLI (synced from agents.ts)
@@ -1048,18 +1049,6 @@ export const TERMINAL_APP_UI_LABELS: Record<
   wezterm: 'WezTerm',
   custom: 'Custom…',
 }
-
-/**
- * Pinned `vercel-labs/skills` CLI version used by the main-process
- * `skillsCliService` when spawning `npx skills@<version> ...`. Kept in the
- * shared module so a Skills CLI sync has a single place
- * to bump alongside `AGENT_DEFINITIONS`. Consumers must template this into
- * their spawn args rather than hard-coding a version string — drift here
- * would silently run a stale CLI against up-to-date agent definitions.
- * @example
- * spawn('npx', [`skills@${SKILLS_CLI_VERSION}`, 'find', 'react'])
- */
-export const SKILLS_CLI_VERSION = '1.7.4'
 
 /**
  * Canonical hostname for skills marketplace pages used by renderer/main

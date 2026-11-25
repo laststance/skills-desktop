@@ -147,13 +147,13 @@ describe('marketplaceSlice', () => {
     expect(store.getState().marketplace.searchQuery).toBe('')
   })
 
-  test('shows the live install progress reported by the CLI, then clears it', async () => {
+  test('shows the live install progress reported over IPC, then clears it', async () => {
     // Arrange
     const { setInstallProgress } = await import('./marketplaceSlice')
     const store = await createTestStore()
     const progress: InstallProgress = {
-      phase: 'cloning',
-      message: 'Cloning vercel-labs/skill-task',
+      phase: 'fetching',
+      message: 'Fetching vercel-labs/skill-task',
       percent: toProgressPercent(40),
     }
 
@@ -374,7 +374,11 @@ describe('marketplaceSlice', () => {
     const store = await createTestStore()
     const { installSkill, clearSearchResults, searchSkills } =
       await import('./marketplaceSlice')
-    mockInstall.mockResolvedValue({ success: false })
+    mockInstall.mockResolvedValue({
+      success: false,
+      results: [],
+      userMessage: 'Repository "acme/task" was not found on GitHub.',
+    })
     await store.dispatch(
       installSkill({ repo: sampleResult.repo, global: true, agents: [] }),
     )
@@ -385,8 +389,10 @@ describe('marketplaceSlice', () => {
     await store.dispatch(searchSkills(query))
     store.dispatch(clearSearchResults())
 
-    // Assert
-    expect(store.getState().marketplace.error).toBe('Installation failed')
+    // Assert — the dialog-safe reason the manager produced survives verbatim
+    expect(store.getState().marketplace.error).toBe(
+      'Repository "acme/task" was not found on GitHub.',
+    )
     expect(store.getState().marketplace.status).toBe('error')
   })
 
@@ -452,7 +458,7 @@ describe('marketplaceSlice', () => {
   // --- installSkill thunk ---
   test('shows an installing state while the install request is in flight', async () => {
     // Arrange — keep the install request pending so the installing state is observable
-    let resolve!: (value: { success: boolean }) => void
+    let resolve!: (value: { success: boolean; results: never[] }) => void
     mockInstall.mockReturnValue(
       new Promise((r) => {
         resolve = r
@@ -473,13 +479,13 @@ describe('marketplaceSlice', () => {
     // Assert
     expect(store.getState().marketplace.status).toBe('installing')
 
-    resolve({ success: true })
+    resolve({ success: true, results: [] })
     await promise
   })
 
   test('clears the install selection and returns to idle once the install succeeds', async () => {
     // Arrange
-    mockInstall.mockResolvedValue({ success: true })
+    mockInstall.mockResolvedValue({ success: true, results: [] })
     const store = await createTestStore()
     const { selectSkillForInstall, installSkill } =
       await import('./marketplaceSlice')
@@ -540,10 +546,11 @@ describe('marketplaceSlice', () => {
     expect(store.getState().marketplace.error).toBe('Installation failed')
   })
 
-  test('shows an install-failed error when the CLI completes but reports no success', async () => {
-    // Arrange — the install promise resolves (no throw) but the CLI reports
-    // success:false, e.g. a non-zero exit that the IPC layer swallowed.
-    mockInstall.mockResolvedValue({ success: false })
+  test('shows a fallback install-failed error when the outcome carries no user-facing reason', async () => {
+    // Arrange — the install promise resolves (no throw) with success:false
+    // and no userMessage, which a well-formed manager outcome never does;
+    // the banner still has to say something rather than render blank.
+    mockInstall.mockResolvedValue({ success: false, results: [] })
     const store = await createTestStore()
     const { selectSkillForInstall, installSkill } =
       await import('./marketplaceSlice')

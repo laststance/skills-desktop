@@ -62,7 +62,7 @@ function getInstallAgentIds(
  */
 export const InstallModal = function InstallModal(): React.ReactElement {
   const dispatch = useAppDispatch()
-  const { selectedSkill, status, installProgress } = useAppSelector(
+  const { selectedSkill, status, installProgress, error } = useAppSelector(
     (state) => state.marketplace,
   )
   const { items: agents } = useAppSelector((state) => state.agents)
@@ -162,10 +162,13 @@ export const InstallModal = function InstallModal(): React.ReactElement {
       skills: [selectedSkill.name],
     }
 
-    await dispatch(installSkill(options))
-    // Refresh the skills list after installation
-    dispatch(fetchSkills())
-    handleClose()
+    const action = await dispatch(installSkill(options))
+    if (installSkill.fulfilled.match(action) && action.payload.success) {
+      // Refresh the skills list only after a verified install — on failure the
+      // modal stays open with the inline error and nothing needs re-scanning.
+      dispatch(fetchSkills())
+      handleClose()
+    }
   }
 
   return (
@@ -244,6 +247,15 @@ export const InstallModal = function InstallModal(): React.ReactElement {
               </div>
             )}
           </div>
+
+          {!isInstalling && error && (
+            <div
+              role="alert"
+              className="mt-4 rounded-md border border-destructive/40 bg-destructive/10 p-3"
+            >
+              <p className="text-sm text-destructive">{error}</p>
+            </div>
+          )}
 
           {isInstalling && installProgress && (
             <div className="mt-4 p-3 bg-primary/10 rounded-md">

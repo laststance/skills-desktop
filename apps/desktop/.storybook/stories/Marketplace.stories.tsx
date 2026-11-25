@@ -104,7 +104,7 @@ export const LoadingAndInstallStates: Story = {
         marketplace: {
           selectedSkill: storyMarketplaceSkills[0],
           installProgress: {
-            phase: 'installing',
+            phase: 'linking',
             message: 'Linking skill into selected agents',
             percent: toProgressPercent(72),
           },

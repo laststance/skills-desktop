@@ -77,8 +77,8 @@ describe('useMarketplaceProgress', () => {
     // Arrange
     const { useMarketplaceProgress } = await import('./useMarketplaceProgress')
     const progress: InstallProgress = {
-      phase: 'cloning',
-      message: 'Cloning skill repository…',
+      phase: 'fetching',
+      message: 'Fetching skill repository…',
       percent: toProgressPercent(42),
     }
 
@@ -91,8 +91,8 @@ describe('useMarketplaceProgress', () => {
     expect(dispatchSpy).toHaveBeenCalledWith({
       type: 'marketplace/setInstallProgress',
       payload: {
-        phase: 'cloning',
-        message: 'Cloning skill repository…',
+        phase: 'fetching',
+        message: 'Fetching skill repository…',
         percent: 42,
       },
     })
@@ -101,9 +101,9 @@ describe('useMarketplaceProgress', () => {
   test('forwards every progress event so the UI tracks each pipeline stage', async () => {
     // Arrange
     const { useMarketplaceProgress } = await import('./useMarketplaceProgress')
-    const cloning: InstallProgress = {
-      phase: 'cloning',
-      message: 'Cloning…',
+    const fetching: InstallProgress = {
+      phase: 'fetching',
+      message: 'Fetching…',
     }
     const complete: InstallProgress = {
       phase: 'complete',
@@ -113,14 +113,14 @@ describe('useMarketplaceProgress', () => {
 
     // Act — two sequential progress events arrive over the same subscription
     useMarketplaceProgress()
-    registeredCallback?.(cloning)
+    registeredCallback?.(fetching)
     registeredCallback?.(complete)
 
     // Assert — both stages dispatch in order
     expect(dispatchSpy).toHaveBeenCalledTimes(2)
     expect(dispatchSpy).toHaveBeenNthCalledWith(1, {
       type: 'marketplace/setInstallProgress',
-      payload: { phase: 'cloning', message: 'Cloning…' },
+      payload: { phase: 'fetching', message: 'Fetching…' },
     })
     expect(dispatchSpy).toHaveBeenNthCalledWith(2, {
       type: 'marketplace/setInstallProgress',

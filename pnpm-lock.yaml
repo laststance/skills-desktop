@@ -264,6 +264,9 @@ catalogs:
     vitest-browser-react:
       specifier: ^2.3.0
       version: 2.3.0
+    yaml:
+      specifier: ^2.9.1
+      version: 2.9.1
     zod:
       specifier: 4.6.7
       version: 4.6.7
@@ -409,6 +412,9 @@ importers:
       ts-pattern:
         specifier: 'catalog:'
         version: 5.9.2
+      yaml:
+        specifier: 'catalog:'
+        version: 2.9.1
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -11196,8 +11202,7 @@ snapshots:
 
   yallist@5.0.0: {}
 
-  yaml@2.9.1:
-    optional: true
+  yaml@2.9.1: {}
 
   yargs-parser@21.1.1: {}
 

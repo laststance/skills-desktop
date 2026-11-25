@@ -1009,22 +1009,6 @@ export interface InstallOptions {
 }
 
 /**
- * Captured output from a spawned skills-CLI process.
- * @example
- * { success: true, stdout: '✔ Installed task', stderr: '', code: 0 }
- */
-export interface CliCommandResult {
-  /** true when the process exited with code 0. */
-  success: boolean
-  /** Full stdout stream, joined. May be empty. */
-  stdout: string
-  /** Full stderr stream, joined. May be empty. */
-  stderr: string
-  /** Exit code, or null if the process was killed by a signal. @example 0 */
-  code: number | null
-}
-
-/**
  * Installation state of the app-level `skills-desktop` command in ~/.local/bin.
  * @example 'not-installed'
  * @example 'installed'
@@ -1061,18 +1045,54 @@ export interface CliCommandOperationResult {
 }
 
 /**
- * Streamed progress event emitted while the skills CLI runs an install.
- * Pushed over IPC on the `skills:cli:progress` channel.
- * @example { phase: 'cloning', message: 'Fetching vercel-labs/skills...' }
+ * Streamed progress event emitted while the in-process skill manager runs an
+ * install. Pushed over IPC on the `skills:cli:progress` channel.
+ * @example { phase: 'fetching', message: 'Fetching vercel-labs/skills...' }
  * @example { phase: 'complete', message: '2 skills installed', percent: 100 }
  */
 export interface InstallProgress {
   /** Current pipeline stage. */
-  phase: 'cloning' | 'installing' | 'linking' | 'complete' | 'error'
+  phase:
+    | 'fetching'
+    | 'extracting'
+    | 'copying'
+    | 'linking'
+    | 'writing-lock'
+    | 'complete'
+    | 'error'
   /** Human-readable status line surfaced in the UI. */
   message: string
   /** Overall completion percentage (0–100) when the stage can report one. */
   percent?: ProgressPercent
+}
+
+/**
+ * Per-skill outcome entry of one in-process install run.
+ * @example { name: 'azure-ai', success: true }
+ */
+export interface SkillInstallItemResult {
+  /** Raw frontmatter name — the key the lock entry is written under. */
+  name: string
+  /** true only when the canonical copy, the lock entry, and every selected agent link were verified on disk. */
+  success: boolean
+  /** UI-safe failure reason; absent on success. */
+  userMessage?: string
+}
+
+/**
+ * Whole-operation outcome of one in-process install run, returned over the
+ * `skills:cli:install` IPC channel. Replaces the CLI's exit-code semantics:
+ * `success` is true only when every selected skill was installed AND verified,
+ * and `userMessage` is safe to render in the install dialog verbatim.
+ * @example { success: false, results: [], userMessage: 'Repository "a/b" was not found on GitHub.' }
+ */
+export interface SkillInstallOutcome {
+  /** true only when every selected skill installed and verified. */
+  success: boolean
+  /** Per-skill outcomes; empty when the operation failed before any skill work started. */
+  results: SkillInstallItemResult[]
+  /** UI-safe message for an operation-level failure or the first per-skill failure. Absent on success. */
+  userMessage?: string
 }
 
 /**

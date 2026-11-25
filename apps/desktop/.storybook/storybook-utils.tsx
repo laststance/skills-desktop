@@ -614,9 +614,7 @@ export function installStorybookElectronMock(): void {
       search: async () => storyMarketplaceSkills,
       install: async () => ({
         success: true,
-        stdout: 'installed',
-        stderr: '',
-        code: 0,
+        results: [{ name: 'task', success: true }],
       }),
       cancel: async () => undefined,
       onProgress: () => cleanup,

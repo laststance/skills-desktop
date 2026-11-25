@@ -87,7 +87,7 @@ test('starting a marketplace install invalidates file discovery before the files
   )
   const completed = skillsReducer(
     pending,
-    installSkill.fulfilled(true, 'install', options),
+    installSkill.fulfilled({ success: true, results: [] }, 'install', options),
   )
   // Assert
   expect(pending.filesGeneration).toBe(1)
