@@ -62,7 +62,7 @@ function getInstallAgentIds(
  */
 export const InstallModal = function InstallModal(): React.ReactElement {
   const dispatch = useAppDispatch()
-  const { selectedSkill, status, installProgress } = useAppSelector(
+  const { selectedSkill, status, installProgress, error } = useAppSelector(
     (state) => state.marketplace,
   )
   const { items: agents } = useAppSelector((state) => state.agents)
@@ -162,7 +162,11 @@ export const InstallModal = function InstallModal(): React.ReactElement {
       skills: [selectedSkill.name],
     }
 
-    await dispatch(installSkill(options))
+    const result = await dispatch(installSkill(options))
+    // On failure the modal stays open with the error inline — closing here
+    // would bin the only feedback, since the banner lives in the Marketplace
+    // tab the user may never open (bookmark installs start from the sidebar).
+    if (!installSkill.fulfilled.match(result)) return
     // Refresh the skills list after installation
     dispatch(fetchSkills())
     handleClose()
@@ -252,6 +256,15 @@ export const InstallModal = function InstallModal(): React.ReactElement {
                 <span className="text-sm">{installProgress.message}</span>
               </div>
             </div>
+          )}
+
+          {status === 'error' && error && (
+            <p
+              role="alert"
+              className="mt-4 rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+            >
+              {error}
+            </p>
           )}
         </div>
 

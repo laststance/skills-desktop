@@ -78,8 +78,10 @@ const CLI_SEARCH_RESULT_PATTERN =
 /**
  * Common Node.js binary locations missing from Finder-launched macOS apps.
  * GUI apps usually inherit only `/usr/bin:/bin:/usr/sbin:/sbin`, so `npx`
- * installed by Homebrew, mise, asdf, Volta, pnpm, or Bun is invisible unless
- * we add these user-level toolchain paths before spawning the skills CLI.
+ * installed by Homebrew, mise, asdf, Volta, pnpm, Bun, vite-plus, or nodenv
+ * is invisible unless we add these user-level toolchain paths before spawning
+ * the skills CLI. Only stable shim directories qualify — versioned layouts
+ * like nvm's `~/.nvm/versions/node/<ver>/bin` have no fixed path to add here.
  */
 const CLI_PATH_FALLBACKS = [
   join(homedir(), '.local', 'bin'),
@@ -88,6 +90,8 @@ const CLI_PATH_FALLBACKS = [
   join(homedir(), '.volta', 'bin'),
   join(homedir(), '.bun', 'bin'),
   join(homedir(), 'Library', 'pnpm'),
+  join(homedir(), '.vite-plus', 'bin'),
+  join(homedir(), '.nodenv', 'shims'),
   '/opt/homebrew/bin',
   '/usr/local/bin',
 ] as const
@@ -366,6 +370,7 @@ class SkillsCliService extends EventEmitter {
           stderr: this.buildTimeoutMessage(timeoutMs),
           code: null,
           timedOut: true,
+          userMessage: this.buildTimeoutUserMessage(timeoutMs),
         })
 
       const timeoutHandle = setTimeout(() => {
@@ -411,12 +416,22 @@ class SkillsCliService extends EventEmitter {
       })
 
       proc.on('error', (error) => {
+        // ENOENT here means the spawn itself failed, so no CLI ever ran: the
+        // user is told to fix their Node installation instead of retrying.
+        const isMissingBinary =
+          (error as NodeJS.ErrnoException).code === 'ENOENT'
         finalize({
           success: false,
           stdout,
           stderr: error.message,
           code: null,
           timedOut: false,
+          ...(isMissingBinary
+            ? {
+                userMessage:
+                  'Couldn’t find the npx command. Install Node.js — or add your version manager’s shims to PATH — then relaunch the app.',
+              }
+            : {}),
         })
       })
     })
@@ -431,6 +446,18 @@ class SkillsCliService extends EventEmitter {
   private buildTimeoutMessage(timeoutMs: number): string {
     const timeoutSeconds = Math.floor(timeoutMs / 1000)
     return `CLI command timed out after ${timeoutSeconds}s`
+  }
+
+  /**
+   * Build the UI-safe version of the timeout message. Unlike `stderr` this is
+   * generated locally, so the renderer can always show it verbatim.
+   * @param timeoutMs - The ceiling that expired, in milliseconds.
+   * @returns Retry-oriented copy naming the elapsed limit in whole seconds.
+   * @example buildTimeoutUserMessage(60_000) // => 'The skills CLI timed out after 60s. The network may be slow — try again.'
+   */
+  private buildTimeoutUserMessage(timeoutMs: number): string {
+    const timeoutSeconds = Math.floor(timeoutMs / 1000)
+    return `The skills CLI timed out after ${timeoutSeconds}s. The network may be slow — try again.`
   }
 
   /**

@@ -566,6 +566,87 @@ describe('marketplaceSlice', () => {
     expect(state.selectedSkill).toEqual(sampleResult)
   })
 
+  test('shows the app-generated userMessage when the CLI failure carries one', async () => {
+    // Arrange — a missing-npx or timed-out spawn is diagnosed in the main
+    // process; that copy is always safe to render, unlike raw stderr.
+    mockInstall.mockResolvedValue({
+      success: false,
+      userMessage:
+        'Couldn’t find the npx command. Install Node.js — or add your version manager’s shims to PATH — then relaunch the app.',
+    })
+    const store = await createTestStore()
+    const { installSkill } = await import('./marketplaceSlice')
+
+    // Act
+    await store.dispatch(
+      installSkill({
+        repo: repositoryId('vercel-labs/skill-task'),
+        global: true,
+        agents: [],
+      }),
+    )
+
+    // Assert
+    expect(store.getState().marketplace.error).toBe(
+      'Couldn’t find the npx command. Install Node.js — or add your version manager’s shims to PATH — then relaunch the app.',
+    )
+  })
+
+  test('clears the install error when the install selection is dismissed', async () => {
+    // Arrange — a failed install leaves status error; closing the modal ends
+    // the episode so no stale banner greets the next open.
+    mockInstall.mockResolvedValue({ success: false })
+    const store = await createTestStore()
+    const { selectSkillForInstall, installSkill } =
+      await import('./marketplaceSlice')
+    store.dispatch(selectSkillForInstall(sampleResult))
+    await store.dispatch(
+      installSkill({
+        repo: repositoryId('vercel-labs/skill-task'),
+        global: true,
+        agents: [],
+      }),
+    )
+    expect(store.getState().marketplace.status).toBe('error')
+
+    // Act
+    store.dispatch(selectSkillForInstall(null))
+
+    // Assert
+    const state = store.getState().marketplace
+    expect(state.error).toBeNull()
+    expect(state.status).toBe('idle')
+  })
+
+  test('clears a stale install error when a different skill is selected', async () => {
+    // Arrange — failing one install must not leak its error into the modal
+    // opened for another skill.
+    mockInstall.mockResolvedValue({ success: false })
+    const store = await createTestStore()
+    const { selectSkillForInstall, installSkill } =
+      await import('./marketplaceSlice')
+    store.dispatch(selectSkillForInstall(sampleResult))
+    await store.dispatch(
+      installSkill({
+        repo: repositoryId('vercel-labs/skill-task'),
+        global: true,
+        agents: [],
+      }),
+    )
+    expect(store.getState().marketplace.error).not.toBeNull()
+
+    // Act
+    store.dispatch(
+      selectSkillForInstall({
+        name: toSkillName('other'),
+        repo: repositoryId('vercel-labs/other'),
+      }),
+    )
+
+    // Assert
+    expect(store.getState().marketplace.error).toBeNull()
+  })
+
   // --- loadLeaderboard thunk ---
   test('shows a loading leaderboard for a filter that has never been fetched', async () => {
     // Arrange — keep the leaderboard request pending so the loading state is observable

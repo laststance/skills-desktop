@@ -78,12 +78,18 @@ export const searchSkills = createAsyncThunk(
  * Install a skill from the marketplace
  * @param options - Installation options including repo, global flag, and agents
  * @returns Promise<boolean> - Success status
+ * @throws Error with the app-generated `userMessage` when the CLI reports
+ *   failure, so the rejected action carries copy that is always safe to show.
+ *   Raw `stderr` never crosses into the UI — it can embed private paths.
  */
 export const installSkill = createAsyncThunk(
   'marketplace/install',
   async (options: InstallOptions) => {
     const result = await window.electron.skillsCli.install(options)
-    return result.success
+    if (!result.success) {
+      throw new Error(result.userMessage ?? 'Installation failed')
+    }
+    return true
   },
 )
 
@@ -141,6 +147,14 @@ const marketplaceSlice = createSlice({
       action: PayloadAction<InstallIntent | null>,
     ) => {
       state.selectedSkill = action.payload
+      // Opening or closing the picker ends the previous install episode, so a
+      // stale failure never greets the user inside the freshly opened modal.
+      // `status` is deliberately left alone: clearing it mid-install would
+      // misrepresent an in-flight CLI child.
+      if (state.status !== 'installing') {
+        state.error = null
+        if (state.status === 'error') state.status = 'idle'
+      }
     },
     setInstallProgress: (
       state,
@@ -203,16 +217,13 @@ const marketplaceSlice = createSlice({
         state.status = 'installing'
         state.error = null
       })
-      .addCase(installSkill.fulfilled, (state, action) => {
+      .addCase(installSkill.fulfilled, (state) => {
+        // The thunk throws on `success: false`, so reaching fulfilled always
+        // means the CLI reported a clean exit — failure lives in `rejected`.
         state.installProgress = null
-        if (action.payload) {
-          state.status = 'idle'
-          state.selectedSkill = null
-          state.previewSkill = null
-        } else {
-          state.status = 'error'
-          state.error = 'Installation failed'
-        }
+        state.status = 'idle'
+        state.selectedSkill = null
+        state.previewSkill = null
       })
       .addCase(installSkill.rejected, (state, action) => {
         state.status = 'error'

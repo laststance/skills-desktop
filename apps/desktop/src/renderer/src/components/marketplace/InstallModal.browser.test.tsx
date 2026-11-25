@@ -352,3 +352,92 @@ describe('InstallModal target selection', () => {
     })
   })
 })
+
+describe('InstallModal install outcome', () => {
+  test('closes the dialog once the install succeeds', async () => {
+    // Arrange
+    mockInstall.mockResolvedValue({ success: true })
+    const { screen } = await renderInstallModal({
+      skill: makeSkill(),
+      agents: [makeAgent({ id: 'claude-code', name: 'Claude Code' })],
+    })
+
+    // Act
+    await screen.getByRole('button', { name: 'Install' }).click()
+
+    // Assert
+    await expect.element(screen.getByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  test('stays open with the failure inline when the CLI reports no success', async () => {
+    // Arrange — the fast-failing spawn regression: the dialog used to close in
+    // the same frame, so a missing npx looked exactly like a no-op click.
+    mockInstall.mockResolvedValue({
+      success: false,
+      userMessage:
+        'Couldn’t find the npx command. Install Node.js — or add your version manager’s shims to PATH — then relaunch the app.',
+    })
+    const { screen } = await renderInstallModal({
+      skill: makeSkill(),
+      agents: [makeAgent({ id: 'claude-code', name: 'Claude Code' })],
+    })
+
+    // Act
+    await screen.getByRole('button', { name: 'Install' }).click()
+
+    // Assert
+    await expect
+      .element(screen.getByRole('dialog', { name: 'Install Skill' }))
+      .toBeVisible()
+    await expect.element(screen.getByRole('alert')).toBeVisible()
+    await expect
+      .element(
+        screen.getByText(
+          'Couldn’t find the npx command. Install Node.js — or add your version manager’s shims to PATH — then relaunch the app.',
+        ),
+      )
+      .toBeVisible()
+  })
+
+  test('offers a working retry after a failure', async () => {
+    // Arrange — first attempt fails, second succeeds: the error must clear
+    // while retrying and the dialog must close on the success.
+    mockInstall
+      .mockResolvedValueOnce({ success: false })
+      .mockResolvedValueOnce({ success: true })
+    const { screen } = await renderInstallModal({
+      skill: makeSkill(),
+      agents: [makeAgent({ id: 'claude-code', name: 'Claude Code' })],
+    })
+
+    // Act — the failure keeps the dialog open
+    await screen.getByRole('button', { name: 'Install' }).click()
+    await expect.element(screen.getByRole('alert')).toBeVisible()
+
+    // Act — the retry clears the inline error, then closes on success
+    await screen.getByRole('button', { name: 'Install' }).click()
+
+    // Assert
+    await expect.poll(() => mockInstall.mock.calls.length).toBe(2)
+    await expect.element(screen.getByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  test('drops the inline error when the user cancels after a failure', async () => {
+    // Arrange — closing the modal ends the episode; reopening must not reshow
+    // the previous failure.
+    mockInstall.mockResolvedValue({ success: false })
+    const { screen, store } = await renderInstallModal({
+      skill: makeSkill(),
+      agents: [makeAgent({ id: 'claude-code', name: 'Claude Code' })],
+    })
+
+    // Act
+    await screen.getByRole('button', { name: 'Install' }).click()
+    await expect.element(screen.getByRole('alert')).toBeVisible()
+    await screen.getByRole('button', { name: 'Cancel' }).click()
+
+    // Assert
+    await expect.element(screen.getByRole('dialog')).not.toBeInTheDocument()
+    expect(store.getState().marketplace.error).toBeNull()
+  })
+})

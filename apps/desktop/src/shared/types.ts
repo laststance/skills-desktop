@@ -1022,6 +1022,13 @@ export interface CliCommandResult {
   stderr: string
   /** Exit code, or null if the process was killed by a signal. @example 0 */
   code: number | null
+  /**
+   * User-actionable failure copy generated locally by the app, present only
+   * for failures the app can diagnose itself (missing npx, spawn timeout).
+   * Unlike `stderr` — which is raw CLI output and may embed private paths —
+   * this string is always safe to render in the UI.
+   */
+  userMessage?: string
 }
 
 /**

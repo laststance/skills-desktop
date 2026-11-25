@@ -195,6 +195,26 @@ describe('skillsCliService.execCli environment', () => {
     expect(spawnEnv.env.PATH).toContain('/opt/homebrew/bin')
     expect(spawnEnv.env.PATH).not.toContain('undefined')
   })
+
+  test('adds vite-plus and nodenv shim paths so installs find their npx shims', async () => {
+    // Arrange — vite-plus keeps its only npx shim in ~/.vite-plus/bin and
+    // nodenv in ~/.nodenv/shims; neither directory inherits into a
+    // Finder-launched PATH, which is exactly the ENOENT this regression covers.
+    process.env.PATH = '/usr/bin:/bin:/usr/sbin:/sbin'
+    simulateCli({
+      stdout:
+        'vercel-labs/skills@find-skills\n└ https://skills.sh/vercel-labs/skills/find-skills\n',
+    })
+    const { skillsCliService } = await import('./skillsCliService')
+
+    // Act
+    await skillsCliService.search(toSearchQuery('find-skills'))
+
+    // Assert
+    const spawnEnv = spawnMock.mock.calls[0]?.[2] as { env: { PATH: string } }
+    expect(spawnEnv.env.PATH).toContain('/.vite-plus/bin')
+    expect(spawnEnv.env.PATH).toContain('/.nodenv/shims')
+  })
 })
 
 describe('skillsCliService.search', () => {
@@ -797,6 +817,87 @@ describe('skillsCliService.execCli error and timeout paths', () => {
       'CLI command timed out after 60s',
     )
     expect(fake.kill).toHaveBeenCalledWith('SIGTERM')
+  })
+
+  test('attaches actionable userMessage when the npx binary itself is missing', async () => {
+    // Arrange — a Finder-launched app whose fallbacks miss the user's toolchain
+    // dies here in milliseconds: spawn rejects before any CLI ever runs, so the
+    // only useful feedback tells the user to fix their Node installation.
+    vi.useRealTimers()
+    const fake = simulateCli({ autoClose: false })
+    const { skillsCliService } = await import('./skillsCliService')
+
+    // Act
+    const installPromise = skillsCliService.install({
+      repo: repositoryId('vercel-labs/skills'),
+      global: true,
+      agents: [],
+      skills: [toSkillName('task')],
+    })
+    const enoent = Object.assign(new Error('spawn npx ENOENT'), {
+      code: 'ENOENT',
+    })
+    fake.emit('error', enoent)
+    const result = await installPromise
+
+    // Assert
+    expect(result.success).toBe(false)
+    expect(result.userMessage).toBe(
+      'Couldn’t find the npx command. Install Node.js — or add your version manager’s shims to PATH — then relaunch the app.',
+    )
+  })
+
+  test('attaches no userMessage when the spawn error is not a missing binary', async () => {
+    // Arrange — a permission or transient spawn failure says nothing about the
+    // user's Node installation, so the generic failure copy must stand.
+    vi.useRealTimers()
+    const fake = simulateCli({ autoClose: false })
+    const { skillsCliService } = await import('./skillsCliService')
+
+    // Act
+    const installPromise = skillsCliService.install({
+      repo: repositoryId('vercel-labs/skills'),
+      global: true,
+      agents: [],
+      skills: [toSkillName('task')],
+    })
+    fake.emit(
+      'error',
+      Object.assign(new Error('spawn npx EACCES'), {
+        code: 'EACCES',
+      }),
+    )
+    const result = await installPromise
+
+    // Assert
+    expect(result.success).toBe(false)
+    expect(result.userMessage).toBeUndefined()
+  })
+
+  test('attaches a retry-oriented userMessage when the install times out', async () => {
+    // Arrange — same fake-timer fast-forward as the search timeout above, but
+    // exercised through install() whose result carries the UI-safe copy.
+    const PAST_SPAWN_TIMEOUT_MS = 60_000
+    vi.useFakeTimers()
+    const fake = simulateCli({ autoClose: false })
+    const { skillsCliService } = await import('./skillsCliService')
+
+    // Act
+    const installPromise = skillsCliService.install({
+      repo: repositoryId('vercel-labs/skills'),
+      global: true,
+      agents: [],
+      skills: [toSkillName('task')],
+    })
+    await vi.advanceTimersByTimeAsync(PAST_SPAWN_TIMEOUT_MS)
+    fake.emit('close', null)
+    const result = await installPromise
+
+    // Assert
+    expect(result.success).toBe(false)
+    expect(result.userMessage).toBe(
+      'The skills CLI timed out after 60s. The network may be slow — try again.',
+    )
   })
 })
 
