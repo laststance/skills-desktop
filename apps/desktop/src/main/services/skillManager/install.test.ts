@@ -1,7 +1,14 @@
 import { mkdtempSync, realpathSync } from 'node:fs'
 import type { PathLike } from 'node:fs'
 import type * as NodeFsPromises from 'node:fs/promises'
-import { lstat, mkdir, readlink, rm, writeFile } from 'node:fs/promises'
+import {
+  lstat,
+  mkdir,
+  readlink,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises'
 import type * as NodeOs from 'node:os'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -218,5 +225,55 @@ describe('agent link fallback', () => {
     expect(await readlink(linkPath)).toBe(
       join('..', '..', '.agents', 'skills', 'realpath-broken'),
     )
+  })
+})
+
+describe('copySkillTree overlap guard — deep symlinked ancestors', () => {
+  test('refuses the copy when an uncreated destination tail hides inside the source through a symlinked ancestor', async () => {
+    // Arrange — mirror of the review finding: `alias` is a symlink onto the
+    // source itself, and the destination's `new` segment does not exist yet,
+    // so only ancestor-level resolution can see the real copy target.
+    const { copySkillTree } = await import('./copyLayout')
+    const base = realpathSync(
+      mkdtempSync(join(tmpdir(), 'skill-overlap-deep-')),
+    )
+    const src = join(base, 'demo')
+    await mkdir(src, { recursive: true })
+    await writeFile(
+      join(src, 'SKILL.md'),
+      '---\nname: demo\ndescription: x\n---\n',
+    )
+    await symlink(src, join(base, 'alias'))
+    const dest = join(base, 'alias', 'new', 'demo')
+
+    // Act + Assert — the guard fires before anything is wiped.
+    await expect(copySkillTree(src, dest)).rejects.toThrow(
+      'Install source and destination overlap',
+    )
+    expect((await lstat(join(src, 'SKILL.md'))).isFile()).toBe(true)
+    await rm(base, { recursive: true, force: true })
+  })
+
+  test('allows the copy when the resolved destination only shares a lexical prefix', async () => {
+    // Arrange — sibling directory `demo-copy` starts with the same bytes but
+    // is neither the source nor inside it; the copy must proceed.
+    const { copySkillTree } = await import('./copyLayout')
+    const base = realpathSync(
+      mkdtempSync(join(tmpdir(), 'skill-overlap-sibling-')),
+    )
+    const src = join(base, 'demo')
+    await mkdir(src, { recursive: true })
+    await writeFile(
+      join(src, 'SKILL.md'),
+      '---\nname: demo\ndescription: x\n---\n',
+    )
+    const dest = join(base, 'demo-copy')
+
+    // Act
+    await copySkillTree(src, dest)
+
+    // Assert
+    expect((await lstat(join(dest, 'SKILL.md'))).isFile()).toBe(true)
+    await rm(base, { recursive: true, force: true })
   })
 })

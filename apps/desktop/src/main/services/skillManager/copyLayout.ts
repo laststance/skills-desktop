@@ -110,10 +110,26 @@ async function realpathLenient(path: string): Promise<string> {
   try {
     return await fs.realpath(path)
   } catch {
-    try {
-      return join(await fs.realpath(dirname(path)), basename(path))
-    } catch {
-      return resolve(path)
+    // Resolve the nearest existing ancestor and re-attach the not-yet-created
+    // tail segments — a symlink higher than the direct parent must not hide
+    // an overlap either. Terminates at the filesystem root, which always
+    // resolves.
+    const tail: string[] = [basename(path)]
+    let ancestor = dirname(path)
+    for (;;) {
+      try {
+        return join(await fs.realpath(ancestor), ...tail)
+      } catch {
+        const parent = dirname(ancestor)
+        if (parent === ancestor) {
+          // Even the filesystem root refused to resolve — realpath is broken
+          // wholesale, so no symlink can hide anything anywhere. Degrade to
+          // the lexical form rather than hanging the install.
+          return resolve(path)
+        }
+        tail.unshift(basename(ancestor))
+        ancestor = parent
+      }
     }
   }
 }
