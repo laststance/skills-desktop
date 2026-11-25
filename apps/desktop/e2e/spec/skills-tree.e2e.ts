@@ -39,7 +39,11 @@ test('opens nested files in Tree, preserves navigation through List, and keeps I
     const page = await app.firstWindow()
     await page.waitForLoadState('domcontentloaded')
     await waitForInitialScan(page)
-    await page.getByPlaceholder('Search skills...').fill('tree-qa-')
+    await page
+      .getByRole('combobox', {
+        name: 'Search skills by name, repository, or description',
+      })
+      .fill('tree-qa-')
     await expect(
       page.getByRole('radio', { name: 'List', exact: true }),
     ).toHaveAttribute('aria-checked', 'true')
@@ -139,7 +143,11 @@ test('Tree root deletion reviews and removes only that skill while a nested file
     const page = await app.firstWindow()
     await page.waitForLoadState('domcontentloaded')
     await waitForInitialScan(page)
-    await page.getByPlaceholder('Search skills...').fill('tree-qa-')
+    await page
+      .getByRole('combobox', {
+        name: 'Search skills by name, repository, or description',
+      })
+      .fill('tree-qa-')
     await page.getByRole('radio', { name: 'Tree', exact: true }).click()
     await page
       .getByRole('button', { name: 'Expand tree-qa-alpha', exact: true })

@@ -11,8 +11,9 @@ import {
   toSkillCount,
   toSkillName,
   toSkillRank,
+  toSymlinkCount,
 } from '@/shared/types'
-import type { Agent, SkillSearchResult } from '@/shared/types'
+import type { Agent, Skill, SkillSearchResult } from '@/shared/types'
 
 const mockInstall = vi.fn()
 const mockCancel = vi.fn()
@@ -139,6 +140,7 @@ async function createStore() {
 async function renderInstallModal(options: {
   skill: SkillSearchResult
   agents: Agent[]
+  installed?: Skill[]
 }) {
   const store = await createStore()
   const { InstallModal } = await import('./InstallModal')
@@ -155,17 +157,51 @@ async function renderInstallModal(options: {
     </Provider>,
   )
 
+  if (options.installed) {
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    mockSkillsGetAll.mockResolvedValue(options.installed)
+    await store.dispatch(fetchSkills())
+  }
   await store.dispatch(fetchAgents())
   store.dispatch(selectSkillForInstall(options.skill))
 
-  await expect
-    .element(screen.getByRole('dialog', { name: 'Install Skill' }))
-    .toBeInTheDocument()
+  await expect.element(screen.getByRole('dialog')).toBeInTheDocument()
 
   return { screen, store }
 }
 
 describe('InstallModal target selection', () => {
+  test('compares the installed and requested repositories before running the installer', async () => {
+    // Arrange
+    const installed: Skill = {
+      name: toSkillName('task'),
+      source: repositoryId('other/skills'),
+      description: 'Locally installed',
+      path: toAbsolutePath('/skills/task'),
+      symlinks: [],
+      symlinkCount: toSymlinkCount(0),
+      isSource: true,
+      isOrphan: false,
+    }
+
+    // Act
+    const { screen } = await renderInstallModal({
+      skill: makeSkill(),
+      agents: [],
+      installed: [installed],
+    })
+
+    // Assert
+    await expect
+      .element(screen.getByRole('dialog', { name: 'Compare sources' }))
+      .toBeVisible()
+    await expect.element(screen.getByText('other/skills')).toBeVisible()
+    await expect.element(screen.getByText('vercel-labs/skills')).toBeVisible()
+    await screen.getByRole('button', { name: 'Cancel' }).click()
+    expect(mockInstall).not.toHaveBeenCalled()
+  })
+
   test('installs to Universal and creates symlinks for the checked agent by default', async () => {
     // Arrange
     const { screen } = await renderInstallModal({

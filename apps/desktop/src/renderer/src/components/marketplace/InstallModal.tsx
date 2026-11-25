@@ -17,6 +17,11 @@ import {
 } from '@/renderer/src/components/ui/dialog'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
+  getMarketplaceInstallStatus,
+  selectInstalledSkillsByName,
+  shouldCompareSources,
+} from '@/renderer/src/redux/selectors'
+import {
   selectSkillForInstall,
   installSkill,
 } from '@/renderer/src/redux/slices/marketplaceSlice'
@@ -62,6 +67,16 @@ export const InstallModal = function InstallModal(): React.ReactElement {
   )
   const { items: agents } = useAppSelector((state) => state.agents)
 
+  const local = useAppSelector((state) =>
+    selectedSkill
+      ? selectInstalledSkillsByName(state).get(selectedSkill.name)
+      : undefined,
+  )
+  const installStatus = selectedSkill
+    ? getMarketplaceInstallStatus(selectedSkill.repo, local)
+    : 'available'
+  const compareSources = shouldCompareSources(installStatus)
+
   const [installTargetMode, setInstallTargetMode] = useState<InstallTargetMode>(
     DEFAULT_INSTALL_TARGET_MODE,
   )
@@ -91,6 +106,7 @@ export const InstallModal = function InstallModal(): React.ReactElement {
   const canInstall =
     !isInstalling &&
     selectedSkill !== null &&
+    installStatus !== 'installed' &&
     (!shouldCreateAgentSymlinks || validSelectedAgents.length > 0)
 
   const handleClose = (): void => {
@@ -156,7 +172,9 @@ export const InstallModal = function InstallModal(): React.ReactElement {
     <Dialog open={!!selectedSkill} onOpenChange={handleClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Install Skill</DialogTitle>
+          <DialogTitle>
+            {compareSources ? 'Compare sources' : 'Install Skill'}
+          </DialogTitle>
           <DialogDescription>
             Configure installation options for{' '}
             <strong>{selectedSkill?.name}</strong>
@@ -165,6 +183,23 @@ export const InstallModal = function InstallModal(): React.ReactElement {
 
         <div className="py-4">
           <div className="space-y-4">
+            {compareSources && selectedSkill && (
+              <div className="space-y-2">
+                <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
+                  <dt className="text-muted-foreground">Installed source</dt>
+                  <dd className="break-words font-mono">
+                    {local?.source || 'Unknown'}
+                  </dd>
+                  <dt className="text-muted-foreground">Marketplace source</dt>
+                  <dd className="break-words font-mono">
+                    {selectedSkill.repo}
+                  </dd>
+                </dl>
+                <p className="text-sm text-muted-foreground">
+                  Installing this source may replace the existing skill.
+                </p>
+              </div>
+            )}
             <div>
               <h4 className="text-sm font-medium mb-2">Install target</h4>
               <SegmentedControl

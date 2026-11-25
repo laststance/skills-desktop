@@ -513,7 +513,10 @@ Rules:
 - Placeholder text must stay lower contrast than real values.
 - Search should feel command-palette-adjacent: compact, keyboard-first,
   immediately scannable.
-- Inline suggestion lists (the Repo-scope search combobox) reuse the menu
+- Installed search uses one field for skill name, repository, and description.
+  An exact name appears first in either sort direction. Repository suggestions
+  complete the query, and the separate repository filter limits its scope.
+- Inline suggestion lists (including Installed search) reuse the menu
   surface — `rounded-md border bg-popover p-1 shadow-md`, `max-h-60` with
   vertical scroll — anchored directly under the field with `mt-1`. Follow the
   ARIA combobox pattern: `role="combobox"` + `aria-expanded` on the input,
@@ -545,9 +548,8 @@ Rules:
   border (`gap-0` + collapsed inner borders/corners) so 2, 3, or 4+ options read
   as a single control. Do not put gaps between segments, and do not wrap them in a
   separate padded "tray" (`p-0.5` + muted background) — the shared border is the
-  grouping affordance. This is the "Name/Repo" pattern generalized to N options;
-  the component also owns the Radix empty-string deselect guard so exactly one
-  option stays selected. (Linear, macOS System Settings, Codex desktop.)
+  grouping affordance. The component owns the Radix empty-string deselect guard
+  so exactly one option stays selected. (Linear, macOS System Settings, Codex desktop.)
 - A segmented control sits left-aligned under its own label, sized to its
   content — it does not stretch full-width or center in the row. Stretching reads
   as a primary tab bar; a secondary setting toggle should stay a compact,

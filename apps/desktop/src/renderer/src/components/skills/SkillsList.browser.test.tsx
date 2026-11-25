@@ -986,7 +986,7 @@ describe('SkillsList search-empty branch', () => {
     const { setSearchQuery: dispatchSearchQuery } =
       await import('@/renderer/src/redux/slices/uiSlice')
     // Dispatch before render so the component mounts with the query already set
-    store.dispatch(dispatchSearchQuery(toSearchQuery('zzznomatch')))
+    store.dispatch(dispatchSearchQuery(toSearchQuery('  zzznomatch  ')))
     const { SkillsList } = await import('./SkillsList')
     const screen = await render(
       <Provider store={store}>
@@ -1000,12 +1000,13 @@ describe('SkillsList search-empty branch', () => {
 
     // Assert — SearchX icon placeholder, echoed query, and clear CTA present
     await expect
-      .element(screen.getByText(/No skills match/))
-      .toBeInTheDocument()
-    await expect.element(screen.getByText(/zzznomatch/)).toBeInTheDocument()
+      .element(
+        screen.getByText('No skills match “zzznomatch”', { exact: true }),
+      )
+      .toBeVisible()
     await expect
       .element(screen.getByRole('button', { name: 'Clear search' }))
-      .toBeInTheDocument()
+      .toBeVisible()
   })
 
   test('clicking Clear search clears the search query and exits the search-miss state', async () => {

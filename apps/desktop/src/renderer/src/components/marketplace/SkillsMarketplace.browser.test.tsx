@@ -14,6 +14,7 @@ import type {
   SkillSearchResult,
 } from '@/shared/types'
 import {
+  repositoryId,
   toAbsolutePath,
   toHttpUrl,
   toSearchQuery,
@@ -270,11 +271,11 @@ describe('SkillsMarketplace — leaderboard view', () => {
       .toBeInTheDocument()
   })
 
-  test('marks a leaderboard row as installed when its name is in the installed set', async () => {
-    // Arrange — the skill name matches an installed skill, so the row shows the
-    // Installed badge instead of an Install button.
+  test('marks only the leaderboard entry from the installed repository as installed', async () => {
+    // Arrange — two publishers offer the same skill.
     const installedSkill = {
       name: toSkillName('installed-one'),
+      source: repositoryId('Vercel-Labs/Skills'),
       description: 'desc',
       path: toAbsolutePath('/Users/me/.agents/skills/installed-one'),
       symlinkCount: toSymlinkCount(0),
@@ -285,7 +286,13 @@ describe('SkillsMarketplace — leaderboard view', () => {
     // `status: 'loading'` aborts the mount refetch so the seeded skill survives.
     const leaderboardWithInstalled = {
       'all-time': makeLeaderboardData({
-        skills: [makeSearchResult({ name: toSkillName('installed-one') })],
+        skills: [
+          makeSearchResult({ name: toSkillName('installed-one') }),
+          makeSearchResult({
+            name: toSkillName('installed-one'),
+            repo: repositoryId('other/skills'),
+          }),
+        ],
         lastFetched: toUnixTimestampMs(Date.now()),
         status: 'loading',
       }),
@@ -297,10 +304,16 @@ describe('SkillsMarketplace — leaderboard view', () => {
       skills: { items: [installedSkill] },
     })
 
-    // Assert — the installed badge (role=img) renders for the matched name.
+    // Assert
     await expect
       .element(screen.getByRole('img', { name: /installed-one is installed/i }))
-      .toBeInTheDocument()
+      .toBeVisible()
+    await expect
+      .element(screen.getByText('Same name, different source'))
+      .toBeVisible()
+    await expect
+      .element(screen.getByRole('button', { name: 'Compare sources' }))
+      .toBeVisible()
   })
 })
 
@@ -481,8 +494,8 @@ describe('SkillsMarketplace — search results view', () => {
     expect(installButtons.length).toBe(2)
   })
 
-  test('marks a search-result row as installed when its name is in the installed set', async () => {
-    // Arrange — the result name matches an installed skill.
+  test('offers a source comparison for a search result when the local source is unknown', async () => {
+    // Arrange — a manual installation has no recorded repository.
     const installedSkill = {
       name: toSkillName('react'),
       description: 'desc',
@@ -505,8 +518,14 @@ describe('SkillsMarketplace — search results view', () => {
 
     // Assert
     await expect
-      .element(screen.getByRole('img', { name: /react is installed/i }))
-      .toBeInTheDocument()
+      .element(screen.getByText('Installed source unknown'))
+      .toBeVisible()
+    await expect
+      .element(screen.getByRole('button', { name: 'Compare sources' }))
+      .toBeVisible()
+    expect(
+      screen.getByRole('img', { name: /react is installed/i }).all(),
+    ).toHaveLength(0)
   })
 })
 

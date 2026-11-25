@@ -47,7 +47,7 @@ export const SearchTabsAndRows: Story = {
             <SkillRowMarketplace
               key={skill.name}
               skill={skill}
-              isInstalled={index === 0}
+              installStatus={index === 0 ? 'installed' : 'available'}
             />
           ))}
         </div>
