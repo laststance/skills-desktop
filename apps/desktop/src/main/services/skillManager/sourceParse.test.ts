@@ -191,6 +191,36 @@ describe('parseSource', () => {
     }
   })
 
+  test('keeps a malformed percent-escaped fragment verbatim instead of crashing', () => {
+    // Arrange — `%zz` is not valid percent-encoding; the decoder must tolerate it.
+
+    // Act
+    const result = parseSource('owner/repo#%zz')
+
+    // Assert — the raw fragment survives as the ref.
+    expect(result).toEqual({
+      ok: true,
+      source: expect.objectContaining({ type: 'github', ref: '%zz' }),
+    })
+  })
+
+  test('rejects an http-looking input that is not a parseable URL', () => {
+    // Arrange — passes the https?:// prefix test, then `new URL` throws on it.
+    const input = 'http://[::1'
+
+    // Act
+    const result = parseSource(input)
+
+    // Assert
+    expect(result).toEqual({
+      ok: false,
+      error: `Unsupported source type: ${input}`,
+      userMessage:
+        'This source type is not supported. Use a GitHub repository ' +
+        '(owner/repo or a github.com URL) or a local directory path.',
+    })
+  })
+
   test('rejects gitlab URLs with a dialog-safe message', () => {
     // Act
     const result = parseSource('https://gitlab.com/acme/skills')

@@ -23,6 +23,8 @@ import {
 
 import { toSkillName } from '@/shared/types'
 
+import type * as CopyLayout from './skillManager/copyLayout'
+
 // Stamped synchronously at module load: `main/constants` computes SOURCE_DIR
 // and TRASH_DIR from homedir() at import time, so the value has to exist
 // before the mock factory below is evaluated.
@@ -62,10 +64,9 @@ const { removeSkillsMock } = vi.hoisted(() => ({
 }))
 
 vi.mock('./skillManager', async () => {
-  // eslint-disable-next-line @typescript-eslint/consistent-type-imports
-  const copyLayout = await vi.importActual<
-    typeof import('./skillManager/copyLayout')
-  >('./skillManager/copyLayout')
+  const copyLayout = await vi.importActual<typeof CopyLayout>(
+    './skillManager/copyLayout',
+  )
   return {
     skillManager: {
       remove: async (names: readonly string[]) => removeSkillsMock(names),

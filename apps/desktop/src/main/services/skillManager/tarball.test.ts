@@ -252,6 +252,60 @@ describe('parseUstar', () => {
   })
 })
 
+describe('parseUstar hostile shapes', () => {
+  test('rejects a header whose octal size field carries non-octal bytes', () => {
+    // Arrange — a hand-corrupted header: '9' is not a valid octal digit.
+    const block = header({ name: 'evil.txt', typeflag: '0', size: 1 })
+    block.write('9', 124, 1, 'ascii')
+    const tar = tarOf([block, padded(Buffer.from('x'))])
+
+    // Act + Assert
+    expect(() => parseUstar(tar)).toThrowError(
+      expect.objectContaining({
+        userMessage:
+          'The repository archive is corrupt or uses an unsupported format.',
+      }),
+    )
+  })
+
+  test('stops parsing an octal field at padding that follows the digits', () => {
+    // Arrange — GNU-style space padding: leading spaces, digits, then NULs.
+    // The parser must terminate the number at the first pad byte AFTER the
+    // digits rather than reading zeros as more octal.
+    const block = header({ name: 'padded.txt', typeflag: '0', size: 0 })
+    // Overwrite the size field (offset 124, length 12) with spaces + '7'.
+    for (let i = 124; i < 136; i++) block[i] = 0x20
+    block.write('7', 133, 1, 'ascii')
+    block[134] = 0
+    block[135] = 0
+    const tar = tarOf([block, padded(Buffer.from('1234567'))])
+
+    // Act
+    const entries = parseUstar(tar)
+
+    // Assert — size parsed as exactly 7, so the content is the full string.
+    expect(entries).toHaveLength(1)
+    expect(entries[0].content.toString('utf-8')).toBe('1234567')
+  })
+
+  test('rejects an archive with more entries than the extraction ceiling', () => {
+    // Arrange — 8193 empty files: one past the 8192-entry ceiling.
+    const parts: Buffer[] = []
+    for (let i = 0; i < 8193; i++) {
+      parts.push(header({ name: `f${i}.txt`, typeflag: '0', size: 0 }))
+    }
+    const tar = tarOf(parts)
+
+    // Act + Assert
+    expect(() => parseUstar(tar)).toThrowError(
+      expect.objectContaining({
+        userMessage:
+          'The repository archive has too many files to install safely.',
+      }),
+    )
+  })
+})
+
 describe('stripSharedTopLevelDir', () => {
   test('removes the single shared first component codeload wraps everything in', () => {
     // Arrange

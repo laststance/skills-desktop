@@ -1,11 +1,13 @@
 import { mkdtempSync, realpathSync } from 'node:fs'
 import {
+  chmod,
   lstat,
   mkdir,
   readFile,
   readlink,
   rm,
   stat,
+  symlink,
   writeFile,
 } from 'node:fs/promises'
 import { createServer, type Server } from 'node:http'
@@ -207,21 +209,27 @@ function betaFixtureEntries(): FixtureEntry[] {
 
 // ── Loopback GitHub fixture server ───────────────────────────────────────
 
+interface FixtureRoute {
+  status: number
+  body: Buffer | string
+  contentType?: string
+  /** Extra response headers, e.g. a lying content-length. */
+  headers?: Record<string, string>
+  /** Raw chunks written without a content-length — forces chunked encoding. */
+  chunks?: Buffer[]
+  /** Never respond at all — the client only escapes via its own abort. */
+  hang?: boolean
+}
+
 interface FixtureServer {
   server: Server
   baseUrl: string
   /** Per-test route table; first match wins. */
-  routes: Map<
-    string,
-    { status: number; body: Buffer | string; contentType?: string }
-  >
+  routes: Map<string, FixtureRoute>
 }
 
 async function startFixtureServer(): Promise<FixtureServer> {
-  const routes = new Map<
-    string,
-    { status: number; body: Buffer | string; contentType?: string }
-  >()
+  const routes = new Map<string, FixtureRoute>()
   const server = createServer((req, res) => {
     const route = req.url ? routes.get(req.url) : undefined
     if (!route) {
@@ -229,9 +237,19 @@ async function startFixtureServer(): Promise<FixtureServer> {
       res.end('not found')
       return
     }
+    // A hanging route leaves the socket open so the test can abort mid-fetch.
+    if (route.hang) return
     res.writeHead(route.status, {
       'content-type': route.contentType ?? 'application/octet-stream',
+      ...route.headers,
     })
+    if (route.chunks) {
+      // No content-length header: Node falls back to chunked encoding, which
+      // is exactly the lying-server shape the stream cap exists for.
+      for (const chunk of route.chunks) res.write(chunk)
+      res.end()
+      return
+    }
     res.end(route.body)
   })
   return new Promise<FixtureServer>((resolve) => {
@@ -1065,5 +1083,599 @@ describe('lock byte-compatibility', () => {
     expect(outcome.success).toBe(true)
     const lock = await readLock()
     expect(lock.skills['alpha-skill']).toBeDefined()
+  })
+})
+
+describe('install edge paths', () => {
+  test('skips a broken symlink inside a local skill instead of failing the install', async () => {
+    // Arrange — a skill tree carrying a symlink whose target does not exist.
+    const { skillManager } = await managerModule
+    const skillDir = join(sharedHome, 'local-source', 'broken-link-skill')
+    await mkdir(skillDir, { recursive: true })
+    await writeFile(
+      join(skillDir, 'SKILL.md'),
+      '---\nname: broken-link-skill\ndescription: Carries a dangling link\n---\n',
+      'utf-8',
+    )
+    await symlink(
+      join(skillDir, 'missing-target'),
+      join(skillDir, 'dangling.sh'),
+    )
+
+    // Act
+    const outcome = await skillManager.install({
+      source: join(sharedHome, 'local-source'),
+      agents: [],
+    })
+
+    // Assert — the install succeeds and the dangling link is simply absent.
+    expect(outcome.success).toBe(true)
+    expect(outcome.results[0]).toEqual({
+      name: 'broken-link-skill',
+      success: true,
+    })
+    const copied = await stat(join(sourceDir, 'broken-link-skill', 'SKILL.md'))
+    expect(copied.isFile()).toBe(true)
+    expect(
+      await lstat(join(sourceDir, 'broken-link-skill', 'dangling.sh')).catch(
+        () => null,
+      ),
+    ).toBeNull()
+  })
+
+  test('reports a per-skill failure when a source file cannot be read', async () => {
+    // Arrange — one payload file is unreadable even though the SKILL.md parses.
+    const { skillManager } = await managerModule
+    const skillDir = join(sharedHome, 'local-source', 'unreadable-skill')
+    await mkdir(skillDir, { recursive: true })
+    await writeFile(
+      join(skillDir, 'SKILL.md'),
+      '---\nname: unreadable-skill\ndescription: One file cannot be read\n---\n',
+      'utf-8',
+    )
+    const secretFile = join(skillDir, 'secret.txt')
+    await writeFile(secretFile, 'secret', 'utf-8')
+    await chmod(secretFile, 0o000)
+
+    try {
+      // Act
+      const outcome = await skillManager.install({
+        source: join(sharedHome, 'local-source'),
+        agents: [],
+      })
+
+      // Assert — the copy error surfaces as a per-skill failure, not a crash.
+      expect(outcome.success).toBe(false)
+      expect(outcome.results[0].success).toBe(false)
+      expect(outcome.results[0].userMessage).toContain(
+        '"unreadable-skill" could not be installed:',
+      )
+    } finally {
+      // Restore readability so the sandbox teardown can delete the file.
+      await chmod(secretFile, 0o644)
+    }
+  })
+
+  test('leaves an already-correct agent symlink in place on reinstall', async () => {
+    // Arrange — an installed skill whose agent link already points correctly.
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', alphaFixtureEntries())
+    const first = await skillManager.install({
+      source: 'acme/skills',
+      agents: ['claude-code'],
+    })
+    expect(first.success).toBe(true)
+    const linkPath = join(sharedHome, '.claude', 'skills', 'alpha-skill')
+    const targetBefore = await readlink(linkPath)
+
+    // Act — reinstall the very same skill into the very same agent.
+    const second = await skillManager.install({
+      source: 'acme/skills',
+      agents: ['claude-code'],
+    })
+
+    // Assert — success, and the relative link target is byte-identical.
+    expect(second.success).toBe(true)
+    expect(second.results[0]).toEqual({ name: 'alpha-skill', success: true })
+    expect(await readlink(linkPath)).toBe(targetBefore)
+    expect((await lstat(linkPath)).isSymbolicLink()).toBe(true)
+  })
+
+  test('rejects a local source that is a file rather than a directory', async () => {
+    // Arrange — a plain file sits where the skill collection should be.
+    const { skillManager } = await managerModule
+    const filePath = join(sharedHome, 'local-source')
+    await mkdir(sharedHome, { recursive: true })
+    await writeFile(filePath, 'not a directory', 'utf-8')
+
+    // Act
+    const outcome = await skillManager.install({
+      source: filePath,
+      agents: [],
+    })
+
+    // Assert
+    expect(outcome).toEqual({
+      success: false,
+      results: [],
+      userMessage: 'The local path is not a directory.',
+    })
+  })
+
+  test('reports no valid skills for a local directory without any SKILL.md', async () => {
+    // Arrange — an empty collection layout.
+    const { skillManager } = await managerModule
+    await mkdir(join(sharedHome, 'local-source', 'random', 'deep'), {
+      recursive: true,
+    })
+
+    // Act
+    const outcome = await skillManager.install({
+      source: join(sharedHome, 'local-source'),
+      agents: [],
+    })
+
+    // Assert
+    expect(outcome).toEqual({
+      success: false,
+      results: [],
+      userMessage:
+        'No valid skills were found in this source. A skill needs a SKILL.md with a name and description.',
+    })
+  })
+
+  test('reports a generic failure when archive paths collide with a file', async () => {
+    // Arrange — a hand-built archive whose second entry nests under the first,
+    // which is a regular file: the temp-dir write throws ENOTDIR, an error
+    // the tarball reader never raised itself.
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', [
+      fileEntry('x', 'plain file content'),
+      fileEntry('x/y.txt', 'unreachable child'),
+    ])
+
+    // Act
+    const outcome = await skillManager.install({
+      source: 'acme/skills',
+      agents: [],
+    })
+
+    // Assert — the pipeline reports failure instead of crashing the process.
+    expect(outcome.success).toBe(false)
+    expect(outcome.results).toEqual([])
+    expect(outcome.userMessage).toContain('Installation failed:')
+  })
+})
+
+describe('agent slot replacement', () => {
+  test('replaces a symlink that points at the wrong target with the correct one', async () => {
+    // Arrange — the agent slot already holds a symlink, but it points at a
+    // stale directory rather than the canonical copy.
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', alphaFixtureEntries())
+    const staleTarget = join(sharedHome, 'stale-copy')
+    await mkdir(staleTarget, { recursive: true })
+    const claudeSkills = join(sharedHome, '.claude', 'skills')
+    await mkdir(claudeSkills, { recursive: true })
+    await symlink(staleTarget, join(claudeSkills, 'alpha-skill'))
+
+    // Act
+    const outcome = await skillManager.install({
+      source: 'acme/skills',
+      agents: ['claude-code'],
+    })
+
+    // Assert — success, and the link now resolves into the canonical tree.
+    expect(outcome).toEqual({
+      success: true,
+      results: [{ name: 'alpha-skill', success: true }],
+    })
+    expect(
+      (await lstat(join(claudeSkills, 'alpha-skill'))).isSymbolicLink(),
+    ).toBe(true)
+    expect(await readlink(join(claudeSkills, 'alpha-skill'))).toBe(
+      join('..', '..', '.agents', 'skills', 'alpha-skill'),
+    )
+    // The stale directory itself was left alone — only the link was replaced.
+    expect((await stat(staleTarget)).isDirectory()).toBe(true)
+  })
+
+  test('fails the skill when neither the symlink nor the copy fallback can be written', async () => {
+    // Arrange — the agent skills dir turns read-only after the first install
+    // layout exists, so the symlink fails with EACCES and the copy fallback
+    // cannot create its directory either.
+    const { skillManager } = await managerModule
+    const skillDir = join(sharedHome, 'local-source', 'skills', 'blocked-skill')
+    await mkdir(skillDir, { recursive: true })
+    await writeFile(
+      join(skillDir, 'SKILL.md'),
+      '---\nname: blocked-skill\ndescription: Agent slot is readonly\n---\n',
+      'utf-8',
+    )
+    const claudeSkills = join(sharedHome, '.claude', 'skills')
+    await mkdir(claudeSkills, { recursive: true })
+    await chmod(claudeSkills, 0o555)
+
+    try {
+      // Act
+      const outcome = await skillManager.install({
+        source: join(sharedHome, 'local-source'),
+        agents: ['claude-code'],
+      })
+
+      // Assert — the per-skill failure names the agent that resisted.
+      expect(outcome.success).toBe(false)
+      expect(outcome.results[0].success).toBe(false)
+      expect(outcome.results[0].userMessage).toContain(
+        '"blocked-skill" could not be installed:',
+      )
+      expect(outcome.results[0].userMessage).toContain('.claude')
+    } finally {
+      await chmod(claudeSkills, 0o755)
+    }
+  })
+})
+
+describe('lock write failure', () => {
+  test('fails the skill install when the lock file cannot be written', async () => {
+    // Arrange — the lock directory turns read-only after the canonical copy
+    // location already exists, so only the atomic lock write itself can fail.
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', alphaFixtureEntries())
+    const agentsDir = join(sharedHome, '.agents')
+    await chmod(agentsDir, 0o555)
+
+    try {
+      // Act
+      const outcome = await skillManager.install({
+        source: 'acme/skills',
+        agents: [],
+      })
+
+      // Assert — the per-skill failure names the skill, and no lock exists.
+      expect(outcome.success).toBe(false)
+      expect(outcome.results[0].success).toBe(false)
+      expect(outcome.results[0].userMessage).toContain(
+        '"alpha-skill" could not be installed:',
+      )
+      expect(await readLock().catch(() => null)).toBeNull()
+    } finally {
+      // Restore writability so later tests can use the sandbox again.
+      await chmod(agentsDir, 0o755)
+    }
+  })
+
+  test('reads a structurally invalid lock as empty even though the JSON parses', async () => {
+    // Arrange — valid JSON, but the version is a string: outside the schema.
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', alphaFixtureEntries())
+    await writeFile(
+      lockPath,
+      JSON.stringify({ version: '3', skills: { ghost: { source: 'x' } } }),
+      'utf-8',
+    )
+
+    // Act
+    const outcome = await skillManager.install({
+      source: 'acme/skills',
+      agents: [],
+    })
+
+    // Assert — the ghost entry never carries forward, the write is clean v3.
+    expect(outcome.success).toBe(true)
+    const lock = await readLock()
+    expect(lock.version).toBe(3)
+    expect(lock.skills.ghost).toBeUndefined()
+    expect(lock.skills['alpha-skill']).toBeDefined()
+  })
+})
+
+describe('remove edge paths', () => {
+  test('removes a lock-only skill even when the canonical root is missing entirely', async () => {
+    // Arrange — a lock record survives, but the whole skills root is gone.
+    const { skillManager } = await managerModule
+    await writeFile(
+      lockPath,
+      JSON.stringify({
+        version: 3,
+        skills: {
+          'ghost-skill': {
+            source: 'acme/skills',
+            sourceType: 'github',
+          },
+        },
+      }),
+      'utf-8',
+    )
+    await rm(sourceDir, { recursive: true, force: true })
+
+    // Act
+    const outcome = await skillManager.remove(['ghost-skill'])
+
+    // Assert — resolution falls back to lock keys alone and still succeeds.
+    expect(outcome).toEqual({
+      success: true,
+      results: [{ name: 'ghost-skill', success: true }],
+    })
+    const lock = JSON.parse(await readFile(lockPath, 'utf-8'))
+    expect(lock.skills['ghost-skill']).toBeUndefined()
+  })
+
+  test('still removes the skill when one agent directory refuses cleanup', async () => {
+    // Arrange — an installed skill whose agent directory is read-only, so
+    // unlinking the agent symlink fails with EACCES while the rest proceeds.
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', alphaFixtureEntries())
+    const installed = await skillManager.install({
+      source: 'acme/skills',
+      agents: ['claude-code'],
+    })
+    expect(installed.success).toBe(true)
+    const claudeSkills = join(sharedHome, '.claude', 'skills')
+    await chmod(claudeSkills, 0o555)
+
+    try {
+      // Act
+      const outcome = await skillManager.remove(['alpha-skill'])
+
+      // Assert — the CLI semantics: a stubborn agent warns but never fails
+      // the removal; canonical copy and lock entry are gone.
+      expect(outcome).toEqual({
+        success: true,
+        results: [{ name: 'alpha-skill', success: true }],
+      })
+      expect(
+        await stat(join(sourceDir, 'alpha-skill')).catch(() => null),
+      ).toBeNull()
+      const lock = JSON.parse(await readFile(lockPath, 'utf-8'))
+      expect(lock.skills['alpha-skill']).toBeUndefined()
+    } finally {
+      await chmod(claudeSkills, 0o755)
+    }
+  })
+
+  test('reports a per-item failure when the canonical directory cannot be removed', async () => {
+    // Arrange — the skills root turns read-only, so deleting the canonical
+    // copy inside it fails even though resolution and agent cleanup worked.
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', alphaFixtureEntries())
+    const installed = await skillManager.install({
+      source: 'acme/skills',
+      agents: [],
+    })
+    expect(installed.success).toBe(true)
+    await chmod(sourceDir, 0o555)
+
+    try {
+      // Act
+      const outcome = await skillManager.remove(['alpha-skill'])
+
+      // Assert
+      expect(outcome.success).toBe(false)
+      expect(outcome.results[0].success).toBe(false)
+      expect(outcome.results[0].userMessage).toContain(
+        '"alpha-skill" could not be removed:',
+      )
+      // The canonical copy survived the failed removal.
+      expect((await stat(join(sourceDir, 'alpha-skill'))).isDirectory()).toBe(
+        true,
+      )
+    } finally {
+      await chmod(sourceDir, 0o755)
+    }
+  })
+})
+
+describe('tarball fetch edge paths', () => {
+  test('reports rate limiting with the GITHUB_TOKEN hint on HTTP 403', async () => {
+    // Arrange
+    const { skillManager } = await managerModule
+    fixture.routes.set('/repos/acme/skills', {
+      status: 200,
+      body: JSON.stringify({ default_branch: 'main' }),
+      contentType: 'application/json',
+    })
+    fixture.routes.set('/acme/skills/tar.gz/main', {
+      status: 403,
+      body: 'rate limited',
+    })
+
+    // Act
+    const outcome = await skillManager.install({
+      source: 'acme/skills',
+      agents: [],
+    })
+
+    // Assert
+    expect(outcome).toEqual({
+      success: false,
+      results: [],
+      userMessage:
+        'GitHub rate-limited the download of "acme/skills". Try again later, or set GITHUB_TOKEN.',
+    })
+  })
+
+  test('reports a generic GitHub error message on HTTP 500', async () => {
+    // Arrange
+    const { skillManager } = await managerModule
+    fixture.routes.set('/acme/skills/tar.gz/main', {
+      status: 500,
+      body: 'server error',
+    })
+
+    // Act — a pinned ref skips the metadata call, hitting codeload directly.
+    const outcome = await skillManager.install({
+      source: 'acme/skills#main',
+      agents: [],
+    })
+
+    // Assert
+    expect(outcome).toEqual({
+      success: false,
+      results: [],
+      userMessage:
+        'GitHub returned an error (HTTP 500) while fetching "acme/skills".',
+    })
+  })
+
+  test('fails clearly when the repo metadata carries no default branch', async () => {
+    // Arrange — GitHub answers the repo lookup but the JSON is missing the field.
+    const { skillManager } = await managerModule
+    fixture.routes.set('/repos/acme/skills', {
+      status: 200,
+      body: JSON.stringify({}),
+      contentType: 'application/json',
+    })
+
+    // Act
+    const outcome = await skillManager.install({
+      source: 'acme/skills',
+      agents: [],
+    })
+
+    // Assert
+    expect(outcome).toEqual({
+      success: false,
+      results: [],
+      userMessage: 'Could not determine the default branch of "acme/skills".',
+    })
+  })
+
+  test('reports a network failure when GitHub cannot be reached at all', async () => {
+    // Arrange — codeload resolves to a port nothing listens on.
+    const { skillManager } = await managerModule
+    vi.stubEnv('SKILLS_MANAGER_CODELOAD_URL', 'http://127.0.0.1:1')
+
+    // Act — the pinned ref keeps the metadata call on the healthy fixture.
+    const outcome = await skillManager.install({
+      source: 'acme/skills#main',
+      agents: [],
+    })
+
+    // Assert
+    expect(outcome).toEqual({
+      success: false,
+      results: [],
+      userMessage:
+        'Could not reach GitHub for "acme/skills". Check your network connection.',
+    })
+  })
+
+  test('rejects a download whose content-length already exceeds the cap', async () => {
+    // Arrange — the server lies cheaply: tiny body, huge declared length.
+    const { skillManager } = await managerModule
+    fixture.routes.set('/acme/skills/tar.gz/main', {
+      status: 200,
+      body: 'tiny',
+      headers: { 'content-length': '200000000' },
+    })
+
+    // Act
+    const outcome = await skillManager.install({
+      source: 'acme/skills#main',
+      agents: [],
+    })
+
+    // Assert
+    expect(outcome).toEqual({
+      success: false,
+      results: [],
+      userMessage: 'The repository archive is too large to install.',
+    })
+  })
+
+  test(
+    'rejects a chunked download that streams past the byte cap',
+    { timeout: 30_000 },
+    async () => {
+      // Arrange — no content-length, just 100 MiB + 1 byte of chunked body.
+      const { skillManager } = await managerModule
+      const half = Buffer.alloc(51 * 1024 * 1024, 0x61)
+      fixture.routes.set('/acme/skills/tar.gz/main', {
+        status: 200,
+        body: '',
+        chunks: [half, half],
+      })
+
+      // Act
+      const outcome = await skillManager.install({
+        source: 'acme/skills#main',
+        agents: [],
+      })
+
+      // Assert
+      expect(outcome).toEqual({
+        success: false,
+        results: [],
+        userMessage: 'The repository archive is too large to install.',
+      })
+    },
+  )
+
+  test('reports a failed download when the response carries no body', async () => {
+    // Arrange — 204 is a success status yet forbidden from carrying a body.
+    const { skillManager } = await managerModule
+    fixture.routes.set('/acme/skills/tar.gz/main', {
+      status: 204,
+      body: '',
+    })
+
+    // Act
+    const outcome = await skillManager.install({
+      source: 'acme/skills#main',
+      agents: [],
+    })
+
+    // Assert
+    expect(outcome).toEqual({
+      success: false,
+      results: [],
+      userMessage:
+        'The download failed. Check your network connection and try again.',
+    })
+  })
+
+  test('cancels cleanly when the user aborts while the download is in flight', async () => {
+    // Arrange — the server accepts the request and never answers it.
+    const { skillManager } = await managerModule
+    fixture.routes.set('/acme/skills/tar.gz/main', {
+      status: 200,
+      body: '',
+      hang: true,
+    })
+    const controller = new AbortController()
+
+    // Act — abort once the fetch is definitely in flight.
+    const pending = skillManager.install({
+      source: 'acme/skills#main',
+      agents: [],
+      signal: controller.signal,
+    })
+    setTimeout(() => controller.abort(), 150)
+    const outcome = await pending
+
+    // Assert
+    expect(outcome).toEqual({
+      success: false,
+      results: [],
+      userMessage: 'Installation cancelled.',
+    })
+  })
+})
+
+describe('search edge paths', () => {
+  test('throws on a search response whose body is not valid JSON', async () => {
+    // Arrange
+    const { skillManager } = await managerModule
+    fixture.routes.set('/api/search?q=react&limit=20', {
+      status: 200,
+      body: 'this is not json',
+      contentType: 'application/json',
+    })
+
+    // Act + Assert
+    await expect(skillManager.search('react')).rejects.toThrow(
+      'The skill search returned an unreadable response.',
+    )
   })
 })

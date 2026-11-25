@@ -1,5 +1,5 @@
 import { mkdtempSync, realpathSync } from 'node:fs'
-import { mkdir, rm, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -228,5 +228,72 @@ describe('filterSkills', () => {
       'beta',
     ])
     expect(filterSkills(skills, ['gamma'])).toEqual([])
+  })
+})
+
+describe('discoverSkills invalid and hostile inputs', () => {
+  test('ignores a SKILL.md that cannot be read instead of failing discovery', async () => {
+    // Arrange — the frontmatter file exists but is unreadable.
+    await writeSkill('locked-skill', validFrontmatter('locked-skill'))
+    const skillMd = join(scratch, 'locked-skill', 'SKILL.md')
+    await chmod(skillMd, 0o000)
+
+    try {
+      // Act
+      const skills = await discoverSkills(scratch)
+
+      // Assert — an unreadable skill is absent, never fatal.
+      expect(skills).toEqual([])
+    } finally {
+      await chmod(skillMd, 0o644)
+    }
+  })
+
+  test('rejects frontmatter whose name is not a string', async () => {
+    // Arrange — YAML happily parses `name: 123` into a number.
+    await writeSkill(
+      'numeric-name',
+      '---\nname: 123\ndescription: Valid\n---\n',
+    )
+
+    // Act
+    const skills = await discoverSkills(scratch)
+
+    // Assert
+    expect(skills).toEqual([])
+  })
+
+  test('descends through nested non-skill directories inside the skills container', async () => {
+    // Arrange — the skill hides two directory levels below `skills/`, which
+    // the priority walk only reaches by recursing past skill-less parents.
+    await writeSkill(
+      join('skills', 'nested', 'deeper', 'deep-skill'),
+      validFrontmatter('deep-skill'),
+    )
+
+    // Act
+    const skills = await discoverSkills(scratch)
+
+    // Assert
+    expect(skills.map((skill) => skill.name)).toEqual(['deep-skill'])
+  })
+
+  test('skips an unreadable directory during the fallback scan instead of throwing', async () => {
+    // Arrange — nothing qualifies as a skill, and one directory cannot be
+    // listed at all; the depth-5 fallback must swallow that, not crash.
+    const lockedDir = join(scratch, 'locked')
+    await mkdir(lockedDir, { recursive: true })
+    await writeFile(join(lockedDir, 'note.txt'), 'x', 'utf-8')
+    await chmod(lockedDir, 0o000)
+
+    try {
+      // Act
+      const skills = await discoverSkills(scratch)
+
+      // Assert
+      expect(skills).toEqual([])
+    } finally {
+      await chmod(lockedDir, 0o755)
+    }
   })
 })
