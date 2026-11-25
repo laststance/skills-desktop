@@ -33,7 +33,6 @@ import {
   isSourceOrphanMode,
   selectExcludedSkillTypeFilters,
   selectSearchQuery,
-  selectSearchScope,
   selectSelectedBookmarkName,
   selectSelectedAgentId,
   selectSelectedSources,
@@ -51,7 +50,7 @@ export interface RepoFacetOption {
   count: SkillCount
 }
 
-/** One Repo-scope search suggestion: a real repo id or the "Local" pseudo-repo. */
+/** A repository or the Local entry offered by the Installed search field. */
 export type RepoSearchSuggestion = RepositoryId | typeof LOCAL_SOURCE_LABEL
 
 /**
@@ -201,26 +200,11 @@ const selectVisibleByAgentAndType = createSelector(
 )
 
 /**
- * Memoized selector for filtered and sorted skills list.
- * Applies (in order): agent/type include, type excludes, source-repo include
- * filter, scope-aware search query, and name sort.
- *
- * Search scope rules:
- * - `'name'` — case-insensitive substring match against `skill.name` (the
- *   original behavior; preserved when no toggle is wired).
- * - `'repo'` — case-insensitive substring match against `skill.source`. Skills
- *   with no `source` match only the exact keyword "Local" (the suggestion
- *   list's pseudo-repo, {@link LOCAL_SOURCE_LABEL}), never a partial query.
- *
- * The source-repo include filter (`selectedSources`) keeps only skills whose
- * `source` is in the ticked set; an empty set is a no-op (all repos shown).
- * Source-less Local skills drop out whenever the set is non-empty. Applied
- * independently of the search scope so users can stack "in repos X/Y" with
- * "name containing Z". It is suppressed while the source-view Orphan toggle
- * is active (`selectedAgentId === null && skillTypeFilter === 'orphan'`) —
- * orphans have no repo facet, so the ticked set would zero the list; the
- * ticks stay in state and resume when the toggle turns off.
- *
+ * Filter Installed rows by agent, type, selected repositories and search text.
+ * A single query matches the name, repository, or description. An exact name
+ * leads the results in either sort direction. The full {@link LOCAL_SOURCE_LABEL}
+ * keyword also finds skills without a recorded repository.
+ * The repository filter pauses in source-view orphan mode and resumes on exit.
  * @returns Filtered + sorted skills array
  * @example
  * const filteredSkills = useAppSelector(selectFilteredSkills)
@@ -229,7 +213,6 @@ const selectSortedSkills = createSelector(
   [
     selectVisibleByAgentAndType,
     selectSearchQuery,
-    selectSearchScope,
     selectSelectedSources,
     selectSortOrder,
     selectSelectedAgentId,
@@ -238,7 +221,6 @@ const selectSortedSkills = createSelector(
   (
     visibleSkills,
     searchQuery,
-    searchScope,
     selectedSources,
     sortOrder,
     selectedAgentId,
@@ -262,36 +244,29 @@ const selectSortedSkills = createSelector(
       )
     }
 
-    // Scope-aware search. ts-pattern + .exhaustive() makes adding a new
-    // SearchScope a compile-time failure here, not a silent fall-through to
-    // the name branch (the failure mode of the previous if/else).
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase()
-      result = match(searchScope)
-        .with('repo', () =>
-          // Source-less skills are reachable only through the exact "Local"
-          // keyword (the suggestion list's pseudo-repo). A partial query such
-          // as "lo" keeps matching repos alone, so Local rows never flood the
-          // results mid-typing and a skill name never leaks into repo results.
-          result.filter((skill) =>
-            skill.source
-              ? skill.source.toLowerCase().includes(query)
-              : query === LOCAL_SOURCE_LABEL.toLowerCase(),
-          ),
-        )
-        .with('name', () =>
-          result.filter((skill) => skill.name.toLowerCase().includes(query)),
-        )
-        .exhaustive()
+    const query = searchQuery.trim().toLowerCase()
+    if (query) {
+      // Match the Local suggestion only when the whole label was entered.
+      result = result.filter(
+        (skill) =>
+          skill.name.toLowerCase().includes(query) ||
+          skill.description.toLowerCase().includes(query) ||
+          (skill.source
+            ? skill.source.toLowerCase().includes(query)
+            : query === LOCAL_SOURCE_LABEL.toLowerCase()),
+      )
     }
 
-    // Sort by name
-    const sorted = [...result].sort((a, b) => {
+    return [...result].sort((a, b) => {
+      // Give a directly named skill priority in both list and tree views.
+      if (query) {
+        const aExact = a.name.toLowerCase() === query
+        const bExact = b.name.toLowerCase() === query
+        if (aExact !== bExact) return aExact ? -1 : 1
+      }
       const cmp = a.name.localeCompare(b.name)
       return sortOrder === 'asc' ? cmp : -cmp
     })
-
-    return sorted
   },
 )
 
@@ -359,7 +334,7 @@ export const selectRepoFacetOptions = createSelector(
 )
 
 /**
- * Repo-scope suggestions for the SearchBox listbox: repos in view (plus "Local"
+ * Repository suggestions for the Installed search field: repos in view (plus "Local"
  * when a source-less skill is in view) that contain the typed query. Shares
  * {@link selectFilteredSkills}'s population, so a picked entry never yields 0 rows.
  * @returns Case-insensitive matches, repos A→Z with {@link LOCAL_SOURCE_LABEL} last
@@ -384,7 +359,7 @@ export const selectRepoSearchSuggestions = createSelector(
     skillTypeFilter,
   ): RepoSearchSuggestion[] => {
     // Same normalization as the row filter so a suggestion and its rows agree.
-    const query = searchQuery.toLowerCase()
+    const query = searchQuery.trim().toLowerCase()
     const matchesQuery = (candidate: string): boolean =>
       candidate.toLowerCase().includes(query)
     const repos = facetOptions.map((option) => option.source)
@@ -557,22 +532,53 @@ export const selectSourceFilterViewModel = createSelector(
 )
 
 /**
- * Memoized selector for bookmarks enriched with install status.
- * Compares bookmark names against installed skills to derive isInstalled flag.
- * @returns Array of bookmarks with isInstalled boolean
- * @example
- * const bookmarks = useAppSelector(selectBookmarksWithInstallStatus)
- * // [{ name: 'task', repo: '...', isInstalled: true }, ...]
+ * Index the scanner's occupied skill names for Marketplace and bookmarks.
+ * A dangling agent link alone does not establish an installation.
+ * @example selectInstalledSkillsByName(state).get(skill.name)
+ */
+export const selectInstalledSkillsByName = createSelector(
+  [selectSkillsItems],
+  (skills) =>
+    new Map(
+      skills
+        .filter((skill) => !skill.isOrphan)
+        .map((skill) => [skill.name, skill]),
+    ),
+)
+
+export type MarketplaceInstallStatus =
+  'available' | 'installed' | 'different-source' | 'unknown-source'
+
+/**
+ * Compare the candidate repository with the local skill occupying the same name.
+ * A repository-less bookmark identifies a local skill, while a Marketplace entry always has a repo.
+ * @example getMarketplaceInstallStatus(candidate.repo, selectInstalledSkillsByName(state).get(candidate.name))
+ */
+export function getMarketplaceInstallStatus(
+  repo: RepositoryId | '',
+  local: Skill | undefined,
+): MarketplaceInstallStatus {
+  if (!local) return 'available'
+  // GitHub owner/repo identifiers are case-insensitive, including older lock records.
+  if ((local.source ?? '').toLowerCase() === repo.toLowerCase())
+    return 'installed'
+  return local.source ? 'different-source' : 'unknown-source'
+}
+
+/** Derive the same installation identity for saved entries as for live results.
+ * @example const bookmarks = useAppSelector(selectBookmarksWithInstallStatus)
  */
 export const selectBookmarksWithInstallStatus = createSelector(
-  [selectBookmarkItems, selectSkillsItems],
-  (bookmarks, installedSkills) => {
-    const installedNames = new Set(installedSkills.map((s) => s.name))
-    return bookmarks.map((b) => ({
-      ...b,
-      isInstalled: installedNames.has(b.name),
-    }))
-  },
+  [selectBookmarkItems, selectInstalledSkillsByName],
+  (bookmarks, installedByName) =>
+    bookmarks.map((bookmark) => ({
+      ...bookmark,
+      isInstalled:
+        getMarketplaceInstallStatus(
+          bookmark.repo,
+          installedByName.get(bookmark.name),
+        ) === 'installed',
+    })),
 )
 
 /** Resolve the current detail directly from the saved bookmark and latest scan. */

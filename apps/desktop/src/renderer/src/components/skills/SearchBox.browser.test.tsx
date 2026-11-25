@@ -15,7 +15,7 @@ import {
 
 /**
  * Build a store with only the slices SearchBox subscribes to: `ui` for the
- * query/scope and `skills` for the repo suggestion list. SkillItem-style
+ * query and `skills` for the repo suggestion list. SkillItem-style
  * fixture stores also carry `agents` and `bookmarks` — the search box never
  * reads them, so omitting them keeps the test surface tight.
  */
@@ -66,14 +66,13 @@ function makeSkill(name: string, source?: string): Skill {
 }
 
 /**
- * Render in Repo scope with two repos plus one Local skill loaded, so the
+ * Render with two repositories and a Local skill so the
  * suggestion list has something to offer.
  */
-async function renderRepoScopeSearchBox() {
+async function renderPopulatedSearchBox() {
   const { screen, store } = await renderSearchBox()
   const { fetchSkills } =
     await import('@/renderer/src/redux/slices/skillsSlice')
-  const { setSearchScope } = await import('@/renderer/src/redux/slices/uiSlice')
   store.dispatch(
     fetchSkills.fulfilled(
       [
@@ -84,111 +83,58 @@ async function renderRepoScopeSearchBox() {
       'test-request',
     ),
   )
-  store.dispatch(setSearchScope('repo'))
   return { screen, store }
 }
 
-describe('SearchBox scope toggle', () => {
-  test('switches search to repository scope when the Repo toggle is clicked', async () => {
+describe('Installed search', () => {
+  test('accepts a query for all three fields without choosing a search mode', async () => {
     // Arrange
     const { screen, store } = await renderSearchBox()
+    const input = screen.getByRole('combobox', {
+      name: 'Search skills by name, repository, or description',
+    })
 
     // Act
-    await screen.getByRole('radio', { name: /Search by repository/i }).click()
+    await input.fill('accessibility')
 
     // Assert
-    await expect.poll(() => store.getState().ui.searchScope).toBe('repo')
-  })
-
-  test('filters skills by the text the user types into the search box', async () => {
-    // Arrange
-    const { screen, store } = await renderSearchBox()
-    // The placeholder defaults to the name-mode copy.
-    const input = screen.getByPlaceholder('Search skills...')
-
-    // Act
-    await input.fill('react')
-
-    // Assert
-    await expect.poll(() => store.getState().ui.searchQuery).toBe('react')
-  })
-
-  test('relabels the search box for screen readers as repository search when scope flips to repo', async () => {
-    // Arrange
-    const { screen, store } = await renderSearchBox()
-    const { setSearchScope } =
-      await import('@/renderer/src/redux/slices/uiSlice')
-
-    // Assert: default is 'name'; verify both states so a regression renaming
-    // one copy without the other (the original aria-label bug) is caught.
+    await expect.element(input).toBeVisible()
     await expect
-      .element(screen.getByRole('searchbox', { name: 'Search skills by name' }))
-      .toBeInTheDocument()
-
-    // Act
-    store.dispatch(setSearchScope('repo'))
-
-    // Assert — repo scope also promotes the input to a combobox because it
-    // owns the repository suggestion list.
-    await expect
-      .element(
-        screen.getByRole('combobox', { name: 'Search skills by repository' }),
-      )
-      .toBeInTheDocument()
-  })
-
-  test('shows the repository search hint in the input when scope flips to repo', async () => {
-    // Arrange
-    const { screen, store } = await renderSearchBox()
-    const { setSearchScope } =
-      await import('@/renderer/src/redux/slices/uiSlice')
-
-    // Assert: name-mode placeholder is shown before the scope changes.
-    await expect
-      .element(screen.getByPlaceholder('Search skills...'))
-      .toBeInTheDocument()
-
-    // Act
-    store.dispatch(setSearchScope('repo'))
-
-    // Assert
-    await expect
-      .element(screen.getByPlaceholder('Search by repository...'))
-      .toBeInTheDocument()
+      .poll(() => store.getState().ui.searchQuery)
+      .toBe('accessibility')
+    expect(screen.getByRole('radio').query()).toBeNull()
   })
 })
 
 describe('SearchBox repository suggestions', () => {
-  test('lists repository names and Local as suggestions when the repo search box is focused', async () => {
+  test('lists available repositories and Local when ArrowDown opens suggestions from an empty field', async () => {
     // Arrange
-    const { screen } = await renderRepoScopeSearchBox()
+    const { screen } = await renderPopulatedSearchBox()
 
-    // Act — clicking focuses the input, which opens the list
-    await screen
-      .getByRole('combobox', { name: 'Search skills by repository' })
-      .click()
+    // Act
+    await screen.getByRole('combobox').click()
+
+    await userEvent.keyboard('{ArrowDown}')
 
     // Assert — every repo in view plus the Local pseudo-repo
     await expect
       .element(screen.getByRole('listbox', { name: 'Repository suggestions' }))
-      .toBeInTheDocument()
+      .toBeVisible()
     await expect
       .element(screen.getByRole('option', { name: 'microsoft/azure-skills' }))
-      .toBeInTheDocument()
+      .toBeVisible()
     await expect
       .element(screen.getByRole('option', { name: 'vercel-labs/skills' }))
-      .toBeInTheDocument()
+      .toBeVisible()
     await expect
       .element(screen.getByRole('option', { name: 'Local' }))
-      .toBeInTheDocument()
+      .toBeVisible()
   })
 
   test('narrows the suggestions to repositories containing the typed text', async () => {
     // Arrange
-    const { screen } = await renderRepoScopeSearchBox()
-    const input = screen.getByRole('combobox', {
-      name: 'Search skills by repository',
-    })
+    const { screen } = await renderPopulatedSearchBox()
+    const input = screen.getByRole('combobox')
 
     // Act
     await input.fill('azure')
@@ -196,7 +142,7 @@ describe('SearchBox repository suggestions', () => {
     // Assert
     await expect
       .element(screen.getByRole('option', { name: 'microsoft/azure-skills' }))
-      .toBeInTheDocument()
+      .toBeVisible()
     await expect
       .poll(() =>
         screen.getByRole('option', { name: 'vercel-labs/skills' }).query(),
@@ -209,10 +155,8 @@ describe('SearchBox repository suggestions', () => {
 
   test('fills the search query with the clicked suggestion and closes the list', async () => {
     // Arrange
-    const { screen, store } = await renderRepoScopeSearchBox()
-    await screen
-      .getByRole('combobox', { name: 'Search skills by repository' })
-      .click()
+    const { screen, store } = await renderPopulatedSearchBox()
+    await screen.getByRole('combobox').fill('micro')
 
     // Act
     await screen.getByRole('option', { name: 'microsoft/azure-skills' }).click()
@@ -227,30 +171,24 @@ describe('SearchBox repository suggestions', () => {
   test('reopens the list when the still-focused input is clicked again after a pick', async () => {
     // Arrange — a pick closes the list but leaves focus in the field, so a
     // second click fires no focus event; the click itself must reopen it.
-    const { screen } = await renderRepoScopeSearchBox()
-    await screen
-      .getByRole('combobox', { name: 'Search skills by repository' })
-      .click()
+    const { screen } = await renderPopulatedSearchBox()
+    await screen.getByRole('combobox').fill('micro')
     await screen.getByRole('option', { name: 'microsoft/azure-skills' }).click()
     await expect.poll(() => screen.getByRole('listbox').query()).toBeNull()
 
     // Act — re-query the combobox from the post-pick DOM before clicking
-    await screen
-      .getByRole('combobox', { name: 'Search skills by repository' })
-      .click()
+    await screen.getByRole('combobox').click()
 
     // Assert — the picked repo is the only entry that still matches the query
     await expect
       .element(screen.getByRole('option', { name: 'microsoft/azure-skills' }))
-      .toBeInTheDocument()
+      .toBeVisible()
   })
 
   test('sets the query to Local when the Local suggestion is chosen', async () => {
     // Arrange
-    const { screen, store } = await renderRepoScopeSearchBox()
-    await screen
-      .getByRole('combobox', { name: 'Search skills by repository' })
-      .click()
+    const { screen, store } = await renderPopulatedSearchBox()
+    await screen.getByRole('combobox').fill('loc')
 
     // Act
     await screen.getByRole('option', { name: 'Local' }).click()
@@ -261,10 +199,8 @@ describe('SearchBox repository suggestions', () => {
 
   test('picks the first suggestion with ArrowDown then Enter from the keyboard', async () => {
     // Arrange
-    const { screen, store } = await renderRepoScopeSearchBox()
-    await screen
-      .getByRole('combobox', { name: 'Search skills by repository' })
-      .click()
+    const { screen, store } = await renderPopulatedSearchBox()
+    await screen.getByRole('combobox').click()
 
     // Act
     await userEvent.keyboard('{ArrowDown}{Enter}')
@@ -275,19 +211,22 @@ describe('SearchBox repository suggestions', () => {
       .toBe('microsoft/azure-skills')
   })
 
-  test('offers no suggestion list while searching by skill name', async () => {
+  test('keeps the results visible when the field is empty or no repository matches the text', async () => {
     // Arrange
-    const { screen, store } = await renderRepoScopeSearchBox()
-    const { setSearchScope } =
-      await import('@/renderer/src/redux/slices/uiSlice')
-    store.dispatch(setSearchScope('name'))
+    const { screen } = await renderPopulatedSearchBox()
+    const input = screen.getByRole('combobox')
 
     // Act
-    await screen
-      .getByRole('searchbox', { name: 'Search skills by name' })
-      .click()
+    await input.click()
 
     // Assert
-    await expect.poll(() => screen.getByRole('listbox').query()).toBeNull()
+    await expect.element(input).toHaveAttribute('aria-expanded', 'false')
+
+    // Act
+    await input.fill('autofix')
+
+    // Assert
+    await expect.element(input).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.getByRole('listbox').query()).toBeNull()
   })
 })

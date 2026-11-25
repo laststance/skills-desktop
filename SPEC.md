@@ -182,6 +182,7 @@ When the **Installed** tab is open and no skill is selected, the detail panel re
 GUI wrapper for `npx skills` CLI commands:
 
 - [x] Search skills via `npx skills find <query>`
+- [x] Show Installed when the skill name and recorded repository match. For a same-name skill from a different or unknown source, show both sources before installation.
 - [x] Install skills via `npx skills add <repo>`
 - [x] Select target agents for installation
 - [x] Installation progress tracking
@@ -900,9 +901,11 @@ When no skills are installed and the Installed filter is set to **All categories
 
 ### Search Miss
 
+Installed search matches the name, repository, or frontmatter description, ignoring case and surrounding whitespace. An exact skill name leads the results in either sort direction. The repository filter further narrows these results in both List and Tree.
+
 When the Installed list has an active category filter and no matches, it offers **Clear category filter**. Clearing the category keeps the search and other filters in place.
 
-When **All categories** is selected and a search query yields no results:
+When **All categories** is selected and a nonblank search query yields no results:
 
 - Show a `SearchX` icon (`h-8 w-8 text-muted-foreground/40`, decorative — `aria-hidden`)
 - Echo the query: `No skills match "{searchQuery}"` (`text-sm text-muted-foreground`)

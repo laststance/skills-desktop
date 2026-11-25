@@ -3,6 +3,10 @@ import React, { useState } from 'react'
 
 import { useCycleEffect } from '@/renderer/src/hooks/useCycleEffect'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import {
+  getMarketplaceInstallStatus,
+  selectInstalledSkillsByName,
+} from '@/renderer/src/redux/selectors'
 import { loadLeaderboard } from '@/renderer/src/redux/slices/marketplaceSlice'
 import type { RankingFilter } from '@/shared/types'
 
@@ -50,10 +54,7 @@ export const SkillsMarketplace =
 
     const { searchResults, search, searchQuery, error, leaderboard } =
       useAppSelector((state) => state.marketplace)
-    const { items: installedSkills } = useAppSelector((state) => state.skills)
-
-    // Check if a skill is already installed
-    const installedSkillNames = new Set(installedSkills.map((s) => s.name))
+    const installedByName = useAppSelector(selectInstalledSkillsByName)
 
     const hasSearched = searchQuery.length > 0
     const isSearching = search.status === 'pending'
@@ -147,7 +148,10 @@ export const SkillsMarketplace =
                       <SkillRowMarketplace
                         key={`${skill.repo}@${skill.name}`}
                         skill={skill}
-                        isInstalled={installedSkillNames.has(skill.name)}
+                        installStatus={getMarketplaceInstallStatus(
+                          skill.repo,
+                          installedByName.get(skill.name),
+                        )}
                       />
                     ))}
                   </div>
@@ -190,7 +194,10 @@ export const SkillsMarketplace =
                       <SkillRowMarketplace
                         key={`${skill.repo}@${skill.name}`}
                         skill={skill}
-                        isInstalled={installedSkillNames.has(skill.name)}
+                        installStatus={getMarketplaceInstallStatus(
+                          skill.repo,
+                          installedByName.get(skill.name),
+                        )}
                       />
                     ))}
                   </div>

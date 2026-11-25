@@ -77,15 +77,6 @@ export type ExcludableSkillTypeFilter = Exclude<SkillTypeFilter, 'all'>
  */
 export type ActiveTab = 'installed' | 'marketplace'
 /**
- * Which field the search box matches against.
- * - `'name'` — matches `Skill.name` (default; previous behavior).
- * - `'repo'` — matches `Skill.source` (e.g. `"vercel-labs/skills"`).
- *   Skills with no `source` match only the exact "Local" keyword offered by
- *   the search box's suggestion list — never a partial query.
- */
-export type SearchScope = 'name' | 'repo'
-
-/**
  * Shape used by the sonner-rendered UndoToast for bulk delete/unlink.
  * - `id`: sonner toast id (string | number); stored so we can imperatively dismiss
  *   from the slice when another competing surface claims the notification real estate.
@@ -176,11 +167,6 @@ interface UiState {
   activeTab: ActiveTab
   searchQuery: SearchQuery
   /**
-   * Which Skill field `searchQuery` matches against. Toggle in `SearchBox`.
-   * Persists across agent changes — scope is a query intent, not list state.
-   */
-  searchScope: SearchScope
-  /**
    * Repository include-filter. Empty = show all repos (and local skills).
    * Non-empty = show only skills whose `source` is in this set, hiding
    * source-less local skills (surfaced via the "N local skills hidden" hint).
@@ -265,7 +251,6 @@ interface UiState {
 const initialState: UiState = {
   activeTab: 'installed',
   searchQuery: toSearchQuery(''),
-  searchScope: 'name',
   selectedSources: [],
   sourceStats: null,
   isRefreshing: false,
@@ -395,14 +380,6 @@ const uiSlice = createSlice({
       state.searchQuery = action.payload
     },
     /**
-     * Toggle which Skill field the search query matches.
-     * Does not clear `searchQuery` or `selectedSources` — the user is
-     * narrowing intent, not abandoning the in-progress search.
-     */
-    setSearchScope: (state, action: PayloadAction<SearchScope>) => {
-      state.searchScope = action.payload
-    },
-    /**
      * Toggle one repository in the include-filter (single-id additive writer).
      * Dispatched per-checkbox in the toolbar dropdown and when the user clicks
      * a SourceLink's repo text. Adds the id if absent, removes it if already
@@ -431,7 +408,7 @@ const uiSlice = createSlice({
     /**
      * Clear the include-filter back to "show all repos". Wired to the
      * dropdown's "Show all repos" action and each FilterPill's "Clear" button.
-     * Does not touch `searchScope` or `searchQuery`.
+     * Preserves the current search query.
      */
     clearSelectedSources: (state) => {
       state.selectedSources = []
@@ -809,7 +786,6 @@ export const {
   openBookmarkCategoryEditor,
   setBookmarkCategoryDeleteConfirmation,
   closeBookmarkCategoryEditor,
-  setSearchScope,
   toggleSource,
   setSelectedSources,
   clearSelectedSources,
@@ -845,8 +821,6 @@ export default uiSlice.reducer
 // --- Named selectors ---
 export const selectSearchQuery = (state: RootState): SearchQuery =>
   state.ui.searchQuery
-export const selectSearchScope = (state: RootState): SearchScope =>
-  state.ui.searchScope
 export const selectSelectedSources = (state: RootState): RepositoryId[] =>
   state.ui.selectedSources
 export const selectSelectedAgentId = (state: RootState): AgentId | null =>

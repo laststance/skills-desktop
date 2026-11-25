@@ -106,7 +106,7 @@ export const SkillsList = function SkillsList({
   const error = useAppSelector(selectSkillsError)
   const selectedAgentId = useAppSelector(selectSelectedAgentId)
   const skillTypeFilter = useAppSelector(selectSkillTypeFilter)
-  const searchQuery = useAppSelector(selectSearchQuery)
+  const searchQuery = useAppSelector(selectSearchQuery).trim()
   const selectedSources = useAppSelector(selectSelectedSources)
   const excludedSkillTypeFilters = useAppSelector(
     selectExcludedSkillTypeFilters,

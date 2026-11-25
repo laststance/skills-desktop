@@ -3,6 +3,7 @@ import React from 'react'
 
 import { cn, formatInstallCount } from '@/renderer/src/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import type { MarketplaceInstallStatus } from '@/renderer/src/redux/selectors'
 import {
   addBookmark,
   removeBookmark,
@@ -16,7 +17,7 @@ import type { SkillSearchResult } from '@/shared/types'
 
 interface SkillRowMarketplaceProps {
   skill: SkillSearchResult
-  isInstalled?: boolean
+  installStatus: MarketplaceInstallStatus
 }
 
 /**
@@ -25,7 +26,7 @@ interface SkillRowMarketplaceProps {
  */
 export const SkillRowMarketplace = function SkillRowMarketplace({
   skill,
-  isInstalled = false,
+  installStatus,
 }: SkillRowMarketplaceProps): React.ReactElement {
   const dispatch = useAppDispatch()
   // Narrow selector: only `status` is consumed here, so subscribing to the full
@@ -33,6 +34,8 @@ export const SkillRowMarketplace = function SkillRowMarketplace({
   // leaderboard, or previewSkill changed. Keep this selector surgical.
   const status = useAppSelector((state) => state.marketplace.status)
   const isOperating = status === 'installing'
+  const compareSources =
+    installStatus === 'different-source' || installStatus === 'unknown-source'
   const isBookmarked = useAppSelector((state) =>
     selectIsBookmarked(state, skill.name),
   )
@@ -79,6 +82,13 @@ export const SkillRowMarketplace = function SkillRowMarketplace({
             <span className="font-mono text-xs text-muted-foreground truncate">
               {skill.repo}
             </span>
+            {compareSources && (
+              <span className="text-xs text-muted-foreground">
+                {installStatus === 'different-source'
+                  ? 'Same name, different source'
+                  : 'Installed source unknown'}
+              </span>
+            )}
           </div>
         </button>
 
@@ -110,7 +120,7 @@ export const SkillRowMarketplace = function SkillRowMarketplace({
         </div>
 
         <div className="flex justify-end">
-          {isInstalled ? (
+          {installStatus === 'installed' ? (
             // Informational badge, intentionally non-interactive. Uninstall lives in
             // the CLI; the aria-label surfaces that path for screen-reader users
             // since there is no visible affordance. `--global` matches how the app
@@ -137,13 +147,15 @@ export const SkillRowMarketplace = function SkillRowMarketplace({
               disabled={isOperating}
               className={cn(
                 'flex items-center gap-1.5 px-3 py-1.5 rounded-md min-h-8',
-                'bg-primary text-primary-foreground text-[13px] font-semibold',
-                'hover:bg-primary/90 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                compareSources
+                  ? 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                  : 'bg-primary text-primary-foreground hover:bg-primary/90',
+                'text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
                 'disabled:opacity-50 disabled:cursor-not-allowed',
               )}
             >
-              <Plus className="h-3.5 w-3.5" />
-              Install
+              {!compareSources && <Plus className="h-3.5 w-3.5" />}
+              {compareSources ? 'Compare sources' : 'Install'}
             </button>
           )}
         </div>

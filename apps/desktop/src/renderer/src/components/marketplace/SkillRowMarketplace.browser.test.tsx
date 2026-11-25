@@ -79,7 +79,10 @@ async function renderRow(skill: SkillSearchResult, isInstalled: boolean) {
   const { SkillRowMarketplace } = await import('./SkillRowMarketplace')
   const screen = await render(
     <Provider store={store}>
-      <SkillRowMarketplace skill={skill} isInstalled={isInstalled} />
+      <SkillRowMarketplace
+        skill={skill}
+        installStatus={isInstalled ? 'installed' : 'available'}
+      />
     </Provider>,
   )
   return { screen, store }

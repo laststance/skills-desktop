@@ -1435,18 +1435,6 @@ describe('uiSlice search box', () => {
     // Assert
     expect(store.getState().ui.searchQuery).toBe('browser')
   })
-
-  test('switches the search box to match against repository names', async () => {
-    // Arrange
-    const store = await createTestStore()
-    const { setSearchScope } = await import('./uiSlice')
-
-    // Act
-    store.dispatch(setSearchScope('repo'))
-
-    // Assert
-    expect(store.getState().ui.searchScope).toBe('repo')
-  })
 })
 
 describe('uiSlice sort order', () => {
@@ -1674,19 +1662,17 @@ describe('uiSlice selectors read the live ui state', () => {
     vi.resetAllMocks()
   })
 
-  test('reads the typed query, scope, sources, agent, and sort order back through their selectors', async () => {
+  test('reads the typed query, sources, agent, and sort order back through their selectors', async () => {
     // Arrange — drive these fields into non-default values
     const store = await createTestStore()
     const {
       setSearchQuery,
-      setSearchScope,
       setSelectedSources,
       selectAgent,
       toggleSortOrder,
       setSkillTypeFilter,
       toggleExcludedSkillTypeFilter,
       selectSearchQuery,
-      selectSearchScope,
       selectSelectedSources,
       selectSelectedAgentId,
       selectSortOrder,
@@ -1696,7 +1682,6 @@ describe('uiSlice selectors read the live ui state', () => {
     // Type filters persist across selectAgent, so dispatch order is free.
     store.dispatch(selectAgent('claude-code'))
     store.dispatch(setSearchQuery(toSearchQuery('browser')))
-    store.dispatch(setSearchScope('repo'))
     store.dispatch(setSelectedSources([repositoryId('vercel-labs/skills')]))
     store.dispatch(toggleSortOrder())
     store.dispatch(setSkillTypeFilter('symlinked'))
@@ -1707,7 +1692,6 @@ describe('uiSlice selectors read the live ui state', () => {
 
     // Act + Assert — each selector returns the stored value
     expect(selectSearchQuery(rootState)).toBe('browser')
-    expect(selectSearchScope(rootState)).toBe('repo')
     expect(selectSelectedSources(rootState)).toEqual([
       repositoryId('vercel-labs/skills'),
     ])

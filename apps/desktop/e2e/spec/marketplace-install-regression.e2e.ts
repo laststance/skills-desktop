@@ -35,6 +35,24 @@ const MARKETPLACE_SKILL = {
  */
 function stageFallbackNpx(home: string): string {
   const markerPath = join(home, '.e2e-fake-npx-args')
+  const lockPath = join(home, '.agents', '.skill-lock.json')
+  const lock = existsSync(lockPath)
+    ? JSON.parse(readFileSync(lockPath, 'utf-8'))
+    : { version: 3 }
+  writeFileSync(
+    join(home, '.e2e-installed-lock.json'),
+    JSON.stringify({
+      ...lock,
+      skills: {
+        ...lock.skills,
+        'find-skills': {
+          source: 'vercel-labs/skills',
+          sourceType: 'github',
+          sourceUrl: 'https://github.com/vercel-labs/skills.git',
+        },
+      },
+    }),
+  )
   const fakeNpxPath = join(home, 'Library', 'pnpm', 'npx')
   mkdirSync(dirname(fakeNpxPath), { recursive: true })
 
@@ -79,6 +97,7 @@ description: E2E fake skill for Marketplace install regression.
 EOF_SKILL
 rm -f "$HOME/.claude/skills/$skill"
 ln -s "../../.agents/skills/$skill" "$HOME/.claude/skills/$skill"
+mv "$HOME/.e2e-installed-lock.json" "$HOME/.agents/.skill-lock.json"
 echo "Installation complete"
 `,
   )
@@ -222,11 +241,13 @@ test('Marketplace installs into the shared folder and links only the chosen agen
       if (name === 'qa-shared')
         await dialog.getByRole('radio', { name: 'Universal only' }).click()
       await dialog.getByRole('button', { name: 'Install', exact: true }).click()
-      await expect(
-        page.getByRole('img', {
-          name: new RegExp(`${name} is installed`, 'i'),
-        }),
-      ).toBeVisible({ timeout: 50_000 })
+      // A local-collection install records no repository in the CLI lock, so
+      // the scanner leaves `source` unset and the row lands on the
+      // "Installed source unknown" state instead of the Installed badge —
+      // that hint only renders once the rescan registers the occupied name.
+      await expect(page.getByText('Installed source unknown')).toBeVisible({
+        timeout: 50_000,
+      })
     }
 
     // Assert that the installed view reads the same configured directory the CLI wrote.
