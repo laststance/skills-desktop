@@ -565,6 +565,15 @@ export function getMarketplaceInstallStatus(
   return local.source ? 'different-source' : 'unknown-source'
 }
 
+/** Whether the install modal offers the side-by-side source comparison table.
+ * @example shouldCompareSources(status) // 'different-source' | 'unknown-source' → true
+ */
+export function shouldCompareSources(
+  status: MarketplaceInstallStatus,
+): boolean {
+  return status === 'different-source' || status === 'unknown-source'
+}
+
 /** Derive the same installation identity for saved entries as for live results.
  * @example const bookmarks = useAppSelector(selectBookmarksWithInstallStatus)
  */

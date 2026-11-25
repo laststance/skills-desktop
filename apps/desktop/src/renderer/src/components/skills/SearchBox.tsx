@@ -107,8 +107,12 @@ export const SearchBox = function SearchBox(): React.ReactElement {
         aria-autocomplete="list"
         aria-expanded={showListbox}
         aria-controls={showListbox ? listboxId : undefined}
+        // highlightedIndex survives a closed list, so gate on showListbox —
+        // otherwise the attribute points at a removed option element.
         aria-activedescendant={
-          highlightedIndex >= 0 ? optionId(highlightedIndex) : undefined
+          showListbox && highlightedIndex >= 0
+            ? optionId(highlightedIndex)
+            : undefined
         }
         autoComplete="off"
         placeholder="Search by name, repository, or description..."

@@ -19,6 +19,7 @@ import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   getMarketplaceInstallStatus,
   selectInstalledSkillsByName,
+  shouldCompareSources,
 } from '@/renderer/src/redux/selectors'
 import {
   selectSkillForInstall,
@@ -74,8 +75,7 @@ export const InstallModal = function InstallModal(): React.ReactElement {
   const installStatus = selectedSkill
     ? getMarketplaceInstallStatus(selectedSkill.repo, local)
     : 'available'
-  const compareSources =
-    installStatus === 'different-source' || installStatus === 'unknown-source'
+  const compareSources = shouldCompareSources(installStatus)
 
   const [installTargetMode, setInstallTargetMode] = useState<InstallTargetMode>(
     DEFAULT_INSTALL_TARGET_MODE,

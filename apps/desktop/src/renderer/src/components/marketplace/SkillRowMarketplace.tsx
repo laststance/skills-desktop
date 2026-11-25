@@ -3,7 +3,10 @@ import React from 'react'
 
 import { cn, formatInstallCount } from '@/renderer/src/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
-import type { MarketplaceInstallStatus } from '@/renderer/src/redux/selectors'
+import {
+  shouldCompareSources,
+  type MarketplaceInstallStatus,
+} from '@/renderer/src/redux/selectors'
 import {
   addBookmark,
   removeBookmark,
@@ -34,8 +37,7 @@ export const SkillRowMarketplace = function SkillRowMarketplace({
   // leaderboard, or previewSkill changed. Keep this selector surgical.
   const status = useAppSelector((state) => state.marketplace.status)
   const isOperating = status === 'installing'
-  const compareSources =
-    installStatus === 'different-source' || installStatus === 'unknown-source'
+  const compareSources = shouldCompareSources(installStatus)
   const isBookmarked = useAppSelector((state) =>
     selectIsBookmarked(state, skill.name),
   )
