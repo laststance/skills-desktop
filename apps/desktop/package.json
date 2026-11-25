@@ -1,7 +1,7 @@
 {
   "name": "skills-desktop",
   "private": true,
-  "version": "0.35.0",
+  "version": "0.36.0",
   "description": "Visualize installed Skills and symlink status across AI agents",
   "main": "./out/main/index.mjs",
   "author": "Laststance.io",
