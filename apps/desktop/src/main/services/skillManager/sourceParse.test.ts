@@ -221,6 +221,45 @@ describe('parseSource', () => {
     })
   })
 
+  test('decodes percent-encoded subpath segments from a browser-copied tree URL', () => {
+    // Arrange — GitHub renders spaces in directory names as %20 in the URL.
+
+    // Act
+    const result = parseSource(
+      'https://github.com/acme/tools/tree/main/skills/My%20Skill',
+    )
+
+    // Assert — discovery must look for the real on-disk directory name.
+    expect(result).toEqual({
+      ok: true,
+      source: expect.objectContaining({
+        type: 'github',
+        ref: 'main',
+        subpath: 'skills/My Skill',
+      }),
+    })
+  })
+
+  test('keeps a malformed percent-encoded subpath segment verbatim instead of crashing', () => {
+    // Arrange — `%zz` is not valid percent-encoding. (A well-formed encoded
+    // traversal like %2E%2E never reaches the validator: `new URL` resolves
+    // dot segments while normalizing the pathname.)
+
+    // Act
+    const result = parseSource(
+      'https://github.com/acme/tools/tree/main/skills/%zz',
+    )
+
+    // Assert — the segment survives undecoded rather than throwing.
+    expect(result).toEqual({
+      ok: true,
+      source: expect.objectContaining({
+        type: 'github',
+        subpath: 'skills/%zz',
+      }),
+    })
+  })
+
   test('rejects gitlab URLs with a dialog-safe message', () => {
     // Act
     const result = parseSource('https://gitlab.com/acme/skills')

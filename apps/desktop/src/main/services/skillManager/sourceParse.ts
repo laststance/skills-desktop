@@ -161,7 +161,15 @@ function parseGitHubUrlPath(pathname: string): {
   ref?: string
   subpath?: string
 } | null {
-  const segments = pathname.split('/').filter(Boolean)
+  // `URL.pathname` keeps percent-encoding, but every consumer downstream
+  // works with decoded bytes: discovery compares real on-disk directory
+  // names, the tarball fetch re-encodes the ref itself, and the traversal
+  // guard must see a `%2E%2E` for the `..` it is. Decode each segment
+  // tolerantly — malformed escapes stay verbatim rather than crashing parse.
+  const segments = pathname
+    .split('/')
+    .filter(Boolean)
+    .map((segment) => decodeFragmentValue(segment))
   if (segments.length < 2) return null
   const [owner, rawRepo] = segments
   const repo = rawRepo.replace(/\.git$/, '')

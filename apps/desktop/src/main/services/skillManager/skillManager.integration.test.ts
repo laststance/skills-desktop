@@ -3,6 +3,7 @@ import {
   chmod,
   lstat,
   mkdir,
+  readdir,
   readFile,
   readlink,
   rm,
@@ -1677,5 +1678,217 @@ describe('search edge paths', () => {
     await expect(skillManager.search('react')).rejects.toThrow(
       'The skill search returned an unreadable response.',
     )
+  })
+})
+
+describe('destructive-operation guards', () => {
+  test('refuses a local install whose source is the canonical tree itself instead of deleting it', async () => {
+    // Arrange — a skill already lives in the canonical tree, and the user
+    // points the install source straight at it. Without the overlap guard the
+    // wipe-and-recopy would delete the source before reading it.
+    const { skillManager } = await managerModule
+    const canonical = join(sourceDir, 'self-skill')
+    await mkdir(canonical, { recursive: true })
+    await writeFile(
+      join(canonical, 'SKILL.md'),
+      '---\nname: self-skill\ndescription: Already canonical\n---\n',
+      'utf-8',
+    )
+
+    // Act — install the canonical tree as a local source collection.
+    const outcome = await skillManager.install({
+      source: sourceDir,
+      agents: [],
+    })
+
+    // Assert — failure, and the original tree is byte-identical afterwards.
+    expect(outcome.success).toBe(false)
+    expect(outcome.results[0].success).toBe(false)
+    expect(outcome.results[0].userMessage).toContain(
+      '"self-skill" could not be installed:',
+    )
+    expect(await readFile(join(canonical, 'SKILL.md'), 'utf-8')).toContain(
+      'name: self-skill',
+    )
+  })
+
+  test('refuses an install when two skills sanitize to the same directory before copying anything', async () => {
+    // Arrange — `My Skill` and `my--skill` are distinct frontmatter names
+    // (so dedupe keeps both) but both sanitize to `my-skill`; copying the
+    // second would wipe-and-recopy straight over the first. The fixture
+    // directories deliberately differ in more than case so they coexist on
+    // a case-insensitive filesystem.
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', [
+      dirEntry('skills'),
+      dirEntry('skills/first'),
+      fileEntry(
+        'skills/first/SKILL.md',
+        '---\nname: My Skill\ndescription: Collision fixture one\n---\n',
+      ),
+      dirEntry('skills/second'),
+      fileEntry(
+        'skills/second/SKILL.md',
+        '---\nname: my--skill\ndescription: Collision fixture two\n---\n',
+      ),
+    ])
+
+    // Act
+    const outcome = await skillManager.install({
+      source: 'acme/skills',
+      agents: [],
+    })
+
+    // Assert — the whole operation fails up front and nothing is written.
+    expect(outcome).toEqual({
+      success: false,
+      results: [],
+      userMessage:
+        'These skills would install into the same directory: "My Skill" and "my--skill". Rename one of them and try again.',
+    })
+    expect(await stat(join(sourceDir, 'my-skill')).catch(() => null)).toBeNull()
+    expect(await readLock().catch(() => null)).toBeNull()
+  })
+
+  test('does not overwrite the lock when it cannot be read back for a write', async () => {
+    // Arrange — a healthy lock with records turns unreadable mid-flight
+    // (chmod 000 stands in for EMFILE/EIO-style transient fs failures).
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', alphaFixtureEntries())
+    await writeFile(
+      lockPath,
+      JSON.stringify({
+        version: 3,
+        skills: {
+          'existing-skill': { source: 'acme/other', sourceType: 'github' },
+        },
+      }),
+      'utf-8',
+    )
+    const originalBytes = await readFile(lockPath, 'utf-8')
+    await chmod(lockPath, 0o000)
+
+    try {
+      // Act
+      const outcome = await skillManager.install({
+        source: 'acme/skills',
+        agents: [],
+      })
+
+      // Assert — the install fails rather than writing a false-empty lock.
+      expect(outcome.success).toBe(false)
+    } finally {
+      await chmod(lockPath, 0o644)
+    }
+    // The pre-existing records survived untouched — no false-empty overwrite.
+    expect(await readFile(lockPath, 'utf-8')).toBe(originalBytes)
+  })
+
+  test('preserves a corrupt lock aside before replacing it with a valid write', async () => {
+    // Arrange — torn bytes the CLI kill-mid-write signature leaves behind.
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', alphaFixtureEntries())
+    const tornBytes = '{ "version": 3, "skills": { '
+    await writeFile(lockPath, tornBytes, 'utf-8')
+
+    // Act
+    const outcome = await skillManager.install({
+      source: 'acme/skills',
+      agents: [],
+    })
+
+    // Assert — the install recovers, and the corrupt bytes survive beside it.
+    expect(outcome.success).toBe(true)
+    const agentsEntries = await readdir(join(sharedHome, '.agents'))
+    const backups = agentsEntries.filter((entry) =>
+      entry.startsWith('.skill-lock.json.corrupt-'),
+    )
+    expect(backups).toHaveLength(1)
+    expect(
+      await readFile(join(sharedHome, '.agents', backups[0]), 'utf-8'),
+    ).toBe(tornBytes)
+    expect((await readLock()).skills['alpha-skill']).toBeDefined()
+  })
+
+  test('treats a well-formed-but-wrong-shaped lock as empty on the lenient display read', async () => {
+    // Arrange — valid JSON whose shape is not a lock file. The lenient read
+    // (used to detect already-installed skills before copying) forgives it,
+    // while the strict write path still preserves the bytes as corrupt.
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', alphaFixtureEntries())
+    await writeFile(lockPath, '{ "version": 3, "skills": null }', 'utf-8')
+
+    // Act
+    const outcome = await skillManager.install({
+      source: 'acme/skills',
+      agents: [],
+    })
+
+    // Assert — the install treats the lock as empty and still completes.
+    expect(outcome.success).toBe(true)
+    expect((await readLock()).skills['alpha-skill']).toBeDefined()
+    const agentsEntries = await readdir(join(sharedHome, '.agents'))
+    expect(
+      agentsEntries.some((entry) =>
+        entry.startsWith('.skill-lock.json.corrupt-'),
+      ),
+    ).toBe(true)
+  })
+
+  test('removal reads a wrong-shaped lock as empty instead of crashing', async () => {
+    // Arrange — valid JSON that is not a lock shape; remove's lenient display
+    // read must forgive it exactly like the CLI's read path does.
+    const { skillManager } = await managerModule
+    await writeFile(lockPath, '{ "version": 3, "skills": null }', 'utf-8')
+
+    // Act
+    const outcome = await skillManager.remove(['alpha-skill'])
+
+    // Assert — the empty read means the skill simply is not in the lock.
+    expect(outcome.results).toHaveLength(1)
+    expect(outcome.results[0].success).toBe(false)
+  })
+
+  test('removal reads unparseable lock bytes as empty instead of crashing', async () => {
+    // Arrange — torn write bytes in the lock.
+    const { skillManager } = await managerModule
+    await writeFile(lockPath, '{ "version": 3, "skills": { ', 'utf-8')
+
+    // Act
+    const outcome = await skillManager.remove(['alpha-skill'])
+
+    // Assert
+    expect(outcome.results).toHaveLength(1)
+    expect(outcome.results[0].success).toBe(false)
+  })
+
+  test('still attempts the write when a corrupt lock cannot be renamed aside', async () => {
+    // Arrange — corrupt bytes plus a read-only `.agents` directory, so the
+    // best-effort backup rename itself fails. The write then fails too, but
+    // the backup failure must only warn rather than abort the cycle early.
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', alphaFixtureEntries())
+    await writeFile(lockPath, '{ not json', 'utf-8')
+    const agentsDir = join(sharedHome, '.agents')
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    await chmod(agentsDir, 0o555)
+    let outcome
+    try {
+      // Act
+      outcome = await skillManager.install({
+        source: 'acme/skills',
+        agents: [],
+      })
+    } finally {
+      await chmod(agentsDir, 0o755)
+    }
+
+    // Assert — the backup failure surfaced as a warning and the write
+    // failure — not a crash — decides the outcome.
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('could not back up corrupt lock'),
+    )
+    warnSpy.mockRestore()
+    expect(outcome?.success).toBe(false)
   })
 })

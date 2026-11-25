@@ -334,6 +334,28 @@ export async function installSkills(
       )
     }
 
+    // --- Refuse sanitized-name collisions before anything is copied ---
+    // Two distinct raw names (`Review` / `review`) can sanitize to the same
+    // directory; installing both would let the second wipe-and-recopy erase
+    // the first while both lock records still report success.
+    const colliding = new Map<string, string[]>()
+    for (const skill of selected) {
+      const key = sanitizeName(skill.name)
+      colliding.set(key, [...(colliding.get(key) ?? []), skill.name])
+    }
+    const collisions = [...colliding.values()].filter(
+      (names) => names.length > 1,
+    )
+    if (collisions.length > 0) {
+      const detail = collisions
+        .map((names) => names.map((name) => `"${name}"`).join(' and '))
+        .join('; ')
+      return failureOutcome(
+        `Sanitized directory name collision: ${detail}`,
+        `These skills would install into the same directory: ${detail}. Rename one of them and try again.`,
+      )
+    }
+
     // --- Install each skill serially: lock read-modify-write must not race itself ---
     const agentTargets = nonUniversalTargets(options.agents)
     const results: SkillInstallItemResult[] = []

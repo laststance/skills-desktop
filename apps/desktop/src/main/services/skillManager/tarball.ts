@@ -260,17 +260,29 @@ function parseStringField(
  */
 function parsePaxRecords(content: Buffer): Map<string, string> {
   const records = new Map<string, string>()
-  const text = content.toString('utf-8')
+  // Record lengths are BYTE counts over the raw content, so all slicing
+  // happens on the Buffer; only the key/value text is decoded. Slicing a
+  // UTF-8-decoded string by those byte offsets misaligns every record after
+  // a multibyte character — a Japanese path would come out with the trailing
+  // newline (or the next record) attached and never match a real SKILL.md.
   let offset = 0
-  while (offset < text.length) {
-    const spaceIndex = text.indexOf(' ', offset)
+  while (offset < content.length) {
+    const spaceIndex = content.indexOf(0x20, offset)
     if (spaceIndex === -1) break
-    const length = Number.parseInt(text.slice(offset, spaceIndex), 10)
+    const length = Number.parseInt(
+      content.toString('ascii', offset, spaceIndex),
+      10,
+    )
     if (!Number.isFinite(length) || length <= 0) break
-    const record = text.slice(spaceIndex + 1, offset + length - 1)
-    const equalsIndex = record.indexOf('=')
+    const recordEnd = offset + length - 1 // the record's trailing newline
+    if (recordEnd > content.length) break
+    const record = content.subarray(spaceIndex + 1, recordEnd)
+    const equalsIndex = record.indexOf(0x3d) // '='
     if (equalsIndex > 0) {
-      records.set(record.slice(0, equalsIndex), record.slice(equalsIndex + 1))
+      records.set(
+        record.toString('utf-8', 0, equalsIndex),
+        record.toString('utf-8', equalsIndex + 1),
+      )
     }
     offset += length
   }

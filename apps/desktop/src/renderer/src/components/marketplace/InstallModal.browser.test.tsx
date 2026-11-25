@@ -373,6 +373,9 @@ describe('InstallModal target selection', () => {
     await expect
       .element(screen.getByRole('alert'))
       .toHaveTextContent('Repository "acme/tools" was not found on GitHub.')
+    // Let the install handler's trailing microtasks finish so the outcome is
+    // fully settled before the test tears the component down.
+    await new Promise((resolve) => setTimeout(resolve, 0))
   })
 
   test('closes without an error alert once the install succeeds', async () => {
@@ -389,5 +392,8 @@ describe('InstallModal target selection', () => {
     await expect
       .poll(() => document.querySelector('[role="dialog"]'))
       .toBeNull()
+    // Let the install handler's trailing microtasks finish so the outcome is
+    // fully settled before the test tears the component down.
+    await new Promise((resolve) => setTimeout(resolve, 0))
   })
 })

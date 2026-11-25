@@ -505,6 +505,74 @@ describe('marketplaceSlice', () => {
     expect(store.getState().marketplace.status).toBe('idle')
   })
 
+  test('clears a previous install error when a different skill is selected', async () => {
+    // Arrange — skill A's install has just failed inside its still-open modal.
+    mockInstall.mockResolvedValue({
+      success: false,
+      results: [],
+      userMessage:
+        'Repository "vercel-labs/skill-task" was not found on GitHub.',
+    })
+    const store = await createTestStore()
+    const { selectSkillForInstall, installSkill } =
+      await import('./marketplaceSlice')
+    store.dispatch(selectSkillForInstall(sampleResult))
+    await store.dispatch(
+      installSkill({
+        repo: repositoryId('vercel-labs/skill-task'),
+        global: true,
+        agents: [],
+      }),
+    )
+    expect(store.getState().marketplace.error).toBe(
+      'Repository "vercel-labs/skill-task" was not found on GitHub.',
+    )
+
+    // Act — the user dismisses A and opens skill B instead.
+    store.dispatch(selectSkillForInstall(null))
+    store.dispatch(
+      selectSkillForInstall({
+        name: toSkillName('other-skill'),
+        repo: repositoryId('acme/other-skill'),
+      }),
+    )
+
+    // Assert — A's failure reason must not hang over B's dialog.
+    expect(store.getState().marketplace.error).toBeNull()
+    expect(store.getState().marketplace.status).toBe('idle')
+  })
+
+  test('keeps the install error visible while the same skill stays selected', async () => {
+    // Arrange — a failed install inside the still-open modal.
+    mockInstall.mockResolvedValue({
+      success: false,
+      results: [],
+      userMessage:
+        'Repository "vercel-labs/skill-task" was not found on GitHub.',
+    })
+    const store = await createTestStore()
+    const { selectSkillForInstall, installSkill } =
+      await import('./marketplaceSlice')
+    store.dispatch(selectSkillForInstall(sampleResult))
+    await store.dispatch(
+      installSkill({
+        repo: repositoryId('vercel-labs/skill-task'),
+        global: true,
+        agents: [],
+      }),
+    )
+
+    // Act — re-dispatching the very same selection (the dialog re-renders or
+    // the user re-opens the identical skill) must not wipe the reason.
+    store.dispatch(selectSkillForInstall(sampleResult))
+
+    // Assert
+    expect(store.getState().marketplace.error).toBe(
+      'Repository "vercel-labs/skill-task" was not found on GitHub.',
+    )
+    expect(store.getState().marketplace.status).toBe('error')
+  })
+
   test('surfaces the failure message when an install request errors out', async () => {
     // Arrange
     mockInstall.mockRejectedValue(new Error('Install failed'))

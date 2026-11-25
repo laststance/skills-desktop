@@ -163,10 +163,12 @@ export const InstallModal = function InstallModal(): React.ReactElement {
     }
 
     const action = await dispatch(installSkill(options))
+    // A failed install can still leave a copied canonical tree behind — the
+    // copy step precedes the linking/verification it failed at — so the
+    // installed list refreshes on every outcome. Closing stays success-only:
+    // on failure the modal remains open with the inline error.
+    dispatch(fetchSkills())
     if (installSkill.fulfilled.match(action) && action.payload.success) {
-      // Refresh the skills list only after a verified install — on failure the
-      // modal stays open with the inline error and nothing needs re-scanning.
-      dispatch(fetchSkills())
       handleClose()
     }
   }

@@ -1,5 +1,13 @@
 import * as fs from 'node:fs/promises'
-import { basename, dirname, join, relative, resolve } from 'node:path'
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+  sep,
+} from 'node:path'
 
 import { errorCode, isMissingPathError } from '@/main/utils/errorCode'
 
@@ -76,16 +84,63 @@ async function copyDirectory(src: string, dest: string): Promise<void> {
   }
 }
 
+/** True when `inner` is the same path as `outer` or anywhere beneath it. */
+function isSameOrInside(outer: string, inner: string): boolean {
+  const rel = relative(outer, inner)
+  return (
+    rel === '' ||
+    (!rel.startsWith(`..${sep}`) && rel !== '..' && !isAbsolute(rel))
+  )
+}
+
+/**
+ * True when `a` and `b` are the same path or one contains the other, compared
+ * on realpath-resolved absolute paths so symlinks cannot hide the overlap.
+ */
+function pathsOverlap(a: string, b: string): boolean {
+  return isSameOrInside(a, b) || isSameOrInside(b, a)
+}
+
+/**
+ * Resolve a path for overlap comparison even when it does not exist yet:
+ * realpath the nearest existing ancestor form (the parent directory) and
+ * re-attach the final segment, falling back to lexical resolution.
+ */
+async function realpathLenient(path: string): Promise<string> {
+  try {
+    return await fs.realpath(path)
+  } catch {
+    try {
+      return join(await fs.realpath(dirname(path)), basename(path))
+    } catch {
+      return resolve(path)
+    }
+  }
+}
+
 /**
  * Wipe `destDir` and recopy the skill tree into it — the CLI's canonical
  * install semantics. Reinstalls therefore never accumulate stale files.
+ * Refuses when source and destination overlap: a local install pointed at
+ * the canonical tree itself (or at an agent dir the copy falls back to)
+ * would otherwise delete the very tree it copies from.
  * @param srcDir - Source tree (extracted repo subdir or local skill dir).
  * @param destDir - Canonical target, e.g. `~/.agents/skills/<name>`.
+ * @throws Error when `srcDir` and `destDir` are the same or nested paths.
  */
 export async function copySkillTree(
   srcDir: string,
   destDir: string,
 ): Promise<void> {
+  const [realSrc, realDest] = await Promise.all([
+    realpathLenient(srcDir),
+    realpathLenient(destDir),
+  ])
+  if (pathsOverlap(realSrc, realDest)) {
+    throw new Error(
+      `Install source and destination overlap: ${srcDir} -> ${destDir}`,
+    )
+  }
   await fs.rm(destDir, { recursive: true, force: true })
   await fs.mkdir(destDir, { recursive: true })
   await copyDirectory(srcDir, destDir)

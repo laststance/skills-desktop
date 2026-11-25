@@ -3,7 +3,7 @@ import * as fs from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join, relative } from 'node:path'
 
-import { errorCode } from '@/main/utils/errorCode'
+import { errorCode, isMissingPathError } from '@/main/utils/errorCode'
 import { extractErrorMessage } from '@/main/utils/errors'
 import { fsyncPath } from '@/main/utils/fsyncPath'
 
@@ -125,6 +125,73 @@ async function writeSkillLock(lock: SkillLockFile): Promise<void> {
 }
 
 /**
+ * Read the lock for a read-modify-write cycle — stricter than
+ * {@link readSkillLock}, because a false "empty" here is not a display
+ * glitch: the following write would replace every record the file held.
+ * Only a provably-missing file reads as empty; transient or hard fs errors
+ * (`EMFILE`, `EIO`, `EACCES`, …) propagate so the install fails instead of
+ * destroying the records. Unparseable bytes are still an empty lock (the
+ * CLI's forgiveness rule), but they are first renamed aside so the
+ * overwrite never destroys evidence a user could recover by hand.
+ */
+async function readSkillLockForWrite(): Promise<SkillLockFile> {
+  const lockPath = getSkillLockPath()
+  let content: string
+  try {
+    content = await fs.readFile(lockPath, 'utf-8')
+  } catch (error) {
+    if (isMissingPathError(error)) return createEmptyLock()
+    throw error
+  }
+  let validLock: SkillLockFile | null = null
+  try {
+    const parsed: unknown = JSON.parse(content)
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      'version' in parsed &&
+      typeof parsed.version === 'number' &&
+      'skills' in parsed &&
+      typeof parsed.skills === 'object' &&
+      parsed.skills !== null &&
+      parsed.version >= SKILL_LOCK_VERSION
+    ) {
+      validLock = parsed as SkillLockFile
+    }
+  } catch {
+    // Unparseable — handled as corrupt below.
+  }
+  if (validLock) return validLock
+  // A pre-v3 schema reads as empty WITHOUT a backup: that is the CLI's
+  // documented migration path, not corruption. Everything else — torn JSON,
+  // wrong shape — is corrupt bytes the overwrite would destroy, so preserve
+  // them beside the lock before continuing with empty-lock forgiveness.
+  let isLegacyVersion = false
+  try {
+    const parsed: unknown = JSON.parse(content)
+    isLegacyVersion =
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      'version' in parsed &&
+      typeof parsed.version === 'number' &&
+      parsed.version < SKILL_LOCK_VERSION
+  } catch {
+    // Unparseable — corrupt by definition.
+  }
+  if (!isLegacyVersion) {
+    const backupPath = `${lockPath}.corrupt-${Date.now()}`
+    await fs.rename(lockPath, backupPath).catch((error: unknown) => {
+      // A failed backup must not block the write — an unwriteable lock
+      // surfaces properly at writeSkillLock with the real reason.
+      console.warn(
+        `skillManager: could not back up corrupt lock to ${backupPath}: ${extractErrorMessage(error)}`,
+      )
+    })
+  }
+  return createEmptyLock()
+}
+
+/**
  * Entry fields `addSkillToLock` accepts. Declared explicitly rather than as
  * an `Omit` of {@link SkillLockEntry} because `Omit` over an index-signature
  * type erases the required properties from the spread result.
@@ -151,7 +218,7 @@ export async function addSkillToLock(
   rawName: string,
   entry: SkillLockEntryInput,
 ): Promise<void> {
-  const lock = await readSkillLock()
+  const lock = await readSkillLockForWrite()
   const now = new Date().toISOString()
   const existingEntry = lock.skills[rawName]
   lock.skills[rawName] = {
@@ -168,7 +235,7 @@ export async function addSkillToLock(
  * @returns true when the entry existed and was removed.
  */
 export async function removeSkillFromLock(rawName: string): Promise<boolean> {
-  const lock = await readSkillLock()
+  const lock = await readSkillLockForWrite()
   if (!(rawName in lock.skills)) return false
   delete lock.skills[rawName]
   await writeSkillLock(lock)

@@ -306,6 +306,44 @@ describe('parseUstar hostile shapes', () => {
   })
 })
 
+describe('parseUstar pax extended headers', () => {
+  test('reads a pax path containing multibyte characters byte-exactly', () => {
+    // Arrange — a Japanese directory name in a pax extended header. The
+    // record length prefix counts BYTES, so a parser that slices the decoded
+    // string misaligns the record and the path comes out with the trailing
+    // newline (or the next record) attached.
+    const japanesePath = 'repo-main/スキル/日本語ディレクトリ/SKILL.md'
+    const recordPayload = `path=${japanesePath}\n`
+    const payloadBytes = Buffer.byteLength(recordPayload, 'utf-8')
+    // The length prefix covers its own digits, the space, payload, newline.
+    // Digit count depends on the total, so iterate once to stabilize.
+    let length = payloadBytes + 2 // space + rough digit allowance
+    length = payloadBytes + 1 + String(length).length
+    const paxRecord = `${length} ${recordPayload}`
+    const paxContent = Buffer.from(paxRecord, 'utf-8')
+    const paxHeader = header({
+      name: 'pax',
+      typeflag: 'x',
+      size: paxContent.length,
+    })
+    const body = Buffer.from('skill body', 'utf-8')
+    const fileHeader = header({
+      name: 'ignored-name',
+      typeflag: '0',
+      size: body.length,
+    })
+    const tar = tarOf([paxHeader, padded(paxContent), fileHeader, padded(body)])
+
+    // Act
+    const entries = parseUstar(tar)
+
+    // Assert — the multibyte path arrives without trailing junk.
+    expect(entries).toHaveLength(1)
+    expect(entries[0].path).toBe(japanesePath)
+    expect(entries[0].content.toString('utf-8')).toBe('skill body')
+  })
+})
+
 describe('stripSharedTopLevelDir', () => {
   test('removes the single shared first component codeload wraps everything in', () => {
     // Arrange

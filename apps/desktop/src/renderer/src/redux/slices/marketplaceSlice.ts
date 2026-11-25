@@ -140,6 +140,15 @@ const marketplaceSlice = createSlice({
       state,
       action: PayloadAction<InstallIntent | null>,
     ) => {
+      // An install error belongs to the skill it failed for: switching the
+      // selection must not paint that reason over another skill's dialog,
+      // while re-opening the same skill keeps it visible.
+      const previous = state.selectedSkill
+      const next = action.payload
+      if (previous?.name !== next?.name || previous?.repo !== next?.repo) {
+        if (state.status === 'error') state.status = 'idle'
+        state.error = null
+      }
       state.selectedSkill = action.payload
     },
     setInstallProgress: (
