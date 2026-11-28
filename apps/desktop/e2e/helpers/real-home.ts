@@ -163,22 +163,28 @@ export async function preflightRealHome(
     claude: await snapshotProtectedDirectory(protectedDirs[0]),
     cursor: await snapshotProtectedDirectory(protectedDirs[1]),
   }
-  const canonicalProtectedDirs = await Promise.all(
-    protectedDirs.map(async (dir) => canonicalPathEvenIfMissing(dir)),
-  )
-  for (const writeDir of [sourceSkillsDir, gooseSkillsDir]) {
-    const canonicalWriteDir = await canonicalPathEvenIfMissing(writeDir)
-    const canonicalAzureTarget = join(canonicalWriteDir, 'azure-ai')
-    for (const protectedDir of canonicalProtectedDirs) {
-      if (
-        isSameOrInside(canonicalWriteDir, protectedDir) ||
-        isSameOrInside(canonicalAzureTarget, protectedDir)
-      ) {
-        reasons.push(
-          `install target resolves into a protected skill directory: ${writeDir} -> ${canonicalWriteDir}`,
-        )
+  try {
+    const canonicalProtectedDirs = await Promise.all(
+      protectedDirs.map(async (dir) => canonicalPathEvenIfMissing(dir)),
+    )
+    for (const writeDir of [sourceSkillsDir, gooseSkillsDir]) {
+      const canonicalWriteDir = await canonicalPathEvenIfMissing(writeDir)
+      const canonicalAzureTarget = join(canonicalWriteDir, 'azure-ai')
+      for (const protectedDir of canonicalProtectedDirs) {
+        if (
+          isSameOrInside(canonicalWriteDir, protectedDir) ||
+          isSameOrInside(canonicalAzureTarget, protectedDir)
+        ) {
+          reasons.push(
+            `install target resolves into a protected skill directory: ${writeDir} -> ${canonicalWriteDir}`,
+          )
+        }
       }
     }
+  } catch (error) {
+    reasons.push(
+      `preflight could not safely resolve real-HOME symlinks: ${error instanceof Error ? error.message : String(error)}`,
+    )
   }
 
   return {
