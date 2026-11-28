@@ -187,7 +187,16 @@ test('real HOME azure-ai install and delete keep app display equal to filesystem
   )
 
   const home = homedir()
-  const preflight = await preflightRealHome(home)
+  let preflight: Awaited<ReturnType<typeof preflightRealHome>>
+  try {
+    preflight = await preflightRealHome(home)
+  } catch (error) {
+    test.skip(
+      true,
+      `real-HOME preflight could not safely inspect the host: ${error instanceof Error ? error.message : String(error)}`,
+    )
+    throw error
+  }
   test.skip(
     !preflight.ok,
     `real-HOME preflight failed without mutation: ${preflight.reasons.join('; ')}`,
