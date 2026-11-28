@@ -25,7 +25,7 @@ import {
   selectSkillForInstall,
   installSkill,
 } from '@/renderer/src/redux/slices/marketplaceSlice'
-import { fetchSkills } from '@/renderer/src/redux/slices/skillsSlice'
+import { refreshAllData } from '@/renderer/src/redux/thunks'
 import { UNIVERSAL_AGENT_IDS } from '@/shared/constants'
 import type { AgentId, InstallOptions } from '@/shared/types'
 
@@ -167,7 +167,7 @@ export const InstallModal = function InstallModal(): React.ReactElement {
     // copy step precedes the linking/verification it failed at — so the
     // installed list refreshes on every outcome. Closing stays success-only:
     // on failure the modal remains open with the inline error.
-    dispatch(fetchSkills())
+    refreshAllData(dispatch)
     if (installSkill.fulfilled.match(action) && action.payload.success) {
       handleClose()
     }

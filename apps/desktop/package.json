@@ -17,6 +17,7 @@
     "test:coverage": "vitest run --coverage",
     "build:e2e": "E2E_BUILD=1 electron-vite build",
     "test:e2e": "pnpm build:e2e && playwright test --config=e2e/playwright.config.ts",
+    "test:e2e:real-fs": "pnpm build:e2e && playwright test --config=e2e/playwright.real-fs.config.ts",
     "test:e2e:headed": "pnpm build:e2e && playwright test --config=e2e/playwright.config.ts --headed",
     "test:release:macos-window": "node scripts/verify-macos-window-rendering.mjs",
     "test:packaged:backgrounds": "node scripts/verify-packaged-backgrounds.mjs",

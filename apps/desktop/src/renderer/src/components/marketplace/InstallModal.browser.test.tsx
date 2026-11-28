@@ -7,7 +7,9 @@ import {
   repositoryId,
   toAbsolutePath,
   toHttpUrl,
+  toHumanFileSize,
   toInstallCount,
+  toIsoTimestamp,
   toSkillCount,
   toSkillName,
   toSkillRank,
@@ -22,6 +24,8 @@ const mockLeaderboard = vi.fn()
 const mockSkillsGetAll = vi.fn()
 const mockAgentsGetAll = vi.fn()
 const mockOnDeleteProgress = vi.fn(() => (): void => {})
+const mockScanStaleLockEntries = vi.fn()
+const mockGetSourceStats = vi.fn()
 
 /**
  * Build a minimal Marketplace skill fixture for install dialog tests.
@@ -73,11 +77,20 @@ beforeEach(() => {
   mockSkillsGetAll.mockReset()
   mockAgentsGetAll.mockReset()
   mockOnDeleteProgress.mockClear()
+  mockScanStaleLockEntries.mockReset()
+  mockGetSourceStats.mockReset()
 
   mockInstall.mockResolvedValue({ success: true, results: [] })
   mockSkillsGetAll.mockResolvedValue([])
   mockAgentsGetAll.mockResolvedValue([])
   mockLeaderboard.mockResolvedValue([])
+  mockScanStaleLockEntries.mockResolvedValue({ status: 'ok', names: [] })
+  mockGetSourceStats.mockResolvedValue({
+    path: toAbsolutePath('/home/user/.agents/skills'),
+    skillCount: toSkillCount(0),
+    totalSize: toHumanFileSize('0 B'),
+    lastModified: toIsoTimestamp('2026-01-01T00:00:00.000Z'),
+  })
 
   vi.stubGlobal('electron', {
     skillsCli: {
@@ -89,9 +102,13 @@ beforeEach(() => {
     skills: {
       getAll: mockSkillsGetAll,
       onDeleteProgress: mockOnDeleteProgress,
+      scanStaleLockEntries: mockScanStaleLockEntries,
     },
     agents: {
       getAll: mockAgentsGetAll,
+    },
+    source: {
+      getStats: mockGetSourceStats,
     },
     marketplace: {
       leaderboard: mockLeaderboard,
@@ -351,6 +368,47 @@ describe('InstallModal target selection', () => {
       skills: ['task'],
     })
   })
+
+  test.each([
+    {
+      outcome: 'success' as const,
+      installResult: { success: true, results: [] },
+    },
+    {
+      outcome: 'settled failure' as const,
+      installResult: {
+        success: false,
+        results: [],
+        userMessage: 'install failed',
+      },
+    },
+  ])(
+    'refreshes skills, agents, source stats, and lock scan after a $outcome install',
+    async ({ installResult }) => {
+      // Arrange — one initial agent fetch happens while rendering the modal.
+      mockInstall.mockResolvedValue(installResult)
+      const { screen } = await renderInstallModal({
+        skill: makeSkill(),
+        agents: [makeAgent({ id: 'claude-code', name: 'Claude Code' })],
+      })
+      mockSkillsGetAll.mockClear()
+      mockAgentsGetAll.mockClear()
+      mockGetSourceStats.mockClear()
+      mockScanStaleLockEntries.mockClear()
+
+      // Act
+      await screen.getByRole('button', { name: 'Install' }).click()
+
+      // Assert — the mutation refresh fan-out is complete even when install
+      // returns a settled failure, because a partial copied tree may exist.
+      await expect.poll(() => mockSkillsGetAll.mock.calls.length).toBe(1)
+      await expect.poll(() => mockAgentsGetAll.mock.calls.length).toBe(1)
+      await expect.poll(() => mockGetSourceStats.mock.calls.length).toBe(1)
+      await expect
+        .poll(() => mockScanStaleLockEntries.mock.calls.length)
+        .toBe(1)
+    },
+  )
 
   test("stays open with the manager's reason visible when the install fails", async () => {
     // Arrange — a well-formed failure outcome: the modal must not close and
