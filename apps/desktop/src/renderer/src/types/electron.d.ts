@@ -31,9 +31,9 @@ import type {
   PruneLockEntriesResult,
   StaleLockScanResult,
   RankingFilter,
+  SkillInstallOutcome,
   SkillSearchResult,
   InstallOptions,
-  CliCommandResult,
   CliCommandStatus,
   InstallProgress,
   UnlinkFromAgentOptions,
@@ -156,7 +156,7 @@ declare global {
       }
       skillsCli: {
         search: (query: string) => Promise<SkillSearchResult[]>
-        install: (options: InstallOptions) => Promise<CliCommandResult>
+        install: (options: InstallOptions) => Promise<SkillInstallOutcome>
         cancel: () => Promise<void>
         onProgress: (
           callback: (progress: InstallProgress) => void,

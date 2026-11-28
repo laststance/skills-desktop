@@ -24,7 +24,10 @@ import type {
 } from '@/shared/types'
 import { toAbsolutePath, toSkillName } from '@/shared/types'
 
-import { skillsCliService } from './skillsCliService'
+import {
+  skillManager,
+  sanitizeName as managerSanitizeName,
+} from './skillManager'
 
 /**
  * Lock schema version the CLI understands. Anything lower is wiped by the CLI
@@ -45,9 +48,6 @@ const skillLockSchema = z.object({
 
 /** Filename the CLI uses for the global lock, under both path layouts. */
 const LOCK_FILE = '.skill-lock.json'
-
-/** Directory-name cap the CLI's `sanitizeName` applies (`installer.ts`). */
-const MAX_DIR_NAME_LENGTH = 255
 
 /**
  * How long evicted names sit in the queue before one batched CLI call.
@@ -73,14 +73,15 @@ let lockWriteChain: Promise<unknown> = Promise.resolve()
 /**
  * Serialize anything that causes the skills CLI to rewrite the global lock, and
  * undo the write when it leaves the file torn.
- * `writeSkillLock` in the CLI is a plain `writeFile` with no temp+rename, and
- * a half-written lock parses as an EMPTY lock, silently dropping every skill
- * the user installed. One chain is cheaper than making the CLI atomic; the
- * chain alone cannot help when {@link SkillsCliService.cancel} SIGTERMs the
- * only writer there is, which is what {@link restoreLockIfTorn} is for.
+ * The manager's own lock writes are atomic (temp + fsync + rename), but the
+ * user can still run `npx skills` by hand — the CLI's `writeSkillLock` is a
+ * plain `writeFile` with no temp+rename, and a half-written lock parses as
+ * an EMPTY lock, silently dropping every skill the user installed. The chain
+ * serializes the app's writers against each other; {@link restoreLockIfTorn}
+ * is what repairs an external tear before it can spread.
  * @param operation - Work to run once no other lock write is in flight.
  * @returns Whatever `operation` resolves to.
- * @example await runLockWrite(() => skillsCliService.install(options))
+ * @example await runLockWrite(() => skillManager.install(options))
  */
 export async function runLockWrite<T>(operation: () => Promise<T>): Promise<T> {
   /** Snapshots INSIDE the chain: at queue time it would predate the write ahead of us. */
@@ -102,8 +103,8 @@ export async function runLockWrite<T>(operation: () => Promise<T>): Promise<T> {
 
 /**
  * Resolve the global lock path exactly as the skills CLI does.
- * Read at call time, not cached, because `XDG_STATE_HOME` can differ between
- * the Electron process and the `npx` child we spawn.
+ * Read at call time, not cached, because `XDG_STATE_HOME` is an environment
+ * input that can differ between processes.
  * @returns Absolute path to the lock file the CLI would read.
  * @example getSkillLockPath() // => '/Users/me/.agents/.skill-lock.json'
  */
@@ -158,9 +159,9 @@ async function snapshotLock(): Promise<LockSnapshot> {
 
 /**
  * Put the pre-operation lock back when the operation left the file unparseable.
- * {@link SkillsCliService.cancel} SIGTERMs an already-spawned install at a
- * moment the user picks, and the CLI writes the lock with no temp+rename, so a
- * signal landing between the `O_TRUNC` open and the write loses every install
+ * The user can still run `npx skills` side-by-side with this app, and the
+ * CLI writes the lock with no temp+rename, so a crash or signal landing
+ * between its `O_TRUNC` open and the write loses every install
  * record — a truncated lock reads as an EMPTY one. Repairs damage only: a
  * legitimately emptied lock is still valid JSON (`{version, skills:{}}`), so
  * this can never undo a real write. Never throws, because it is awaited from a
@@ -221,12 +222,8 @@ async function restoreLockIfTorn(snapshot: LockSnapshot): Promise<void> {
  * @returns Directory name the CLI would have created for that key.
  * @example sanitizeName('CE:Review') // => 'ce-review'
  */
-export function sanitizeName(name: string): string {
-  const sanitized = name
-    .toLowerCase()
-    .replace(/[^a-z0-9._]+/g, '-')
-    .replace(/^[.\-]+|[.\-]+$/g, '')
-  return sanitized.substring(0, MAX_DIR_NAME_LENGTH) || 'unnamed-skill'
+function sanitizeName(name: string): string {
+  return managerSanitizeName(name)
 }
 
 /** Outcome of reading the lock: keys, or an honest "we could not tell". */
@@ -782,7 +779,7 @@ export async function pruneLockEntries(
 
     // Raw keys, not sanitized — the CLI looks the record up by raw name and
     // sanitizes internally when it resolves paths.
-    await skillsCliService.removeSkills(delegable)
+    await skillManager.remove(delegable)
 
     const after = await readSkillLockKeys()
     if (after.status !== 'ok') {

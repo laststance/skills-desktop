@@ -62,7 +62,7 @@ function getInstallAgentIds(
  */
 export const InstallModal = function InstallModal(): React.ReactElement {
   const dispatch = useAppDispatch()
-  const { selectedSkill, status, installProgress } = useAppSelector(
+  const { selectedSkill, status, installProgress, error } = useAppSelector(
     (state) => state.marketplace,
   )
   const { items: agents } = useAppSelector((state) => state.agents)
@@ -162,10 +162,15 @@ export const InstallModal = function InstallModal(): React.ReactElement {
       skills: [selectedSkill.name],
     }
 
-    await dispatch(installSkill(options))
-    // Refresh the skills list after installation
+    const action = await dispatch(installSkill(options))
+    // A failed install can still leave a copied canonical tree behind — the
+    // copy step precedes the linking/verification it failed at — so the
+    // installed list refreshes on every outcome. Closing stays success-only:
+    // on failure the modal remains open with the inline error.
     dispatch(fetchSkills())
-    handleClose()
+    if (installSkill.fulfilled.match(action) && action.payload.success) {
+      handleClose()
+    }
   }
 
   return (
@@ -244,6 +249,15 @@ export const InstallModal = function InstallModal(): React.ReactElement {
               </div>
             )}
           </div>
+
+          {!isInstalling && error && (
+            <div
+              role="alert"
+              className="mt-4 rounded-md border border-destructive/40 bg-destructive/10 p-3"
+            >
+              <p className="text-sm text-destructive">{error}</p>
+            </div>
+          )}
 
           {isInstalling && installProgress && (
             <div className="mt-4 p-3 bg-primary/10 rounded-md">

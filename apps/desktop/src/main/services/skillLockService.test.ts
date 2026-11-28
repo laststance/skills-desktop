@@ -23,6 +23,8 @@ import {
 
 import { toSkillName } from '@/shared/types'
 
+import type * as CopyLayout from './skillManager/copyLayout'
+
 // Stamped synchronously at module load: `main/constants` computes SOURCE_DIR
 // and TRASH_DIR from homedir() at import time, so the value has to exist
 // before the mock factory below is evaluated.
@@ -46,20 +48,34 @@ vi.mock('os', async () => {
 })
 
 /**
- * Stands in for `npx skills remove`. Rewrites the lock exactly like the real
- * CLI does so the service's verify-by-re-reading-the-lock logic runs for real
- * instead of trusting a stubbed return value.
+ * Stands in for the skill manager's `remove`. Rewrites the lock exactly like
+ * the real implementation does so the service's verify-by-re-reading-the-lock
+ * logic runs for real instead of trusting a stubbed return value — the
+ * orchestration under test is the lock service's, not the manager's, which
+ * has its own real-filesystem integration tests.
  */
 const { removeSkillsMock } = vi.hoisted(() => ({
-  removeSkillsMock:
-    vi.fn<(names: readonly string[]) => Promise<{ success: boolean }>>(),
+  removeSkillsMock: vi.fn<
+    (names: readonly string[]) => Promise<{
+      success: boolean
+      results: { name: string; success: boolean }[]
+    }>
+  >(),
 }))
 
-vi.mock('./skillsCliService', () => ({
-  skillsCliService: {
-    removeSkills: async (names: readonly string[]) => removeSkillsMock(names),
-  },
-}))
+vi.mock('./skillManager', async () => {
+  const copyLayout = await vi.importActual<typeof CopyLayout>(
+    './skillManager/copyLayout',
+  )
+  return {
+    skillManager: {
+      remove: async (names: readonly string[]) => removeSkillsMock(names),
+    },
+    // The name canonicalization must stay real: half the service's job is
+    // comparing raw lock keys against the sanitized directories they own.
+    sanitizeName: copyLayout.sanitizeName,
+  }
+})
 
 const serviceModule = import('./skillLockService')
 
@@ -167,7 +183,10 @@ beforeEach(async () => {
     const lock = JSON.parse(raw)
     for (const name of names) delete lock.skills[name]
     await writeFile(lockPath, JSON.stringify(lock), 'utf-8')
-    return { success: true }
+    return {
+      success: true,
+      results: names.map((name) => ({ name, success: true })),
+    }
   })
   const { __resetPruneQueueForTests } = await serviceModule
   __resetPruneQueueForTests()
@@ -769,7 +788,7 @@ describe('pruneLockEntries', () => {
     // to be decided by re-reading the lock.
     const { pruneLockEntries } = await serviceModule
     await writeLock(['stubborn-record'])
-    removeSkillsMock.mockResolvedValue({ success: true })
+    removeSkillsMock.mockResolvedValue({ success: true, results: [] })
 
     // Act
     const result = await pruneLockEntries([toSkillName('stubborn-record')])
@@ -818,7 +837,7 @@ describe('pruneLockEntries', () => {
     await writeLock(['half-written'])
     removeSkillsMock.mockImplementation(async () => {
       await writeFile(lockPath, '{ "version": 3, "skills": { ', 'utf-8')
-      return { success: true }
+      return { success: true, results: [] }
     })
 
     // Act
@@ -948,7 +967,7 @@ describe('resolveLockKeyForDirectory', () => {
       announceTruncated()
       await new Promise((resolve) => setTimeout(resolve, 20))
       await writeFile(lockPath, finalContent, 'utf-8')
-      return { success: true }
+      return { success: true, results: [] }
     })
 
     // Act
@@ -1011,7 +1030,10 @@ describe('queuePrune', () => {
     // service verifies by re-reading and must say so when the key survives.
     const { queuePrune, flushPruneQueue } = await serviceModule
     await writeLock(['stubborn-skill'])
-    removeSkillsMock.mockImplementation(async () => ({ success: true }))
+    removeSkillsMock.mockImplementation(async () => ({
+      success: true,
+      results: [],
+    }))
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     // Act

@@ -26,7 +26,6 @@ import type {
   ClearBrokenSymlinkSlotsOptions,
   ClearBrokenSymlinkSlotsResult,
   CliCommandOperationResult,
-  CliCommandResult,
   CliCommandStatus,
   CopyToAgentsOptions,
   CopyToAgentsResult,
@@ -57,6 +56,7 @@ import type {
   SkillBinaryContent,
   SkillFile,
   SkillFileContent,
+  SkillInstallOutcome,
   SkillSearchResult,
   SourceStats,
   StaleLockScanResult,
@@ -147,7 +147,7 @@ export interface IpcInvokeContract {
     result: SkillBinaryContent | null
   }
   'skills:cli:search': { args: [SearchQuery]; result: SkillSearchResult[] }
-  'skills:cli:install': { args: [InstallOptions]; result: CliCommandResult }
+  'skills:cli:install': { args: [InstallOptions]; result: SkillInstallOutcome }
   'skills:cli:cancel': { args: []; result: void }
   'marketplace:leaderboard': {
     args: [{ filter: RankingFilter }]

@@ -74,7 +74,7 @@ beforeEach(() => {
   mockAgentsGetAll.mockReset()
   mockOnDeleteProgress.mockClear()
 
-  mockInstall.mockResolvedValue({ success: true })
+  mockInstall.mockResolvedValue({ success: true, results: [] })
   mockSkillsGetAll.mockResolvedValue([])
   mockAgentsGetAll.mockResolvedValue([])
   mockLeaderboard.mockResolvedValue([])
@@ -350,5 +350,50 @@ describe('InstallModal target selection', () => {
       agents: ['claude-code', 'goose'],
       skills: ['task'],
     })
+  })
+
+  test("stays open with the manager's reason visible when the install fails", async () => {
+    // Arrange — a well-formed failure outcome: the modal must not close and
+    // the dialog-safe message renders inline so the user can retry.
+    mockInstall.mockResolvedValue({
+      success: false,
+      results: [],
+      userMessage: 'Repository "acme/tools" was not found on GitHub.',
+    })
+    const { screen } = await renderInstallModal({
+      skill: makeSkill(),
+      agents: [makeAgent({ id: 'claude-code', name: 'Claude Code' })],
+    })
+
+    // Act
+    await screen.getByRole('button', { name: 'Install' }).click()
+
+    // Assert — the dialog stays open with the reason rendered inline.
+    await expect.element(screen.getByRole('dialog')).toBeVisible()
+    await expect
+      .element(screen.getByRole('alert'))
+      .toHaveTextContent('Repository "acme/tools" was not found on GitHub.')
+    // Let the install handler's trailing microtasks finish so the outcome is
+    // fully settled before the test tears the component down.
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+
+  test('closes without an error alert once the install succeeds', async () => {
+    // Arrange
+    const { screen } = await renderInstallModal({
+      skill: makeSkill(),
+      agents: [makeAgent({ id: 'claude-code', name: 'Claude Code' })],
+    })
+
+    // Act
+    await screen.getByRole('button', { name: 'Install' }).click()
+
+    // Assert — success closes the modal outright.
+    await expect
+      .poll(() => document.querySelector('[role="dialog"]'))
+      .toBeNull()
+    // Let the install handler's trailing microtasks finish so the outcome is
+    // fully settled before the test tears the component down.
+    await new Promise((resolve) => setTimeout(resolve, 0))
   })
 })

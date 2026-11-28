@@ -67,6 +67,7 @@
     "sonner": "catalog:",
     "tailwind-merge": "catalog:",
     "ts-pattern": "catalog:",
+    "yaml": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

@@ -75,15 +75,15 @@ export const searchSkills = createAsyncThunk(
 )
 
 /**
- * Install a skill from the marketplace
+ * Install a skill from the marketplace.
  * @param options - Installation options including repo, global flag, and agents
- * @returns Promise<boolean> - Success status
+ * @returns The full install outcome; `success` is verified on disk and
+ *   `userMessage` carries a dialog-safe failure reason when it is false.
  */
 export const installSkill = createAsyncThunk(
   'marketplace/install',
   async (options: InstallOptions) => {
-    const result = await window.electron.skillsCli.install(options)
-    return result.success
+    return await window.electron.skillsCli.install(options)
   },
 )
 
@@ -140,6 +140,15 @@ const marketplaceSlice = createSlice({
       state,
       action: PayloadAction<InstallIntent | null>,
     ) => {
+      // An install error belongs to the skill it failed for: switching the
+      // selection must not paint that reason over another skill's dialog,
+      // while re-opening the same skill keeps it visible.
+      const previous = state.selectedSkill
+      const next = action.payload
+      if (previous?.name !== next?.name || previous?.repo !== next?.repo) {
+        if (state.status === 'error') state.status = 'idle'
+        state.error = null
+      }
       state.selectedSkill = action.payload
     },
     setInstallProgress: (
@@ -205,13 +214,17 @@ const marketplaceSlice = createSlice({
       })
       .addCase(installSkill.fulfilled, (state, action) => {
         state.installProgress = null
-        if (action.payload) {
+        if (action.payload.success) {
           state.status = 'idle'
           state.selectedSkill = null
           state.previewSkill = null
+          state.error = null
         } else {
+          // Failure keeps the modal open: `selectedSkill` stays set and the
+          // dialog renders `error` inline, so the user can retry or re-target
+          // instead of re-discovering the skill from scratch.
           state.status = 'error'
-          state.error = 'Installation failed'
+          state.error = action.payload.userMessage ?? 'Installation failed'
         }
       })
       .addCase(installSkill.rejected, (state, action) => {
