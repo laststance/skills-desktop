@@ -24,6 +24,7 @@
     "test": "pnpm --filter skills-desktop test",
     "test:coverage": "pnpm --filter skills-desktop test:coverage",
     "test:e2e": "pnpm --filter skills-desktop test:e2e",
+    "test:e2e:real-fs": "pnpm --filter skills-desktop test:e2e:real-fs",
     "test:e2e:headed": "pnpm --filter skills-desktop test:e2e:headed",
     "test:contract": "pnpm --filter @skills-desktop/unsplash-contract test",
     "test:release:macos-window": "pnpm --filter skills-desktop test:release:macos-window",

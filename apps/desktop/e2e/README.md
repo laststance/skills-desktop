@@ -67,3 +67,41 @@ Download is clicked. The fake ZIP then returns 404, so the spec observes Update
 Error without staging or installing an update. The flow records video in the test output.
 
 `spec/skills-tree.e2e.ts` adds two throwaway skills with three nested files under the isolated HOME. It verifies Tree-to-Inspector navigation, List/Tree continuity, temporary Files-tab intent and view preference persistence across a real Electron restart. New fixture files never overwrite hardlinked snapshot content. Manual visual QA additionally attaches `playwright-cli` to the isolated Electron CDP port and records the expand/preview/collapse flow; screenshots alone are not motion evidence.
+
+## Opt-in real-filesystem lane
+
+`spec-real/real-filesystem.e2e.ts` is intentionally outside the default
+`spec/` tree. It verifies the production chain that the hermetic lane cannot:
+real `$HOME`, real GitHub download, real global lock file, real Goose symlink,
+real Marketplace UI, and displayed state equal to independently measured
+filesystem truth. It is **not** part of CI or `pnpm test:e2e`.
+
+Run it only when you intentionally allow the app to install and then delete the
+throwaway `azure-ai` skill on this machine:
+
+```bash
+env -u ELECTRON_RUN_AS_NODE E2E_REAL_HOME=1 pnpm test:e2e:real-fs
+```
+
+The lane fail-closed skips before any mutation when the opt-in variable is
+missing, `azure-ai` already exists in the canonical source/lock/any agent path/
+app trash, or Goose is unavailable as the sacrificial non-protected target. It
+uses a temporary Electron `userData` directory, so app settings and Chromium
+storage do not touch the real profile. `PATH` points at an empty test-created
+directory as a tripwire for PATH-resolved `npx`/Node/git/gh delegation; that is
+strong evidence for the intended dependency check, though not a proof against a
+hypothetical absolute-path subprocess.
+
+What may be mutated during a passing run:
+
+- `~/.agents/skills/azure-ai` (installed, then deleted)
+- `~/.config/goose/skills/azure-ai` (symlink installed, then removed)
+- the real skills lock entry for `azure-ai` (added, then pruned after the app's
+  15-second undo window)
+
+What must not be mutated: `~/.claude/skills` and `~/.cursor/skills`. The test
+snapshots their top-level entries before the run and compares them after
+install, after delete, and at final cleanup. It never selects Claude Code and
+never writes to Cursor. If a failure leaves `azure-ai` behind, inspect the test
+output before removing anything manually; cleanup is identity-guarded and stops
+when ownership is ambiguous.
