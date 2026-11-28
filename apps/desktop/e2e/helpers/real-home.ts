@@ -34,8 +34,13 @@ import {
  */
 async function canonicalPathEvenIfMissing(path: string): Promise<string> {
   const missingSegments: string[] = []
+  const visited = new Set<string>()
   let current = path
   for (;;) {
+    if (visited.has(current)) {
+      throw new Error(`cannot resolve symlink cycle or unstable path: ${path}`)
+    }
+    visited.add(current)
     try {
       return join(await realpath(current), ...missingSegments)
     } catch (error) {
