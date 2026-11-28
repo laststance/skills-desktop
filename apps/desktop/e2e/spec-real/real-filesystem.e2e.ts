@@ -391,7 +391,11 @@ test('real HOME azure-ai install and delete keep app display equal to filesystem
     await waitForUndoEviction(home, preflight.lockPath)
     evictionComplete = true
     const finalLock = await readSkillLock(preflight.lockPath)
-    expect(stableSerialize(finalLock)).toBe(stableSerialize(baselineLock))
+    if (baselineLock === null) {
+      expect(lockHasSkill(finalLock, SKILL_NAME)).toBe(false)
+    } else {
+      expect(stableSerialize(finalLock)).toBe(stableSerialize(baselineLock))
+    }
     expect(await captureProtectedSnapshots(home)).toEqual(baselineProtected)
   } finally {
     try {

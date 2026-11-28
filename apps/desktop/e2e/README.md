@@ -102,6 +102,8 @@ What may be mutated during a passing run:
 What must not be mutated: `~/.claude/skills` and `~/.cursor/skills`. The test
 snapshots their top-level entries before the run and compares them after
 install, after delete, and at final cleanup. It never selects Claude Code and
-never writes to Cursor. If a failure leaves `azure-ai` behind, inspect the test
+never writes to Cursor. A transient protected write that is completely reverted
+between two comparison checkpoints cannot be detected. If a failure leaves
+`azure-ai` behind, inspect the test
 output before removing anything manually; cleanup is identity-guarded and stops
 when ownership is ambiguous.

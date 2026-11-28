@@ -1,6 +1,6 @@
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, dirname, isAbsolute, join, relative } from 'node:path'
 
 import type { ElectronApplication } from '@playwright/test'
 
@@ -16,6 +16,45 @@ import {
   trashEntriesForSkill,
   type ProtectedDirectorySnapshot,
 } from './filesystem-truth'
+
+/**
+ * Resolve symlinks in the deepest existing ancestor, then reattach missing suffixes.
+ * Exists because preflight must detect aliases before the azure-ai child exists.
+ * @param path - Absolute path being checked.
+ * @returns Canonical path even when the leaf does not exist yet.
+ * @example canonicalPathEvenIfMissing('/home/user/.config/goose/skills')
+ */
+async function canonicalPathEvenIfMissing(path: string): Promise<string> {
+  const missingSegments: string[] = []
+  let current = path
+  for (;;) {
+    try {
+      return join(await realpath(current), ...missingSegments)
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code
+      if (code !== 'ENOENT' && code !== 'ENOTDIR') throw error
+      missingSegments.unshift(basename(current))
+      const parent = dirname(current)
+      if (parent === current) throw error
+      current = parent
+    }
+  }
+}
+
+/**
+ * Check whether a canonical child path is a protected directory or inside it.
+ * @param child - Canonical candidate path.
+ * @param parent - Canonical protected directory.
+ * @returns True when writing the child can affect the protected tree.
+ * @example isSameOrInside('/home/user/.claude/skills/x', '/home/user/.claude/skills')
+ */
+function isSameOrInside(child: string, parent: string): boolean {
+  const relativePath = relative(parent, child)
+  return (
+    relativePath === '' ||
+    (!relativePath.startsWith('..') && !isAbsolute(relativePath))
+  )
+}
 
 export interface ProtectedSnapshots {
   claude: ProtectedDirectorySnapshot
@@ -62,7 +101,8 @@ export async function preflightRealHome(
   home: string,
 ): Promise<RealHomePreflight> {
   const reasons: string[] = []
-  const sourceAzure = join(home, '.agents', 'skills', 'azure-ai')
+  const sourceSkillsDir = join(home, '.agents', 'skills')
+  const sourceAzure = join(sourceSkillsDir, 'azure-ai')
   const trashDir = join(home, '.agents', '.trash')
   const lockPath = realSkillLockPath(home)
   const gooseSkillsDir = join(home, '.config', 'goose', 'skills')
@@ -95,9 +135,30 @@ export async function preflightRealHome(
     reasons.push('Goose skills directory is missing')
   }
 
+  const protectedDirs = [
+    join(home, '.claude', 'skills'),
+    join(home, '.cursor', 'skills'),
+  ]
   const protectedSnapshots = {
-    claude: await snapshotProtectedDirectory(join(home, '.claude', 'skills')),
-    cursor: await snapshotProtectedDirectory(join(home, '.cursor', 'skills')),
+    claude: await snapshotProtectedDirectory(protectedDirs[0]),
+    cursor: await snapshotProtectedDirectory(protectedDirs[1]),
+  }
+  const canonicalProtectedDirs = await Promise.all(
+    protectedDirs.map(async (dir) => canonicalPathEvenIfMissing(dir)),
+  )
+  for (const writeDir of [sourceSkillsDir, gooseSkillsDir]) {
+    const canonicalWriteDir = await canonicalPathEvenIfMissing(writeDir)
+    const canonicalAzureTarget = join(canonicalWriteDir, 'azure-ai')
+    for (const protectedDir of canonicalProtectedDirs) {
+      if (
+        isSameOrInside(canonicalWriteDir, protectedDir) ||
+        isSameOrInside(canonicalAzureTarget, protectedDir)
+      ) {
+        reasons.push(
+          `install target resolves into a protected skill directory: ${writeDir} -> ${canonicalWriteDir}`,
+        )
+      }
+    }
   }
 
   return {
