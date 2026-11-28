@@ -83,7 +83,8 @@ function parseSkillLockContent(content: string): ParsedSkillLock {
     typeof parsed.version !== 'number' ||
     !('skills' in parsed) ||
     typeof parsed.skills !== 'object' ||
-    parsed.skills === null
+    parsed.skills === null ||
+    Array.isArray(parsed.skills)
   ) {
     return { kind: 'invalid-shape' }
   }

@@ -174,7 +174,10 @@ async function parseSkillMd(
 
 /**
  * Recursive full-tree scan used as the discovery fallback: every directory
- * with a SKILL.md down to depth 5, skipping noise directories.
+ * with a SKILL.md down to depth 5, skipping noise directories. Update passes
+ * fullDepth because a lock's recorded path must not become a false
+ * missing-upstream result merely because it lives below the install-time
+ * discovery depth.
  */
 async function findSkillDirs(
   dir: string,
@@ -327,7 +330,11 @@ export async function discoverSkills(
   // 3) Full scan when priority layout found nothing, or when update resolution
   //    explicitly needs every same-name/moved location in the tree.
   if (skills.length === 0 || options.fullDepth) {
-    const allSkillDirs = await findSkillDirs(searchPath)
+    const allSkillDirs = await findSkillDirs(
+      searchPath,
+      0,
+      options.fullDepth ? Number.POSITIVE_INFINITY : 5,
+    )
     for (const skillDir of allSkillDirs) {
       const skill = await parseSkillAt(skillDir)
       if (

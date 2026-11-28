@@ -933,6 +933,33 @@ describe('remove', () => {
     await expect(lstat(agentPath)).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
+  test('reports a per-item failure and deletes nothing when the skill lock cannot be read', async () => {
+    // Arrange — a directory at the lock path makes readFile fail with EISDIR,
+    // standing in for a hard I/O failure rather than a missing lock.
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', alphaFixtureEntries())
+    await skillManager.install({ source: 'acme/skills', agents: [] })
+    await rm(lockPath, { force: true })
+    await mkdir(lockPath)
+
+    // Act
+    const outcome = await skillManager.remove(['alpha-skill'])
+
+    // Assert
+    expect(outcome.success).toBe(false)
+    expect(outcome.results).toHaveLength(1)
+    expect(outcome.results[0]).toMatchObject({
+      name: 'alpha-skill',
+      success: false,
+    })
+    expect(outcome.results[0].userMessage).toContain(
+      '"alpha-skill" could not be removed because the skill lock could not be read:',
+    )
+    expect((await stat(join(sourceDir, 'alpha-skill'))).isDirectory()).toBe(
+      true,
+    )
+  })
+
   test('reports an unknown name as a per-item failure', async () => {
     // Arrange
     const { skillManager } = await managerModule
@@ -2112,6 +2139,26 @@ describe('update global GitHub skills', () => {
     )
   })
 
+  test('fails instead of reporting a successful empty update when lock skills is an array', async () => {
+    // Arrange
+    const { skillManager } = await managerModule
+    await writeFile(
+      lockPath,
+      JSON.stringify({ version: 3, skills: [] }),
+      'utf-8',
+    )
+
+    // Act
+    const outcome = await skillManager.update()
+
+    // Assert
+    expect(outcome.success).toBe(false)
+    expect(outcome.results).toEqual([])
+    expect(outcome.userMessage).toBe(
+      'Skill update failed: Skill lock has an invalid shape',
+    )
+  })
+
   test('fails instead of reporting a successful empty update when the lock is corrupt', async () => {
     // Arrange
     const { skillManager } = await managerModule
@@ -2125,6 +2172,39 @@ describe('update global GitHub skills', () => {
     expect(outcome.results).toEqual([])
     expect(outcome.userMessage).toBe(
       'Skill update failed: Skill lock is corrupted and cannot be checked for updates',
+    )
+  })
+
+  test('follows a skill moved below the install-time discovery depth instead of reporting it missing upstream', async () => {
+    // Arrange — both locations are deeper than the depth-5 fallback used for
+    // install discovery; update's full-tree scan must not inherit that limit.
+    const { skillManager } = await managerModule
+    const originalDir = 'deep/one/two/three/four/five/six/deep-skill'
+    const movedDir = 'moved/one/two/three/four/five/six/deep-skill'
+    const deepSkillMd =
+      '---\n' +
+      'name: deep-skill\n' +
+      'description: Deep moved skill\n' +
+      '---\n' +
+      '# Deep\n'
+    routeRepo('acme/skills', [
+      fileEntry(`${originalDir}/SKILL.md`, deepSkillMd),
+    ])
+    const installOutcome = await skillManager.install({
+      source: `acme/skills/${originalDir}`,
+      agents: [],
+    })
+    expect(installOutcome.success).toBe(true)
+    routeRepo('acme/skills', [fileEntry(`${movedDir}/SKILL.md`, deepSkillMd)])
+
+    // Act
+    const outcome = await skillManager.update()
+
+    // Assert
+    expect(outcome.success).toBe(true)
+    expect(outcome.results).toEqual([{ name: 'deep-skill', status: 'updated' }])
+    expect((await readLock()).skills['deep-skill'].skillPath).toBe(
+      `${movedDir}/SKILL.md`,
     )
   })
 

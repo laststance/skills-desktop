@@ -115,7 +115,21 @@ async function scanCanonicalFolderNames(): Promise<string[]> {
 export async function removeSkills(
   names: readonly string[],
 ): Promise<SkillRemoveOutcome> {
-  const lock = await readSkillLock()
+  let lock
+  try {
+    lock = await readSkillLock()
+  } catch (error) {
+    const message = extractErrorMessage(error)
+    return {
+      success: false,
+      results: names.map((requested) => ({
+        name: requested,
+        success: false,
+        error: message,
+        userMessage: `"${requested}" could not be removed because the skill lock could not be read: ${message}`,
+      })),
+    }
+  }
   const lockKeys = Object.keys(lock.skills)
   const sourceByKey: Record<string, string | undefined> = {}
   for (const key of lockKeys) {
