@@ -2208,6 +2208,31 @@ describe('update global GitHub skills', () => {
     )
   })
 
+  test('checks a skill installed from a dist subpath instead of reporting it missing upstream', async () => {
+    // Arrange — install scopes discovery directly to the dist subpath, while
+    // update scans from the repo root where dist is ordinarily skipped noise.
+    const { skillManager } = await managerModule
+    const distSkillMd =
+      '---\n' +
+      'name: dist-skill\n' +
+      'description: Dist subpath skill\n' +
+      '---\n' +
+      '# Dist\n'
+    routeRepo('acme/skills', [fileEntry('dist/example/SKILL.md', distSkillMd)])
+    const installOutcome = await skillManager.install({
+      source: 'acme/skills/dist/example',
+      agents: [],
+    })
+    expect(installOutcome.success).toBe(true)
+
+    // Act
+    const outcome = await skillManager.update()
+
+    // Assert
+    expect(outcome.success).toBe(true)
+    expect(outcome.results).toEqual([{ name: 'dist-skill', status: 'current' }])
+  })
+
   test('reports an upstream-missing skill without deleting the installed copy', async () => {
     // Arrange
     const { skillManager } = await managerModule

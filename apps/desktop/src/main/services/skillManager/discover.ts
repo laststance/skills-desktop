@@ -234,6 +234,8 @@ export interface DiscoverSkillsOptions {
   includeDuplicateNames?: boolean
   /** Scan the whole tree even when priority discovery already found skills. */
   fullDepth?: boolean
+  /** Repo-relative SKILL.md paths that must be considered even under skipped noise directories. */
+  requiredSkillPaths?: readonly string[]
 }
 
 export async function discoverSkills(
@@ -262,6 +264,16 @@ export async function discoverSkills(
     if (parsedSkillPaths.has(skillMdPath)) return null
     parsedSkillPaths.add(skillMdPath)
     return parseSkillMd(skillMdPath, basePath)
+  }
+
+  const addDiscoveredSkill = (skill: DiscoveredSkill | null): void => {
+    if (
+      skill &&
+      (options.includeDuplicateNames || !seenNames.has(skill.name))
+    ) {
+      skills.push(skill)
+      seenNames.add(skill.name)
+    }
   }
 
   // 1) A SKILL.md directly at the search root means a single-skill source.
@@ -327,6 +339,15 @@ export async function discoverSkills(
     await walkSkillDirs(dir, deepContainerDirs.has(dir) ? 3 : 1)
   }
 
+  // Locked paths are authoritative update inputs. Parse them directly because
+  // install can target a directory whose own name is noise in a repo-root scan
+  // (`dist`, `build`, ...); skipping it here would fabricate missing-upstream.
+  for (const requiredPath of options.requiredSkillPaths ?? []) {
+    if (!isSubpathSafe(basePath, requiredPath)) continue
+    const skillDir = dirname(join(basePath, requiredPath))
+    addDiscoveredSkill(await parseSkillAt(skillDir))
+  }
+
   // 3) Full scan when priority layout found nothing, or when update resolution
   //    explicitly needs every same-name/moved location in the tree.
   if (skills.length === 0 || options.fullDepth) {
@@ -336,14 +357,7 @@ export async function discoverSkills(
       options.fullDepth ? Number.POSITIVE_INFINITY : 5,
     )
     for (const skillDir of allSkillDirs) {
-      const skill = await parseSkillAt(skillDir)
-      if (
-        skill &&
-        (options.includeDuplicateNames || !seenNames.has(skill.name))
-      ) {
-        skills.push(skill)
-        seenNames.add(skill.name)
-      }
+      addDiscoveredSkill(await parseSkillAt(skillDir))
     }
   }
 

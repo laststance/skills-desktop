@@ -570,14 +570,17 @@ async function processGroup(
   try {
     const snapshot = await fetchGroupSnapshot(first, group, signal)
     tempDir = await writeEntriesToTempDir(snapshot.entries)
+    const locked = lockedItemsForGroup(lock, first)
     const discovered = await discoverSkills(tempDir, undefined, {
       fullDepth: true,
       includeDuplicateNames: true,
+      requiredSkillPaths: locked
+        .map((item) => item.entry.skillPath)
+        .filter(
+          (skillPath): skillPath is string => typeof skillPath === 'string',
+        ),
     })
-    const resolution = resolveSkillLocations(
-      lockedItemsForGroup(lock, first),
-      discovered,
-    )
+    const resolution = resolveSkillLocations(locked, discovered)
     return await processItemsInContext(
       group,
       {
