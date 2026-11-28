@@ -1,23 +1,28 @@
-import type { SkillInstallOutcome, SkillSearchResult } from '@/shared/types'
+import type {
+  SkillInstallOutcome,
+  SkillSearchResult,
+  SkillUpdateOutcome,
+} from '@/shared/types'
 
 import { installSkills, type SkillManagerInstallOptions } from './install'
 import { removeSkills, type SkillRemoveOutcome } from './remove'
 import { searchSkills } from './search'
+import { updateSkills, type SkillManagerUpdateOptions } from './update'
 
 /**
  * Public interface of the skill manager — the deep module that owns every
- * install/remove/search operation the app previously shelled out to
+ * install/remove/update/search operation the app previously shelled out to
  * `npx skills` for (docs/adr/0003). Everything outside this directory
  * consumes the manager through this one seam; the sibling files are internal
  * implementation and must never be imported directly.
  *
- * Concurrency contract: `install` and `remove` mutate the global lock with
- * read-modify-write cycles and MUST run inside the app's `runLockWrite`
- * mutex — the IPC layer and the prune flow both do. `search` is read-only
- * network IO and needs no serialization.
+ * Concurrency contract: `install`, `remove`, and `update` mutate the global
+ * lock with read-modify-write cycles and MUST run inside the app's
+ * `runLockWrite` mutex — the IPC layer and the prune flow both do. `search`
+ * is read-only network IO and needs no serialization.
  */
 
-/** The manager's surface. Small on purpose: three verbs and one type re-export. */
+/** The manager's surface. Small on purpose: four verbs and type re-exports. */
 export interface SkillManager {
   /**
    * Install skills from a GitHub repo or local directory into the universal
@@ -41,6 +46,12 @@ export interface SkillManager {
    * must not masquerade as an empty result list.
    */
   search(query: string): Promise<SkillSearchResult[]>
+  /**
+   * Check globally locked GitHub skills for upstream changes and reinstall
+   * only entries whose hash or path changed. Unsupported, ambiguous, and
+   * upstream-missing entries are reported without deleting local content.
+   */
+  update(options?: SkillManagerUpdateOptions): Promise<SkillUpdateOutcome>
 }
 
 /**
@@ -52,12 +63,14 @@ export const skillManager: SkillManager = {
   install: installSkills,
   remove: removeSkills,
   search: searchSkills,
+  update: updateSkills,
 }
 
 // Option/outcome types consumers need to speak to the manager. Re-exported
 // here so the seam is one import; the internal files stay private.
 export type { SkillManagerInstallOptions } from './install'
 export type { SkillRemoveOutcome } from './remove'
+export type { SkillManagerUpdateOptions } from './update'
 
 /**
  * Lock-key ↔ directory-name canonicalization, re-exported for the lock

@@ -315,6 +315,24 @@ function routeRepo(ownerRepo: string, entries: FixtureEntry[]): void {
   })
 }
 
+/** Route the recursive git-tree API for legacy 40-hex lock hashes. */
+function routeRepoTree(
+  ownerRepo: string,
+  folderPath: string,
+  treeSha: string,
+  rootSha = 'c'.repeat(40),
+): void {
+  fixture.routes.set(`/repos/${ownerRepo}/git/trees/main?recursive=1`, {
+    status: 200,
+    body: JSON.stringify({
+      sha: rootSha,
+      tree: [{ path: folderPath, type: 'tree', sha: treeSha }],
+      truncated: false,
+    }),
+    contentType: 'application/json',
+  })
+}
+
 /** Read and parse the global lock straight off disk. */
 async function readLock(): Promise<{
   version: number
@@ -1750,6 +1768,45 @@ describe('destructive-operation guards', () => {
     expect(await readLock().catch(() => null)).toBeNull()
   })
 
+  test('refuses a later install whose sanitized directory collides with an existing lock entry', async () => {
+    // Arrange — install alpha-skill first, then attempt a separate install of
+    // a distinct raw frontmatter name that sanitizes to the same directory.
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', alphaFixtureEntries())
+    await skillManager.install({ source: 'acme/skills', agents: [] })
+    const collidingSkillMd = ALPHA_SKILL_MD.replace(
+      'name: alpha-skill',
+      'name: Alpha Skill',
+    )
+    routeRepo('other/repo', [
+      dirEntry('skills'),
+      dirEntry('skills/colliding'),
+      fileEntry('skills/colliding/SKILL.md', collidingSkillMd),
+    ])
+
+    // Act
+    const outcome = await skillManager.install({
+      source: 'other/repo',
+      agents: [],
+    })
+
+    // Assert — the second install fails before copying, leaving the first
+    // skill's canonical bytes and lock entry intact.
+    expect(outcome.success).toBe(false)
+    expect(outcome.results).toEqual([
+      {
+        name: 'Alpha Skill',
+        success: false,
+        userMessage:
+          '"Alpha Skill" cannot be installed because the existing lock entry "alpha-skill" uses the same on-disk directory.',
+      },
+    ])
+    expect(
+      await readFile(join(sourceDir, 'alpha-skill', 'SKILL.md'), 'utf-8'),
+    ).toBe(ALPHA_SKILL_MD)
+    expect((await readLock()).skills['Alpha Skill']).toBeUndefined()
+  })
+
   test('does not overwrite the lock when it cannot be read back for a write', async () => {
     // Arrange — a healthy lock with records turns unreadable mid-flight
     // (chmod 000 stands in for EMFILE/EIO-style transient fs failures).
@@ -1890,5 +1947,558 @@ describe('destructive-operation guards', () => {
     )
     warnSpy.mockRestore()
     expect(outcome?.success).toBe(false)
+  })
+})
+
+describe('update global GitHub skills', () => {
+  test('reports an unchanged content-hash skill as current without mutating files or the lock hash', async () => {
+    // Arrange
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', alphaFixtureEntries())
+    await skillManager.install({ source: 'acme/skills', agents: [] })
+    const beforeBytes = await readFile(
+      join(sourceDir, 'alpha-skill', 'SKILL.md'),
+      'utf-8',
+    )
+    const beforeLock = await readLock()
+
+    // Act
+    const outcome = await skillManager.update()
+
+    // Assert
+    expect(outcome.success).toBe(true)
+    expect(outcome.results).toEqual([
+      { name: 'alpha-skill', status: 'current' },
+    ])
+    expect(
+      await readFile(join(sourceDir, 'alpha-skill', 'SKILL.md'), 'utf-8'),
+    ).toBe(beforeBytes)
+    expect((await readLock()).skills['alpha-skill'].skillFolderHash).toBe(
+      beforeLock.skills['alpha-skill'].skillFolderHash,
+    )
+  })
+
+  test('updates changed upstream bytes, refreshes the content hash, and preserves installedAt', async () => {
+    // Arrange
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', alphaFixtureEntries())
+    await skillManager.install({
+      source: 'acme/skills',
+      agents: ['claude-code'],
+    })
+    const beforeLock = await readLock()
+    const changedSkillMd = ALPHA_SKILL_MD.replace(
+      'Body text here.',
+      'Updated body text.',
+    )
+    routeRepo(
+      'acme/skills',
+      alphaFixtureEntries().map((entry) =>
+        entry.path === 'skills/alpha-skill/SKILL.md'
+          ? fileEntry(entry.path, changedSkillMd, entry.mode)
+          : entry,
+      ),
+    )
+
+    // Act
+    const outcome = await skillManager.update()
+
+    // Assert
+    expect(outcome.success).toBe(true)
+    expect(outcome.results).toEqual([
+      { name: 'alpha-skill', status: 'updated' },
+    ])
+    expect(
+      await readFile(join(sourceDir, 'alpha-skill', 'SKILL.md'), 'utf-8'),
+    ).toBe(changedSkillMd)
+    const linkPath = join(sharedHome, '.claude', 'skills', 'alpha-skill')
+    expect((await lstat(linkPath)).isSymbolicLink()).toBe(true)
+    const afterLock = await readLock()
+    const entry = afterLock.skills['alpha-skill']
+    expect(entry.skillFolderHash).not.toBe(
+      beforeLock.skills['alpha-skill'].skillFolderHash,
+    )
+    expect(entry.installedAt).toBe(beforeLock.skills['alpha-skill'].installedAt)
+  })
+
+  test('compares a legacy 40-hex lock hash as a git tree SHA and updates when it changes', async () => {
+    // Arrange
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', alphaFixtureEntries())
+    const oldTreeSha = 'a'.repeat(40)
+    const newTreeSha = 'b'.repeat(40)
+    routeRepoTree('acme/skills', 'skills/alpha-skill', newTreeSha)
+    await skillManager.install({ source: 'acme/skills', agents: [] })
+    const lock = await readLock()
+    lock.skills['alpha-skill'] = {
+      source: 'acme/skills',
+      sourceType: 'github',
+      sourceUrl: 'https://github.com/acme/skills.git',
+      skillPath: 'skills/alpha-skill/SKILL.md',
+      skillFolderHash: oldTreeSha,
+      installedAt: '2026-01-01T00:00:00.000Z',
+    }
+    await writeFile(lockPath, JSON.stringify(lock), 'utf-8')
+
+    // Act
+    const outcome = await skillManager.update()
+
+    // Assert — reinstall writes a new-style content hash, but the decision to
+    // reinstall came from the tree-SHA comparison rather than a blind update.
+    expect(outcome.success).toBe(true)
+    expect(outcome.results).toEqual([
+      { name: 'alpha-skill', status: 'updated' },
+    ])
+    expect((await readLock()).skills['alpha-skill'].skillFolderHash).toBe(
+      ALPHA_CLI_HASH,
+    )
+  })
+
+  test('reports an upstream-missing skill without deleting the installed copy', async () => {
+    // Arrange
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', alphaFixtureEntries())
+    await skillManager.install({ source: 'acme/skills', agents: [] })
+    routeRepo('acme/skills', betaFixtureEntries())
+
+    // Act
+    const outcome = await skillManager.update()
+
+    // Assert
+    expect(outcome.success).toBe(true)
+    expect(outcome.results[0]).toMatchObject({
+      name: 'alpha-skill',
+      status: 'missing-upstream',
+    })
+    expect(
+      await readFile(join(sourceDir, 'alpha-skill', 'SKILL.md'), 'utf-8'),
+    ).toBe(ALPHA_SKILL_MD)
+    expect((await readLock()).skills['alpha-skill']).toBeDefined()
+  })
+
+  test('skips local-path lock entries with a UI-safe reason', async () => {
+    // Arrange
+    const { skillManager } = await managerModule
+    await writeFile(
+      lockPath,
+      JSON.stringify({
+        version: 3,
+        skills: {
+          'local-skill': {
+            source: '/tmp/local-skill',
+            sourceType: 'local',
+            skillPath: 'SKILL.md',
+            skillFolderHash: ALPHA_CLI_HASH,
+          },
+        },
+        dismissed: {},
+      }),
+      'utf-8',
+    )
+
+    // Act
+    const outcome = await skillManager.update()
+
+    // Assert
+    expect(outcome.success).toBe(true)
+    expect(outcome.results).toEqual([
+      {
+        name: 'local-skill',
+        status: 'skipped',
+        userMessage:
+          '"local-skill" was installed from a local path and cannot be updated automatically.',
+      },
+    ])
+  })
+
+  test('follows a moved upstream skill path and refreshes the lock skillPath', async () => {
+    // Arrange
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', alphaFixtureEntries())
+    await skillManager.install({ source: 'acme/skills', agents: [] })
+    const movedEntries = alphaFixtureEntries().map((entry) => ({
+      ...entry,
+      path: entry.path.replace(/^skills\/alpha-skill/, 'moved/alpha-skill'),
+    }))
+    routeRepo('acme/skills', movedEntries)
+
+    // Act
+    const outcome = await skillManager.update()
+
+    // Assert
+    expect(outcome.success).toBe(true)
+    expect(outcome.results).toEqual([
+      { name: 'alpha-skill', status: 'updated' },
+    ])
+    expect((await readLock()).skills['alpha-skill'].skillPath).toBe(
+      'moved/alpha-skill/SKILL.md',
+    )
+    expect(
+      await readFile(join(sourceDir, 'alpha-skill', 'SKILL.md'), 'utf-8'),
+    ).toBe(ALPHA_SKILL_MD)
+  })
+
+  test('uses the exact locked path to disambiguate duplicate upstream skill names', async () => {
+    // Arrange — the original path still exists, plus a same-name copy elsewhere.
+    const { skillManager } = await managerModule
+    const duplicateEntries = [
+      ...alphaFixtureEntries(),
+      dirEntry('duplicate'),
+      dirEntry('duplicate/alpha-copy'),
+      fileEntry('duplicate/alpha-copy/SKILL.md', ALPHA_SKILL_MD),
+    ]
+    routeRepo('acme/skills', alphaFixtureEntries())
+    await skillManager.install({ source: 'acme/skills', agents: [] })
+    routeRepo('acme/skills', duplicateEntries)
+
+    // Act
+    const outcome = await skillManager.update()
+
+    // Assert — exact `skills/alpha-skill/SKILL.md` wins, so no ambiguity is reported.
+    expect(outcome.success).toBe(true)
+    expect(outcome.results).toEqual([
+      { name: 'alpha-skill', status: 'current' },
+    ])
+  })
+
+  test('skips a skill whose upstream name exists in multiple non-exact locations', async () => {
+    // Arrange — both upstream copies moved away from the locked path.
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', alphaFixtureEntries())
+    await skillManager.install({ source: 'acme/skills', agents: [] })
+    const beforeBytes = await readFile(
+      join(sourceDir, 'alpha-skill', 'SKILL.md'),
+      'utf-8',
+    )
+    routeRepo('acme/skills', [
+      dirEntry('one'),
+      dirEntry('one/alpha-skill'),
+      fileEntry('one/alpha-skill/SKILL.md', ALPHA_SKILL_MD),
+      dirEntry('two'),
+      dirEntry('two/alpha-skill'),
+      fileEntry('two/alpha-skill/SKILL.md', ALPHA_SKILL_MD),
+    ])
+
+    // Act
+    const outcome = await skillManager.update()
+
+    // Assert — success remains true because a safe skip is not a failure.
+    expect(outcome.success).toBe(true)
+    expect(outcome.results[0]).toMatchObject({
+      name: 'alpha-skill',
+      status: 'skipped',
+    })
+    expect(outcome.results[0].userMessage).toContain(
+      'multiple upstream locations',
+    )
+    expect(
+      await readFile(join(sourceDir, 'alpha-skill', 'SKILL.md'), 'utf-8'),
+    ).toBe(beforeBytes)
+  })
+
+  test('reports a fetch failure per item without changing the local install or lock', async () => {
+    // Arrange
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', alphaFixtureEntries())
+    await skillManager.install({ source: 'acme/skills', agents: [] })
+    const beforeLock = await readFile(lockPath, 'utf-8')
+    fixture.routes.set('/acme/skills/tar.gz/main', {
+      status: 500,
+      body: 'boom',
+    })
+
+    // Act
+    const outcome = await skillManager.update()
+
+    // Assert
+    expect(outcome.success).toBe(false)
+    expect(outcome.results[0]).toMatchObject({
+      name: 'alpha-skill',
+      status: 'failed',
+    })
+    expect(outcome.userMessage).toContain('alpha-skill')
+    expect(await readFile(lockPath, 'utf-8')).toBe(beforeLock)
+    expect(
+      await readFile(join(sourceDir, 'alpha-skill', 'SKILL.md'), 'utf-8'),
+    ).toBe(ALPHA_SKILL_MD)
+  })
+
+  test('returns a cancelled failure before fetching and leaves disk untouched', async () => {
+    // Arrange
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', alphaFixtureEntries())
+    await skillManager.install({ source: 'acme/skills', agents: [] })
+    const beforeLock = await readFile(lockPath, 'utf-8')
+    const controller = new AbortController()
+    controller.abort()
+
+    // Act
+    const outcome = await skillManager.update({ signal: controller.signal })
+
+    // Assert
+    expect(outcome.success).toBe(false)
+    expect(outcome.userMessage).toBe('Update cancelled.')
+    expect(outcome.results).toEqual([
+      {
+        name: 'alpha-skill',
+        status: 'failed',
+        userMessage: 'Update cancelled.',
+      },
+    ])
+    expect(await readFile(lockPath, 'utf-8')).toBe(beforeLock)
+    expect(
+      await readFile(join(sourceDir, 'alpha-skill', 'SKILL.md'), 'utf-8'),
+    ).toBe(ALPHA_SKILL_MD)
+  })
+
+  test('updates only the case-insensitively selected lock entries', async () => {
+    // Arrange
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', [
+      ...alphaFixtureEntries(),
+      ...betaFixtureEntries(),
+    ])
+    await skillManager.install({ source: 'acme/skills', agents: [] })
+    const changedSkillMd = ALPHA_SKILL_MD.replace(
+      'Body text here.',
+      'Selected update.',
+    )
+    routeRepo('acme/skills', [
+      ...alphaFixtureEntries().map((entry) =>
+        entry.path === 'skills/alpha-skill/SKILL.md'
+          ? fileEntry(entry.path, changedSkillMd, entry.mode)
+          : entry,
+      ),
+      ...betaFixtureEntries(),
+    ])
+
+    // Act
+    const outcome = await skillManager.update({
+      skillNames: ['ALPHA-skill'],
+    })
+
+    // Assert
+    expect(outcome.results).toEqual([
+      { name: 'alpha-skill', status: 'updated' },
+    ])
+    expect(
+      (await readLock()).skills['Beta Skill'].skillFolderHash,
+    ).toBeDefined()
+  })
+
+  test('compares a root-level legacy tree hash against the repository root tree SHA', async () => {
+    // Arrange — install a root SKILL.md fixture, then rewrite only the hash
+    // into the legacy 40-hex form the real CLI writes.
+    const { skillManager } = await managerModule
+    const rootSha = 'd'.repeat(40)
+    routeRepo('acme/root-skill', [
+      fileEntry('SKILL.md', ALPHA_SKILL_MD),
+      fileEntry('scripts/run.sh', ALPHA_RUN_SH, 0o755),
+    ])
+    routeRepoTree('acme/root-skill', '', 'unused-folder-sha', rootSha)
+    await skillManager.install({ source: 'acme/root-skill', agents: [] })
+    const lock = await readLock()
+    lock.skills['alpha-skill'].skillFolderHash = rootSha
+    await writeFile(lockPath, JSON.stringify(lock), 'utf-8')
+
+    // Act
+    const outcome = await skillManager.update()
+
+    // Assert — the root sha match means no needless reinstall or lock rewrite.
+    expect(outcome.success).toBe(true)
+    expect(outcome.results).toEqual([
+      { name: 'alpha-skill', status: 'current' },
+    ])
+    expect((await readLock()).skills['alpha-skill'].skillFolderHash).toBe(
+      rootSha,
+    )
+  })
+
+  test('skips a malformed lock entry without failing the whole update run', async () => {
+    // Arrange — valid JSON, but the entry lacks the source string update needs.
+    const { skillManager } = await managerModule
+    await writeFile(
+      lockPath,
+      JSON.stringify({
+        version: 3,
+        skills: {
+          'broken-skill': {
+            sourceType: 'github',
+            skillPath: 'skills/broken-skill/SKILL.md',
+            skillFolderHash: ALPHA_CLI_HASH,
+          },
+        },
+        dismissed: {},
+      }),
+      'utf-8',
+    )
+
+    // Act
+    const outcome = await skillManager.update()
+
+    // Assert
+    expect(outcome.success).toBe(true)
+    expect(outcome.results).toEqual([
+      {
+        name: 'broken-skill',
+        status: 'skipped',
+        userMessage:
+          '"broken-skill" has no recorded source, so it cannot be checked for updates.',
+      },
+    ])
+  })
+
+  test('skips lock keys that sanitize to the same on-disk directory instead of letting one wipe the other', async () => {
+    // Arrange — two separately-written lock records collapse to one sanitized
+    // directory name, a state the install-time batch guard cannot prevent.
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', alphaFixtureEntries())
+    await skillManager.install({ source: 'acme/skills', agents: [] })
+    const lock = await readLock()
+    lock.skills['Alpha-Skill'] = { ...lock.skills['alpha-skill'] }
+    await writeFile(lockPath, JSON.stringify(lock), 'utf-8')
+
+    // Act
+    const outcome = await skillManager.update()
+
+    // Assert
+    expect(outcome.success).toBe(true)
+    expect(outcome.results).toEqual([
+      {
+        name: 'alpha-skill',
+        status: 'skipped',
+        userMessage:
+          '"alpha-skill" shares an on-disk directory name with "Alpha-Skill", so automatic update cannot choose safely.',
+      },
+      {
+        name: 'Alpha-Skill',
+        status: 'skipped',
+        userMessage:
+          '"Alpha-Skill" shares an on-disk directory name with "alpha-skill", so automatic update cannot choose safely.',
+      },
+    ])
+  })
+
+  test('does not expand the agent footprint when updating a changed skill', async () => {
+    // Arrange — install with no non-universal agent targets.
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', alphaFixtureEntries())
+    await skillManager.install({ source: 'acme/skills', agents: [] })
+    const changedSkillMd = ALPHA_SKILL_MD.replace(
+      'Body text here.',
+      'Footprint update.',
+    )
+    routeRepo(
+      'acme/skills',
+      alphaFixtureEntries().map((entry) =>
+        entry.path === 'skills/alpha-skill/SKILL.md'
+          ? fileEntry(entry.path, changedSkillMd, entry.mode)
+          : entry,
+      ),
+    )
+
+    // Act
+    const outcome = await skillManager.update()
+
+    // Assert
+    expect(outcome.results).toEqual([
+      { name: 'alpha-skill', status: 'updated' },
+    ])
+    await expect(
+      lstat(join(sharedHome, '.claude', 'skills', 'alpha-skill')),
+    ).rejects.toThrow()
+  })
+
+  test('refuses to replace a real-directory agent slot because that would destroy user edits', async () => {
+    // Arrange — replace the installed Claude symlink with a real directory,
+    // simulating the CLI's copy fallback footprint with possible local edits.
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', alphaFixtureEntries())
+    await skillManager.install({
+      source: 'acme/skills',
+      agents: ['claude-code'],
+    })
+    const claudeSlot = join(sharedHome, '.claude', 'skills', 'alpha-skill')
+    await rm(claudeSlot, { recursive: true, force: true })
+    await mkdir(claudeSlot, { recursive: true })
+    await writeFile(join(claudeSlot, 'SKILL.md'), 'stale copy\n', 'utf-8')
+    const changedSkillMd = ALPHA_SKILL_MD.replace(
+      'Body text here.',
+      'Real directory update.',
+    )
+    routeRepo(
+      'acme/skills',
+      alphaFixtureEntries().map((entry) =>
+        entry.path === 'skills/alpha-skill/SKILL.md'
+          ? fileEntry(entry.path, changedSkillMd, entry.mode)
+          : entry,
+      ),
+    )
+
+    // Act
+    const outcome = await skillManager.update()
+
+    // Assert — the user-owned copy is preserved byte-for-byte, the canonical
+    // install is not half-updated around it, and no absent agent is resurrected.
+    expect(outcome.success).toBe(true)
+    expect(outcome.results).toEqual([
+      {
+        name: 'alpha-skill',
+        status: 'skipped',
+        userMessage: `"alpha-skill" has a real file or directory in an agent slot (${claudeSlot}), so automatic update refused to replace it. Move that copy aside or remove it before updating.`,
+      },
+    ])
+    expect(await readFile(join(claudeSlot, 'SKILL.md'), 'utf-8')).toBe(
+      'stale copy\n',
+    )
+    expect(
+      await readFile(join(sourceDir, 'alpha-skill', 'SKILL.md'), 'utf-8'),
+    ).toBe(ALPHA_SKILL_MD)
+    await expect(
+      lstat(join(sharedHome, '.cursor', 'skills', 'alpha-skill')),
+    ).rejects.toThrow()
+  })
+
+  test('continues updating later source groups after one repository fetch fails', async () => {
+    // Arrange
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', alphaFixtureEntries())
+    await skillManager.install({ source: 'acme/skills', agents: [] })
+    routeRepo('other/repo', betaFixtureEntries())
+    await skillManager.install({ source: 'other/repo', agents: [] })
+    fixture.routes.set('/acme/skills/tar.gz/main', {
+      status: 500,
+      body: 'boom',
+    })
+    const changedBetaMd = BETA_SKILL_MD.replace(
+      '# Beta\n',
+      '# Beta\nBeta changed after another repo failed.\n',
+    )
+    routeRepo(
+      'other/repo',
+      betaFixtureEntries().map((entry) =>
+        entry.path === 'skills/beta-skill/SKILL.md'
+          ? fileEntry(entry.path, changedBetaMd, entry.mode)
+          : entry,
+      ),
+    )
+
+    // Act
+    const outcome = await skillManager.update()
+
+    // Assert
+    expect(outcome.success).toBe(false)
+    expect(outcome.results).toHaveLength(2)
+    expect(outcome.results[0]).toMatchObject({
+      name: 'alpha-skill',
+      status: 'failed',
+    })
+    expect(outcome.results[1]).toEqual({
+      name: 'Beta Skill',
+      status: 'updated',
+    })
+    expect(
+      await readFile(join(sourceDir, 'beta-skill', 'SKILL.md'), 'utf-8'),
+    ).toBe(changedBetaMd)
   })
 })

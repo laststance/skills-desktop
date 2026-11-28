@@ -32,6 +32,8 @@ import type {
   StaleLockScanResult,
   RankingFilter,
   SkillInstallOutcome,
+  SkillUpdateOutcome,
+  UpdateSkillsOptions,
   SkillSearchResult,
   InstallOptions,
   CliCommandStatus,
@@ -157,8 +159,12 @@ declare global {
       skillsCli: {
         search: (query: string) => Promise<SkillSearchResult[]>
         install: (options: InstallOptions) => Promise<SkillInstallOutcome>
+        update: (options?: UpdateSkillsOptions) => Promise<SkillUpdateOutcome>
         cancel: () => Promise<void>
         onProgress: (
+          callback: (progress: InstallProgress) => void,
+        ) => () => void
+        onUpdateProgress: (
           callback: (progress: InstallProgress) => void,
         ) => () => void
       }

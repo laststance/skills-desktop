@@ -226,9 +226,17 @@ function isSubpathSafe(basePath: string, subpath: string): boolean {
  * @throws Error when `subpath` escapes `basePath`.
  * @example await discoverSkills('/tmp/extract', undefined) // => [{ name: 'azure-ai', ... }]
  */
+export interface DiscoverSkillsOptions {
+  /** Keep duplicate frontmatter names instead of first-match-wins. */
+  includeDuplicateNames?: boolean
+  /** Scan the whole tree even when priority discovery already found skills. */
+  fullDepth?: boolean
+}
+
 export async function discoverSkills(
   basePath: string,
   subpath?: string,
+  options: DiscoverSkillsOptions = {},
 ): Promise<DiscoveredSkill[]> {
   if (subpath && !isSubpathSafe(basePath, subpath)) {
     throw new Error(
@@ -259,7 +267,7 @@ export async function discoverSkills(
     if (skill) {
       skills.push(skill)
       seenNames.add(skill.name)
-      return skills
+      if (!options.fullDepth) return skills
     }
   }
 
@@ -280,7 +288,8 @@ export async function discoverSkills(
     const skill = await parseSkillAt(skillDir)
     // An invalid SKILL.md still counts as "handled" so discovery does not
     // descend past it looking for more — same as the CLI.
-    if (!skill || seenNames.has(skill.name)) return true
+    if (!skill || (!options.includeDuplicateNames && seenNames.has(skill.name)))
+      return true
     skills.push(skill)
     seenNames.add(skill.name)
     return true
@@ -315,12 +324,16 @@ export async function discoverSkills(
     await walkSkillDirs(dir, deepContainerDirs.has(dir) ? 3 : 1)
   }
 
-  // 3) Nothing found in the priority layout — fall back to a full scan.
-  if (skills.length === 0) {
+  // 3) Full scan when priority layout found nothing, or when update resolution
+  //    explicitly needs every same-name/moved location in the tree.
+  if (skills.length === 0 || options.fullDepth) {
     const allSkillDirs = await findSkillDirs(searchPath)
     for (const skillDir of allSkillDirs) {
       const skill = await parseSkillAt(skillDir)
-      if (skill && !seenNames.has(skill.name)) {
+      if (
+        skill &&
+        (options.includeDuplicateNames || !seenNames.has(skill.name))
+      ) {
         skills.push(skill)
         seenNames.add(skill.name)
       }

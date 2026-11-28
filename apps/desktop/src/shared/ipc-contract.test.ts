@@ -30,6 +30,7 @@ describe('IPC contract alignment', () => {
       [IPC_CHANNELS.FILES_READ_BINARY]: true,
       [IPC_CHANNELS.SKILLS_CLI_SEARCH]: true,
       [IPC_CHANNELS.SKILLS_CLI_INSTALL]: true,
+      [IPC_CHANNELS.SKILLS_CLI_UPDATE]: true,
       [IPC_CHANNELS.SKILLS_CLI_CANCEL]: true,
       [IPC_CHANNELS.MARKETPLACE_LEADERBOARD]: true,
       [IPC_CHANNELS.SKILLS_LOCK_SCAN_STALE]: true,
@@ -73,7 +74,7 @@ describe('IPC contract alignment', () => {
     // the trip-wire that forces a human PR diff when a channel is added.
     // Assert
     // Detailed listing/read are allowlist-validated; cancellation is sender/frame and generation scoped.
-    expect(invokeChannelKeys).toHaveLength(53)
+    expect(invokeChannelKeys).toHaveLength(54)
   })
 
   test('forces a review by tripping when a push-event channel is added or removed', () => {
@@ -81,6 +82,7 @@ describe('IPC contract alignment', () => {
     // Arrange
     const eventMapping = {
       [IPC_CHANNELS.SKILLS_CLI_PROGRESS]: true,
+      [IPC_CHANNELS.SKILLS_CLI_UPDATE_PROGRESS]: true,
       [IPC_CHANNELS.SKILLS_DELETE_PROGRESS]: true,
       [IPC_CHANNELS.UPDATE_CHECKING]: true,
       [IPC_CHANNELS.UPDATE_AVAILABLE]: true,
@@ -99,6 +101,6 @@ describe('IPC contract alignment', () => {
 
     // Runtime assertion: mapping covers exactly the contract keys
     // Assert
-    expect(eventChannelKeys).toHaveLength(12)
+    expect(eventChannelKeys).toHaveLength(13)
   })
 })

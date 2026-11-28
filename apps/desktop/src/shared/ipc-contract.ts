@@ -57,6 +57,8 @@ import type {
   SkillFile,
   SkillFileContent,
   SkillInstallOutcome,
+  SkillUpdateOutcome,
+  UpdateSkillsOptions,
   SkillSearchResult,
   SourceStats,
   StaleLockScanResult,
@@ -148,6 +150,10 @@ export interface IpcInvokeContract {
   }
   'skills:cli:search': { args: [SearchQuery]; result: SkillSearchResult[] }
   'skills:cli:install': { args: [InstallOptions]; result: SkillInstallOutcome }
+  'skills:cli:update': {
+    args: [UpdateSkillsOptions]
+    result: SkillUpdateOutcome
+  }
   'skills:cli:cancel': { args: []; result: void }
   'marketplace:leaderboard': {
     args: [{ filter: RankingFilter }]
@@ -218,6 +224,7 @@ export interface IpcInvokeContract {
  */
 export interface IpcEventContract {
   'skills:cli:progress': InstallProgress
+  'skills:cli:updateProgress': InstallProgress
   'skills:deleteProgress': DeleteProgressPayload
   'update:checking': void
   'update:available': UpdateInfo
