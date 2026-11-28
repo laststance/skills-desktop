@@ -1,6 +1,14 @@
-import { mkdtemp, realpath, rm } from 'node:fs/promises'
+import { lstat, mkdtemp, readlink, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { basename, dirname, isAbsolute, join, relative } from 'node:path'
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+  sep,
+} from 'node:path'
 
 import type { ElectronApplication } from '@playwright/test'
 
@@ -33,6 +41,11 @@ async function canonicalPathEvenIfMissing(path: string): Promise<string> {
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code
       if (code !== 'ENOENT' && code !== 'ENOTDIR') throw error
+      const entry = await lstat(current).catch(() => null)
+      if (entry?.isSymbolicLink()) {
+        current = resolve(dirname(current), await readlink(current))
+        continue
+      }
       missingSegments.unshift(basename(current))
       const parent = dirname(current)
       if (parent === current) throw error
@@ -52,7 +65,9 @@ function isSameOrInside(child: string, parent: string): boolean {
   const relativePath = relative(parent, child)
   return (
     relativePath === '' ||
-    (!relativePath.startsWith('..') && !isAbsolute(relativePath))
+    (relativePath !== '..' &&
+      !relativePath.startsWith(`..${sep}`) &&
+      !isAbsolute(relativePath))
   )
 }
 
