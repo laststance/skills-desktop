@@ -1053,6 +1053,7 @@ export interface CliCommandOperationResult {
 export interface InstallProgress {
   /** Current pipeline stage. */
   phase:
+    | 'checking'
     | 'fetching'
     | 'extracting'
     | 'copying'
@@ -1093,6 +1094,46 @@ export interface SkillInstallOutcome {
   results: SkillInstallItemResult[]
   /** UI-safe message for an operation-level failure or the first per-skill failure. Absent on success. */
   userMessage?: string
+}
+
+/** One per-skill outcome state of an update run. */
+export type SkillUpdateItemStatus =
+  'updated' | 'current' | 'skipped' | 'missing-upstream' | 'failed'
+
+/**
+ * Per-skill outcome entry of one in-process update run.
+ * @example { name: 'azure-ai', status: 'updated' }
+ */
+export interface SkillUpdateItemResult {
+  /** Raw lock key the update was checked under. */
+  name: string
+  /** Terminal state for this skill. */
+  status: SkillUpdateItemStatus
+  /** UI-safe explanation for skipped, missing-upstream, and failed states. */
+  userMessage?: string
+}
+
+/**
+ * Whole-operation outcome of one in-process update run, returned over the
+ * `skills:cli:update` IPC channel. `success` is false when at least one
+ * selected skill failed to check or reinstall, or when cancellation/a
+ * lock-read problem failed the whole operation; skipped/current/missing
+ * states are informational outcomes a future UI can render without treating
+ * the whole run as broken.
+ */
+export interface SkillUpdateOutcome {
+  /** true only when no selected skill ended in `failed`. */
+  success: boolean
+  /** Per-skill outcomes; empty when no lock entries matched the filter. */
+  results: SkillUpdateItemResult[]
+  /** UI-safe message for an operation-level failure or the first per-skill failure. */
+  userMessage?: string
+}
+
+/** Arguments accepted by the `skills:cli:update` IPC channel. */
+export interface UpdateSkillsOptions {
+  /** Optional exact skill-name filters; omitted means every updateable lock entry. */
+  skills?: string[]
 }
 
 /**

@@ -191,6 +191,86 @@ async function fetchGitHub(
   return response
 }
 
+/** One node in GitHub's recursive git-tree API response. */
+export interface GitHubTreeNode {
+  path: string
+  type: string
+  sha?: string
+}
+
+/** Recursive git-tree response subset update needs for legacy tree-SHA locks. */
+export interface GitHubRepoTree {
+  /** SHA of the repository root tree — the folder hash for root-level skills. */
+  sha: string
+  tree: GitHubTreeNode[]
+}
+
+/**
+ * Fetch a repo's recursive git tree for one ref. Exists only for compatibility
+ * with legacy CLI lock entries whose 40-hex `skillFolderHash` is a git tree
+ * SHA; new installs use content hashes and do not need this API.
+ * @param ownerRepo - `owner/repo` slug.
+ * @param ref - Branch, tag, or sha whose tree should be read.
+ * @param signal - Abortion signal wired to the update cancel path.
+ * @returns Recursive tree nodes as reported by GitHub.
+ * @throws {@link TarballError} when the tree is unavailable or truncated.
+ */
+export async function fetchRepoTree(
+  ownerRepo: string,
+  ref: string,
+  signal?: AbortSignal,
+): Promise<GitHubRepoTree> {
+  const response = await fetchGitHub(
+    `${githubApiBase()}/repos/${ownerRepo}/git/trees/${encodeURIComponent(ref)}?recursive=1`,
+    ownerRepo,
+    signal,
+  )
+  const data = (await response.json()) as {
+    sha?: string
+    tree?: GitHubTreeNode[]
+    truncated?: boolean
+  }
+  if (!Array.isArray(data.tree) || !/^[0-9a-f]{40}$/i.test(data.sha ?? '')) {
+    throw new TarballError(
+      'GitHub tree response carried no valid root sha or tree array',
+      `Could not read the file tree for "${ownerRepo}".`,
+    )
+  }
+  if (data.truncated === true) {
+    throw new TarballError(
+      'GitHub tree response was truncated',
+      `The file tree for "${ownerRepo}" is too large to check safely.`,
+    )
+  }
+  return { sha: data.sha ?? '', tree: data.tree }
+}
+
+/**
+ * Read the git tree SHA for the directory containing one SKILL.md.
+ * @param repoTree - Recursive git tree fetched for the checked ref.
+ * @param skillPath - Repo-relative SKILL.md path from the lock.
+ * @returns 40-hex tree SHA, or null when the folder is absent/malformed.
+ */
+export function getSkillFolderHashFromTree(
+  repoTree: GitHubRepoTree,
+  skillPath: string,
+): string | null {
+  const normalized = skillPath.replace(/\\/g, '/').replace(/\/+/g, '/')
+  const slash = normalized.lastIndexOf('/')
+  const folderPath = slash === -1 ? '' : normalized.slice(0, slash)
+  if (!folderPath) {
+    return /^[0-9a-f]{40}$/i.test(repoTree.sha)
+      ? repoTree.sha.toLowerCase()
+      : null
+  }
+  const node = repoTree.tree.find(
+    (entry) => entry.type === 'tree' && entry.path === folderPath,
+  )
+  return node?.sha && /^[0-9a-f]{40}$/i.test(node.sha)
+    ? node.sha.toLowerCase()
+    : null
+}
+
 /**
  * Resolve a repo's default branch through the GitHub API. Called only when
  * the user did not pin a ref, because codeload has no `HEAD` alias.

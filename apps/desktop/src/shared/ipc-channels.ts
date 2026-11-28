@@ -23,8 +23,10 @@ export const IPC_CHANNELS = {
   // Skills CLI (Marketplace)
   SKILLS_CLI_SEARCH: 'skills:cli:search',
   SKILLS_CLI_INSTALL: 'skills:cli:install',
+  SKILLS_CLI_UPDATE: 'skills:cli:update',
   SKILLS_CLI_CANCEL: 'skills:cli:cancel',
   SKILLS_CLI_PROGRESS: 'skills:cli:progress',
+  SKILLS_CLI_UPDATE_PROGRESS: 'skills:cli:updateProgress',
 
   // Marketplace Leaderboard
   MARKETPLACE_LEADERBOARD: 'marketplace:leaderboard',

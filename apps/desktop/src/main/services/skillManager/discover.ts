@@ -174,7 +174,10 @@ async function parseSkillMd(
 
 /**
  * Recursive full-tree scan used as the discovery fallback: every directory
- * with a SKILL.md down to depth 5, skipping noise directories.
+ * with a SKILL.md down to depth 5, skipping noise directories. Update passes
+ * fullDepth because a lock's recorded path must not become a false
+ * missing-upstream result merely because it lives below the install-time
+ * discovery depth.
  */
 async function findSkillDirs(
   dir: string,
@@ -226,9 +229,19 @@ function isSubpathSafe(basePath: string, subpath: string): boolean {
  * @throws Error when `subpath` escapes `basePath`.
  * @example await discoverSkills('/tmp/extract', undefined) // => [{ name: 'azure-ai', ... }]
  */
+export interface DiscoverSkillsOptions {
+  /** Keep duplicate frontmatter names instead of first-match-wins. */
+  includeDuplicateNames?: boolean
+  /** Scan the whole tree even when priority discovery already found skills. */
+  fullDepth?: boolean
+  /** Repo-relative SKILL.md paths that must be considered even under skipped noise directories. */
+  requiredSkillPaths?: readonly string[]
+}
+
 export async function discoverSkills(
   basePath: string,
   subpath?: string,
+  options: DiscoverSkillsOptions = {},
 ): Promise<DiscoveredSkill[]> {
   if (subpath && !isSubpathSafe(basePath, subpath)) {
     throw new Error(
@@ -253,13 +266,23 @@ export async function discoverSkills(
     return parseSkillMd(skillMdPath, basePath)
   }
 
+  const addDiscoveredSkill = (skill: DiscoveredSkill | null): void => {
+    if (
+      skill &&
+      (options.includeDuplicateNames || !seenNames.has(skill.name))
+    ) {
+      skills.push(skill)
+      seenNames.add(skill.name)
+    }
+  }
+
   // 1) A SKILL.md directly at the search root means a single-skill source.
   if (await hasSkillMd(searchPath)) {
     const skill = await parseSkillAt(searchPath)
     if (skill) {
       skills.push(skill)
       seenNames.add(skill.name)
-      return skills
+      if (!options.fullDepth) return skills
     }
   }
 
@@ -280,7 +303,8 @@ export async function discoverSkills(
     const skill = await parseSkillAt(skillDir)
     // An invalid SKILL.md still counts as "handled" so discovery does not
     // descend past it looking for more — same as the CLI.
-    if (!skill || seenNames.has(skill.name)) return true
+    if (!skill || (!options.includeDuplicateNames && seenNames.has(skill.name)))
+      return true
     skills.push(skill)
     seenNames.add(skill.name)
     return true
@@ -315,15 +339,25 @@ export async function discoverSkills(
     await walkSkillDirs(dir, deepContainerDirs.has(dir) ? 3 : 1)
   }
 
-  // 3) Nothing found in the priority layout — fall back to a full scan.
-  if (skills.length === 0) {
-    const allSkillDirs = await findSkillDirs(searchPath)
+  // Locked paths are authoritative update inputs. Parse them directly because
+  // install can target a directory whose own name is noise in a repo-root scan
+  // (`dist`, `build`, ...); skipping it here would fabricate missing-upstream.
+  for (const requiredPath of options.requiredSkillPaths ?? []) {
+    if (!isSubpathSafe(basePath, requiredPath)) continue
+    const skillDir = dirname(join(basePath, requiredPath))
+    addDiscoveredSkill(await parseSkillAt(skillDir))
+  }
+
+  // 3) Full scan when priority layout found nothing, or when update resolution
+  //    explicitly needs every same-name/moved location in the tree.
+  if (skills.length === 0 || options.fullDepth) {
+    const allSkillDirs = await findSkillDirs(
+      searchPath,
+      0,
+      options.fullDepth ? Number.POSITIVE_INFINITY : 5,
+    )
     for (const skillDir of allSkillDirs) {
-      const skill = await parseSkillAt(skillDir)
-      if (skill && !seenNames.has(skill.name)) {
-        skills.push(skill)
-        seenNames.add(skill.name)
-      }
+      addDiscoveredSkill(await parseSkillAt(skillDir))
     }
   }
 

@@ -67,14 +67,14 @@ function failureOutcome(
   return { success: false, results: [], userMessage }
 }
 
-class InstallAbortError extends Error {
+export class InstallAbortError extends Error {
   constructor() {
     super('Installation cancelled')
     this.name = 'InstallAbortError'
   }
 }
 
-function throwIfAborted(signal?: AbortSignal): void {
+export function throwIfAborted(signal?: AbortSignal): void {
   if (signal?.aborted) throw new InstallAbortError()
 }
 
@@ -86,7 +86,9 @@ function throwIfAborted(signal?: AbortSignal): void {
  * @param entries - Parsed archive entries with the top-level dir stripped.
  * @returns Absolute path of the temp extraction root the caller must clean up.
  */
-async function writeEntriesToTempDir(entries: TarEntry[]): Promise<string> {
+export async function writeEntriesToTempDir(
+  entries: TarEntry[],
+): Promise<string> {
   const rootDir = await fs.mkdtemp(join(tmpdir(), 'skill-manager-'))
   for (const entry of entries) {
     const targetPath = join(rootDir, entry.path)
@@ -165,7 +167,7 @@ async function verifyInstall(
  * copy drops `metadata.json` and cache dirs while the hash must stay
  * comparable to a future upstream fetch of the same folder.
  */
-async function installOneSkill(
+export async function installOneSkill(
   skill: DiscoveredSkill,
   source: GitHubSource | LocalSource,
   refUsed: string | undefined,
@@ -175,6 +177,20 @@ async function installOneSkill(
   const sanitized = sanitizeName(skill.name)
   const canonicalDir = join(SOURCE_DIR, sanitized)
   try {
+    // The batch-level guard cannot see collisions written by earlier installs.
+    // Check the lock before the wipe-and-recopy because two raw keys sharing
+    // one sanitized directory would otherwise silently destroy the first skill.
+    const lock = await readSkillLock()
+    const collidingLockKey = Object.keys(lock.skills).find(
+      (key) => key !== skill.name && sanitizeName(key) === sanitized,
+    )
+    if (collidingLockKey) {
+      return {
+        name: skill.name,
+        success: false,
+        userMessage: `"${skill.name}" cannot be installed because the existing lock entry "${collidingLockKey}" uses the same on-disk directory.`,
+      }
+    }
     onProgress?.({ phase: 'copying', message: `Installing ${skill.name}...` })
     await copySkillTree(skill.path, canonicalDir)
 

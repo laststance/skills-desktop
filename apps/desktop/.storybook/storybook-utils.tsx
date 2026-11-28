@@ -616,8 +616,13 @@ export function installStorybookElectronMock(): void {
         success: true,
         results: [{ name: 'task', success: true }],
       }),
+      update: async () => ({
+        success: true,
+        results: [{ name: 'task', status: 'current' as const }],
+      }),
       cancel: async () => undefined,
       onProgress: () => cleanup,
+      onUpdateProgress: () => cleanup,
     },
     marketplace: {
       leaderboard: async () => storyMarketplaceSkills,

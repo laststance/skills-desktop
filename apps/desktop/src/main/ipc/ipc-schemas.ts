@@ -213,6 +213,9 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
       skills: z.array(z.string()).optional(),
     }),
   ]),
+  'skills:cli:update': z.tuple([
+    z.object({ skills: z.array(z.string()).optional() }),
+  ]),
 
   // Skill lock prune — names are raw lock keys, never joined into a path here,
   // but the traversal guard stays as defense in depth for the CLI child args.

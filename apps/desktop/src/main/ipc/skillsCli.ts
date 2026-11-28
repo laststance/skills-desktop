@@ -1,9 +1,13 @@
-import { BrowserWindow } from 'electron'
+import { BrowserWindow, type IpcMainInvokeEvent } from 'electron'
 
 import { runLockWrite } from '@/main/services/skillLockService'
 import { skillManager } from '@/main/services/skillManager'
 import { IPC_CHANNELS } from '@/shared/ipc-channels'
-import type { InstallProgress, SkillInstallOutcome } from '@/shared/types'
+import type {
+  InstallProgress,
+  SkillInstallOutcome,
+  SkillUpdateOutcome,
+} from '@/shared/types'
 
 import { typedHandle } from './typedHandle'
 
@@ -16,6 +20,19 @@ import { typedHandle } from './typedHandle'
  * opens, and the fetch layer is wired to it while the install runs.
  */
 const activeInstallControllers = new Set<AbortController>()
+
+/** Forward structured progress to the invoking renderer while it lives. */
+function createProgressForwarder(
+  event: IpcMainInvokeEvent,
+  channel: string,
+): (progress: InstallProgress) => void {
+  return (progress): void => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (window && !window.isDestroyed()) {
+      event.sender.send(channel, progress)
+    }
+  }
+}
 
 /**
  * Register IPC handlers for skill marketplace operations. Channel names keep
@@ -32,13 +49,10 @@ export function registerSkillsCliHandlers(): void {
     const controller = new AbortController()
     activeInstallControllers.add(controller)
 
-    // Forward structured progress to the invoking renderer while it lives.
-    const onProgress = (progress: InstallProgress): void => {
-      const window = BrowserWindow.fromWebContents(event.sender)
-      if (window && !window.isDestroyed()) {
-        event.sender.send(IPC_CHANNELS.SKILLS_CLI_PROGRESS, progress)
-      }
-    }
+    const onProgress = createProgressForwarder(
+      event,
+      IPC_CHANNELS.SKILLS_CLI_PROGRESS,
+    )
 
     try {
       // Serialized against prune: both rewrite .skill-lock.json with
@@ -59,6 +73,28 @@ export function registerSkillsCliHandlers(): void {
           source: options.repo,
           skillNames: options.skills,
           agents: options.agents,
+          onProgress,
+          signal: controller.signal,
+        })
+      })
+    } finally {
+      activeInstallControllers.delete(controller)
+    }
+  })
+
+  typedHandle(IPC_CHANNELS.SKILLS_CLI_UPDATE, async (event, options) => {
+    const controller = new AbortController()
+    activeInstallControllers.add(controller)
+
+    const onProgress = createProgressForwarder(
+      event,
+      IPC_CHANNELS.SKILLS_CLI_UPDATE_PROGRESS,
+    )
+
+    try {
+      return await runLockWrite(async (): Promise<SkillUpdateOutcome> => {
+        return skillManager.update({
+          skillNames: options.skills,
           onProgress,
           signal: controller.signal,
         })

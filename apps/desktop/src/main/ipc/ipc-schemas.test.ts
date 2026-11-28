@@ -949,3 +949,25 @@ describe('agent-scoped Cleanup IPC boundary', () => {
     },
   )
 })
+
+describe('skills:cli:update schema', () => {
+  const updateSchema = IPC_ARG_SCHEMAS['skills:cli:update']!
+
+  test('accepts an empty update payload and a skill-name filtered payload', () => {
+    // Arrange / Act / Assert
+    expect(updateSchema.safeParse([{}]).success).toBe(true)
+    expect(updateSchema.safeParse([{ skills: ['alpha-skill'] }]).success).toBe(
+      true,
+    )
+  })
+
+  test('rejects malformed update payloads before they reach the lock-write path', () => {
+    // Arrange / Act / Assert
+    expect(updateSchema.safeParse([]).success).toBe(false)
+    expect(updateSchema.safeParse([null]).success).toBe(false)
+    expect(updateSchema.safeParse([{ skills: 'alpha-skill' }]).success).toBe(
+      false,
+    )
+    expect(updateSchema.safeParse([{ skills: [42] }]).success).toBe(false)
+  })
+})
