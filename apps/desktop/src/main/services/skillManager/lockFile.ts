@@ -62,6 +62,45 @@ function createEmptyLock(): SkillLockFile {
   return { version: SKILL_LOCK_VERSION, skills: {}, dismissed: {} }
 }
 
+type ParsedSkillLock =
+  | { kind: 'valid'; lock: SkillLockFile }
+  | { kind: 'empty' }
+  | { kind: 'invalid-shape' }
+  | { kind: 'corrupt' }
+
+/** Parse lock bytes once so lenient readers and strict update checks share the same shape rules. */
+function parseSkillLockContent(content: string): ParsedSkillLock {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(content)
+  } catch {
+    return { kind: 'corrupt' }
+  }
+  if (
+    typeof parsed !== 'object' ||
+    parsed === null ||
+    !('version' in parsed) ||
+    typeof parsed.version !== 'number' ||
+    !('skills' in parsed) ||
+    typeof parsed.skills !== 'object' ||
+    parsed.skills === null
+  ) {
+    return { kind: 'invalid-shape' }
+  }
+  if (parsed.version < SKILL_LOCK_VERSION) return { kind: 'empty' }
+  return { kind: 'valid', lock: parsed as SkillLockFile }
+}
+
+/** Read lock bytes, mapping only a missing lock to null while preserving real I/O errors. */
+async function readSkillLockContent(): Promise<string | null> {
+  try {
+    return await fs.readFile(getSkillLockPath(), 'utf-8')
+  } catch (error) {
+    if (isMissingPathError(error)) return null
+    throw error
+  }
+}
+
 /**
  * Read the global lock with the CLI's forgiveness rules: a missing file, an
  * unparseable file, or a pre-v3 schema all read as an empty lock. Newer
@@ -70,30 +109,31 @@ function createEmptyLock(): SkillLockFile {
  * @returns The parsed lock, or an empty v3 skeleton.
  */
 export async function readSkillLock(): Promise<SkillLockFile> {
-  let content: string
-  try {
-    content = await fs.readFile(getSkillLockPath(), 'utf-8')
-  } catch {
-    return createEmptyLock()
+  const content = await readSkillLockContent()
+  if (content === null) return createEmptyLock()
+  const parsed = parseSkillLockContent(content)
+  return parsed.kind === 'valid' ? parsed.lock : createEmptyLock()
+}
+
+/**
+ * Read the lock for update checks without write-side forgiveness. A missing
+ * or pre-v3 lock is still a valid empty lock, but unreadable bytes, torn JSON,
+ * and wrong shapes are errors: update must never report "nothing to do" when
+ * it could not determine what is installed. Unlike the write path, this never
+ * renames corrupt bytes aside because the check itself is read-only.
+ * @returns The parsed lock, or an empty v3 skeleton.
+ * @throws Error when the lock exists but cannot be read or parsed safely.
+ */
+export async function readSkillLockForUpdate(): Promise<SkillLockFile> {
+  const content = await readSkillLockContent()
+  if (content === null) return createEmptyLock()
+  const parsed = parseSkillLockContent(content)
+  if (parsed.kind === 'valid') return parsed.lock
+  if (parsed.kind === 'empty') return createEmptyLock()
+  if (parsed.kind === 'invalid-shape') {
+    throw new Error('Skill lock has an invalid shape')
   }
-  try {
-    const parsed: unknown = JSON.parse(content)
-    if (
-      typeof parsed !== 'object' ||
-      parsed === null ||
-      !('version' in parsed) ||
-      typeof parsed.version !== 'number' ||
-      !('skills' in parsed) ||
-      typeof parsed.skills !== 'object' ||
-      parsed.skills === null
-    ) {
-      return createEmptyLock()
-    }
-    if (parsed.version < SKILL_LOCK_VERSION) return createEmptyLock()
-    return parsed as SkillLockFile
-  } catch {
-    return createEmptyLock()
-  }
+  throw new Error('Skill lock is corrupted and cannot be checked for updates')
 }
 
 /**

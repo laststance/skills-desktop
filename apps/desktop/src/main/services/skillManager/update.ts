@@ -21,7 +21,7 @@ import {
 } from './install'
 import {
   computeSkillFolderHash,
-  readSkillLock,
+  readSkillLockForUpdate,
   type SkillLockEntry,
   type SkillLockFile,
 } from './lockFile'
@@ -84,10 +84,6 @@ interface ItemContext {
   treeError: unknown
   discovered: readonly DiscoveredSkill[]
   resolution: Resolution
-}
-
-function normalizeSkillName(name: string): string {
-  return name.toLowerCase().replace(/[\s_]+/g, '-')
 }
 
 function normalizeSkillPath(path: string): string {
@@ -239,11 +235,10 @@ function resolveSkillLocations(
 ): Resolution {
   const byName = new Map<string, string[]>()
   for (const skill of discovered) {
-    const key = normalizeSkillName(skill.name)
     const skillPath = normalizeSkillPath(skill.skillFilePath)
-    const paths = byName.get(key) ?? []
+    const paths = byName.get(skill.name) ?? []
     if (!paths.includes(skillPath)) paths.push(skillPath)
-    byName.set(key, paths)
+    byName.set(skill.name, paths)
   }
 
   const resolution: Resolution = {
@@ -252,7 +247,9 @@ function resolveSkillLocations(
     missing: new Set(),
   }
   for (const item of locked) {
-    const candidates = byName.get(normalizeSkillName(item.name)) ?? []
+    // Only the exact raw frontmatter name may become a move target. A merely
+    // normalized-equivalent name can be a different skill in the same repo.
+    const candidates = byName.get(item.name) ?? []
     const lockedPath = item.entry.skillPath
       ? normalizeSkillPath(item.entry.skillPath)
       : undefined
@@ -279,6 +276,12 @@ function lockedItemsForGroup(
       if (!isLockEntryObject(entry)) return false
       if (typeof entry.source !== 'string') return false
       if (entry.ref !== undefined && typeof entry.ref !== 'string') return false
+      if (
+        entry.skillPath !== undefined &&
+        typeof entry.skillPath !== 'string'
+      ) {
+        return false
+      }
       const parsed = parseSource(entry.source)
       if (!parsed.ok || parsed.source.type !== 'github') return false
       const effectiveRef = entry.ref ?? parsed.source.ref
@@ -527,21 +530,23 @@ async function processItemsInContext(
   context: ItemContext,
   onProgress?: (progress: InstallProgress) => void,
   signal?: AbortSignal,
+  onItemResult?: (result: SkillUpdateItemResult) => void,
 ): Promise<SkillUpdateItemResult[]> {
   const results: SkillUpdateItemResult[] = []
   for (const item of group) {
     throwIfAborted(signal)
+    let result: SkillUpdateItemResult
     try {
-      results.push(await processGroupItem(item, context, onProgress))
+      result = await processGroupItem(item, context, onProgress)
     } catch (error) {
       if (isAbortError(error)) throw error
-      results.push(
-        failureResult(
-          item.name,
-          `"${item.name}" could not be updated: ${extractErrorMessage(error)}`,
-        ),
+      result = failureResult(
+        item.name,
+        `"${item.name}" could not be updated: ${extractErrorMessage(error)}`,
       )
     }
+    results.push(result)
+    onItemResult?.(result)
   }
   return results
 }
@@ -552,6 +557,7 @@ async function processGroup(
   lock: SkillLockFile,
   onProgress?: (progress: InstallProgress) => void,
   signal?: AbortSignal,
+  onItemResult?: (result: SkillUpdateItemResult) => void,
 ): Promise<SkillUpdateItemResult[]> {
   const first = group[0]
   if (!first) return []
@@ -583,6 +589,7 @@ async function processGroup(
       },
       onProgress,
       signal,
+      onItemResult,
     )
   } catch (error) {
     if (isAbortError(error)) throw error
@@ -668,7 +675,7 @@ export async function updateSkills(
   let selectedNames: string[] = []
   let operationFailure: string | undefined
   try {
-    const lock = await readSkillLock()
+    const lock = await readSkillLockForUpdate()
     const classified = classifyLockedItems(lock, options.skillNames)
     selectedNames = classified.selectedNames
     for (const result of classified.initialResults) {
@@ -695,7 +702,13 @@ export async function updateSkills(
 
     for (const group of groupCandidates(candidates)) {
       throwIfAborted(signal)
-      const groupResults = await processGroup(group, lock, onProgress, signal)
+      const groupResults = await processGroup(
+        group,
+        lock,
+        onProgress,
+        signal,
+        (result) => resultsByName.set(result.name, result),
+      )
       for (const result of groupResults) resultsByName.set(result.name, result)
     }
   } catch (error) {

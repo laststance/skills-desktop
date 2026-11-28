@@ -19,6 +19,7 @@ import {
   isSameFilesystemIdentity,
 } from '@/main/services/filesystemIdentity'
 import { getAllowedBases, validatePath } from '@/main/services/pathValidation'
+import { runLockWrite } from '@/main/services/skillLockService'
 import { scanSkills } from '@/main/services/skillScanner'
 import { isValidSkillDir } from '@/main/services/skillValidation'
 import { resolveRawSymlinkTarget } from '@/main/services/symlinkChecker'
@@ -1149,39 +1150,41 @@ export function registerSkillsHandlers(): void {
       error: string
     }> = []
 
-    for (const agentId of agentIds) {
-      const agent = findAgentById(agentId)
-      if (!agent) {
-        failures.push({ agentId, error: 'Agent not found' })
-        continue
-      }
+    await runLockWrite(async () => {
+      for (const agentId of agentIds) {
+        const agent = findAgentById(agentId)
+        if (!agent) {
+          failures.push({ agentId, error: 'Agent not found' })
+          continue
+        }
 
-      const linkPath = join(agent.path, skillName)
-      // Defense in depth: ensure the constructed link path stays inside the
-      // target agent directory (skillName must not contain \`../\`).
-      try {
-        validatePath(linkPath, [agent.path])
-      } catch {
-        failures.push({ agentId, error: 'Invalid skill name' })
-        continue
-      }
+        const linkPath = join(agent.path, skillName)
+        // Defense in depth: ensure the constructed link path stays inside the
+        // target agent directory (skillName must not contain \`../\`).
+        try {
+          validatePath(linkPath, [agent.path])
+        } catch {
+          failures.push({ agentId, error: 'Invalid skill name' })
+          continue
+        }
 
-      try {
-        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- iteration mutates the shared created counter and failures array (mkdir + symlink); the gain for the bounded set of local symlinks is imperceptible.
-        await fs.mkdir(agent.path, { recursive: true })
+        try {
+          // react-doctor-disable-next-line react-doctor/async-await-in-loop -- iteration mutates the shared created counter and failures array (mkdir + symlink); the gain for the bounded set of local symlinks is imperceptible.
+          await fs.mkdir(agent.path, { recursive: true })
 
-        // Atomic: attempt symlink directly, handle EEXIST
-        await fs.symlink(skillPath, linkPath)
-        created++
-        createdAgentNames.push(agent.name)
-      } catch (error) {
-        if (errorCode(error) === 'EEXIST') {
-          failures.push({ agentId, error: 'Already exists' })
-        } else {
-          failures.push({ agentId, error: extractErrorMessage(error) })
+          // Atomic: attempt symlink directly, handle EEXIST
+          await fs.symlink(skillPath, linkPath)
+          created++
+          createdAgentNames.push(agent.name)
+        } catch (error) {
+          if (errorCode(error) === 'EEXIST') {
+            failures.push({ agentId, error: 'Already exists' })
+          } else {
+            failures.push({ agentId, error: extractErrorMessage(error) })
+          }
         }
       }
-    }
+    })
 
     // One `created` event per agent the skill was symlinked into.
     await recordActivityEvents(
@@ -1279,51 +1282,53 @@ export function registerSkillsHandlers(): void {
       }
     }
 
-    for (const agentId of targetAgentIds) {
-      const agent = findAgentById(agentId)
-      if (!agent) {
-        failures.push({ agentId, error: 'Agent not found' })
-        continue
-      }
-
-      const destPath = join(agent.path, skillName)
-
-      try {
-        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- iteration mutates shared copied/failures and runs recursive fs.cp per agent; parallel recursive copies risk EMFILE for negligible local-fs benefit.
-        await fs.mkdir(agent.path, { recursive: true })
-
-        // Check if something already exists at the destination
-        try {
-          await fs.lstat(destPath)
-          failures.push({ agentId, error: 'Already exists' })
+    await runLockWrite(async () => {
+      for (const agentId of targetAgentIds) {
+        const agent = findAgentById(agentId)
+        if (!agent) {
+          failures.push({ agentId, error: 'Agent not found' })
           continue
-        } catch (error) {
-          if (errorCode(error) !== 'ENOENT') {
-            failures.push({
-              agentId,
-              error: extractErrorMessage(
-                error,
-                'Cannot verify destination path',
-              ),
-            })
-            continue
-          }
         }
 
-        if (isSymlink) {
-          await fs.symlink(symlinkTarget, destPath)
-        } else {
-          await fs.cp(sourcePath, destPath, {
-            recursive: true,
-            verbatimSymlinks: true,
-          })
+        const destPath = join(agent.path, skillName)
+
+        try {
+          // react-doctor-disable-next-line react-doctor/async-await-in-loop -- iteration mutates shared copied/failures and runs recursive fs.cp per agent; parallel recursive copies risk EMFILE for negligible local-fs benefit.
+          await fs.mkdir(agent.path, { recursive: true })
+
+          // Check if something already exists at the destination
+          try {
+            await fs.lstat(destPath)
+            failures.push({ agentId, error: 'Already exists' })
+            continue
+          } catch (error) {
+            if (errorCode(error) !== 'ENOENT') {
+              failures.push({
+                agentId,
+                error: extractErrorMessage(
+                  error,
+                  'Cannot verify destination path',
+                ),
+              })
+              continue
+            }
+          }
+
+          if (isSymlink) {
+            await fs.symlink(symlinkTarget, destPath)
+          } else {
+            await fs.cp(sourcePath, destPath, {
+              recursive: true,
+              verbatimSymlinks: true,
+            })
+          }
+          copied++
+          copiedAgentNames.push(agent.name)
+        } catch (error) {
+          failures.push({ agentId, error: extractErrorMessage(error) })
         }
-        copied++
-        copiedAgentNames.push(agent.name)
-      } catch (error) {
-        failures.push({ agentId, error: extractErrorMessage(error) })
       }
-    }
+    })
 
     // One `created` event per agent the skill was copied into.
     await recordActivityEvents(

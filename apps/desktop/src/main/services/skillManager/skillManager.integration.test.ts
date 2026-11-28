@@ -2054,6 +2054,80 @@ describe('update global GitHub skills', () => {
     )
   })
 
+  test('does not treat a normalized-equivalent upstream skill as the moved copy of a missing raw name', async () => {
+    // Arrange — `foo_bar` and `foo-bar` normalize similarly but are distinct
+    // lock keys. When only the latter remains upstream, the former is missing.
+    const { skillManager } = await managerModule
+    const originalSkillMd =
+      '---\nname: foo_bar\ndescription: Original raw-name fixture\n---\n'
+    const renamedLookalikeMd =
+      '---\nname: foo-bar\ndescription: Distinct lookalike skill\n---\n'
+    routeRepo('acme/skills', [
+      dirEntry('skills'),
+      dirEntry('skills/original'),
+      fileEntry('skills/original/SKILL.md', originalSkillMd),
+    ])
+    await skillManager.install({ source: 'acme/skills', agents: [] })
+    routeRepo('acme/skills', [
+      dirEntry('skills'),
+      dirEntry('skills/lookalike'),
+      fileEntry('skills/lookalike/SKILL.md', renamedLookalikeMd),
+    ])
+
+    // Act
+    const outcome = await skillManager.update()
+
+    // Assert
+    expect(outcome.success).toBe(true)
+    expect(outcome.results).toEqual([
+      {
+        name: 'foo_bar',
+        status: 'missing-upstream',
+        userMessage:
+          '"foo_bar" is missing upstream. The installed copy was left untouched.',
+      },
+    ])
+    expect(
+      await readFile(join(sourceDir, 'foo_bar', 'SKILL.md'), 'utf-8'),
+    ).toBe(originalSkillMd)
+  })
+
+  test('fails instead of reporting a successful empty update when the lock has an invalid shape', async () => {
+    // Arrange
+    const { skillManager } = await managerModule
+    await writeFile(
+      lockPath,
+      JSON.stringify({ version: 3, skills: null }),
+      'utf-8',
+    )
+
+    // Act
+    const outcome = await skillManager.update()
+
+    // Assert
+    expect(outcome.success).toBe(false)
+    expect(outcome.results).toEqual([])
+    expect(outcome.userMessage).toBe(
+      'Skill update failed: Skill lock has an invalid shape',
+    )
+  })
+
+  test('fails instead of reporting a successful empty update when the lock is corrupt', async () => {
+    // Arrange
+    const { skillManager } = await managerModule
+    await writeFile(lockPath, '{ "version": 3, "skills": { ', 'utf-8')
+
+    // Act
+    const outcome = await skillManager.update()
+
+    // Assert
+    expect(outcome.success).toBe(false)
+    expect(outcome.results).toEqual([])
+    expect(outcome.userMessage).toBe(
+      'Skill update failed: Skill lock is corrupted and cannot be checked for updates',
+    )
+  })
+
   test('reports an upstream-missing skill without deleting the installed copy', async () => {
     // Arrange
     const { skillManager } = await managerModule
@@ -2344,6 +2418,407 @@ describe('update global GitHub skills', () => {
         status: 'skipped',
         userMessage:
           '"broken-skill" has no recorded source, so it cannot be checked for updates.',
+      },
+    ])
+  })
+
+  test('skips malformed and unsupported lock entries independently instead of failing the whole run', async () => {
+    // Arrange
+    const { skillManager } = await managerModule
+    await writeFile(
+      lockPath,
+      JSON.stringify({
+        version: 3,
+        skills: {
+          'null-entry': null,
+          'unsupported-type': {
+            source: 'acme/skills',
+            sourceType: 'well-known',
+            skillPath: 'skills/x/SKILL.md',
+            skillFolderHash: ALPHA_CLI_HASH,
+          },
+          'missing-skill-path': {
+            source: 'acme/skills',
+            sourceType: 'github',
+            skillFolderHash: ALPHA_CLI_HASH,
+          },
+          'missing-hash': {
+            source: 'acme/skills',
+            sourceType: 'github',
+            skillPath: 'skills/x/SKILL.md',
+          },
+          'bad-ref': {
+            source: 'acme/skills',
+            sourceType: 'github',
+            skillPath: 'skills/x/SKILL.md',
+            skillFolderHash: ALPHA_CLI_HASH,
+            ref: 42,
+          },
+          'unparseable-source': {
+            source: 'not a github source',
+            sourceType: 'github',
+            skillPath: 'skills/x/SKILL.md',
+            skillFolderHash: ALPHA_CLI_HASH,
+          },
+        },
+        dismissed: {},
+      }),
+      'utf-8',
+    )
+
+    // Act
+    const outcome = await skillManager.update()
+
+    // Assert
+    expect(outcome.success).toBe(true)
+    expect(outcome.results).toEqual([
+      {
+        name: 'null-entry',
+        status: 'skipped',
+        userMessage:
+          '"null-entry" has a malformed lock entry and cannot be checked for updates.',
+      },
+      {
+        name: 'unsupported-type',
+        status: 'skipped',
+        userMessage:
+          '"unsupported-type" uses unsupported source type "well-known" and cannot be updated automatically.',
+      },
+      {
+        name: 'missing-skill-path',
+        status: 'skipped',
+        userMessage:
+          '"missing-skill-path" has no recorded skill path, so its upstream location cannot be checked.',
+      },
+      {
+        name: 'missing-hash',
+        status: 'skipped',
+        userMessage:
+          '"missing-hash" has no recorded version hash, so it cannot be checked for updates.',
+      },
+      {
+        name: 'bad-ref',
+        status: 'skipped',
+        userMessage:
+          '"bad-ref" has a malformed pinned ref, so it cannot be checked safely.',
+      },
+      {
+        name: 'unparseable-source',
+        status: 'skipped',
+        userMessage:
+          '"unparseable-source" has an unsupported source and cannot be updated automatically.',
+      },
+    ])
+  })
+
+  test('does not let a malformed same-repository lock entry poison resolution for a valid skill', async () => {
+    // Arrange
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', alphaFixtureEntries())
+    await skillManager.install({ source: 'acme/skills', agents: [] })
+    const lock = await readLock()
+    lock.skills['bad-neighbor'] = {
+      source: 'acme/skills',
+      sourceType: 'github',
+      skillPath: 42,
+      skillFolderHash: ALPHA_CLI_HASH,
+    }
+    Object.assign(lock.skills, { 'null-neighbor': null })
+    lock.skills['sourceless-neighbor'] = {
+      sourceType: 'github',
+      skillPath: 'skills/x/SKILL.md',
+      skillFolderHash: ALPHA_CLI_HASH,
+    }
+    lock.skills['bad-ref-neighbor'] = {
+      source: 'acme/skills',
+      sourceType: 'github',
+      skillPath: 'skills/x/SKILL.md',
+      skillFolderHash: ALPHA_CLI_HASH,
+      ref: 42,
+    }
+    await writeFile(lockPath, JSON.stringify(lock), 'utf-8')
+
+    // Act
+    const outcome = await skillManager.update()
+
+    // Assert
+    expect(outcome.success).toBe(true)
+    expect(outcome.results).toEqual([
+      { name: 'alpha-skill', status: 'current' },
+      {
+        name: 'bad-neighbor',
+        status: 'skipped',
+        userMessage:
+          '"bad-neighbor" has no recorded skill path, so its upstream location cannot be checked.',
+      },
+      {
+        name: 'null-neighbor',
+        status: 'skipped',
+        userMessage:
+          '"null-neighbor" has a malformed lock entry and cannot be checked for updates.',
+      },
+      {
+        name: 'sourceless-neighbor',
+        status: 'skipped',
+        userMessage:
+          '"sourceless-neighbor" has no recorded source, so it cannot be checked for updates.',
+      },
+      {
+        name: 'bad-ref-neighbor',
+        status: 'skipped',
+        userMessage:
+          '"bad-ref-neighbor" has a malformed pinned ref, so it cannot be checked safely.',
+      },
+    ])
+  })
+
+  test('skips a stale lock entry whose canonical installation is only a file', async () => {
+    // Arrange
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', alphaFixtureEntries())
+    await skillManager.install({ source: 'acme/skills', agents: [] })
+    await rm(join(sourceDir, 'alpha-skill'), { recursive: true, force: true })
+    await writeFile(join(sourceDir, 'alpha-skill'), 'not a directory', 'utf-8')
+
+    // Act
+    const outcome = await skillManager.update()
+
+    // Assert
+    expect(outcome.success).toBe(true)
+    expect(outcome.results).toEqual([
+      {
+        name: 'alpha-skill',
+        status: 'skipped',
+        userMessage:
+          '"alpha-skill" has a lock entry but no canonical installation, so update left it untouched.',
+      },
+    ])
+  })
+
+  test('skips a stale lock entry whose canonical installation is missing', async () => {
+    // Arrange
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', alphaFixtureEntries())
+    await skillManager.install({ source: 'acme/skills', agents: [] })
+    await rm(join(sourceDir, 'alpha-skill'), { recursive: true, force: true })
+
+    // Act
+    const outcome = await skillManager.update()
+
+    // Assert
+    expect(outcome.success).toBe(true)
+    expect(outcome.results).toEqual([
+      {
+        name: 'alpha-skill',
+        status: 'skipped',
+        userMessage:
+          '"alpha-skill" has a lock entry but no canonical installation, so update left it untouched.',
+      },
+    ])
+  })
+
+  test('fails a legacy tree-hash item when GitHub tree metadata is unavailable', async () => {
+    // Arrange — the tarball exists, but the recursive-tree route intentionally
+    // does not, matching a private/rate-limited GitHub metadata failure.
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', alphaFixtureEntries())
+    await skillManager.install({ source: 'acme/skills', agents: [] })
+    const lock = await readLock()
+    lock.skills['alpha-skill'].skillFolderHash = 'a'.repeat(40)
+    await writeFile(lockPath, JSON.stringify(lock), 'utf-8')
+
+    // Act
+    const outcome = await skillManager.update()
+
+    // Assert
+    expect(outcome.success).toBe(false)
+    expect(outcome.results).toHaveLength(1)
+    expect(outcome.results[0]).toMatchObject({
+      name: 'alpha-skill',
+      status: 'failed',
+    })
+    expect(outcome.results[0].userMessage).toContain(
+      '"alpha-skill" could not be checked:',
+    )
+  })
+
+  test('fails a legacy tree-hash item when the upstream folder has no readable tree hash', async () => {
+    // Arrange — tree metadata answers, but not for the locked skill folder.
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', alphaFixtureEntries())
+    routeRepoTree('acme/skills', 'skills/other-skill', 'b'.repeat(40))
+    await skillManager.install({ source: 'acme/skills', agents: [] })
+    const lock = await readLock()
+    lock.skills['alpha-skill'].skillFolderHash = 'a'.repeat(40)
+    await writeFile(lockPath, JSON.stringify(lock), 'utf-8')
+
+    // Act
+    const outcome = await skillManager.update()
+
+    // Assert
+    expect(outcome.success).toBe(false)
+    expect(outcome.results).toEqual([
+      {
+        name: 'alpha-skill',
+        status: 'failed',
+        userMessage: '"alpha-skill" has no readable upstream tree hash.',
+      },
+    ])
+  })
+
+  test('fails only the affected item when an upstream file cannot be hashed', async () => {
+    // Arrange — discovery reads SKILL.md successfully, while a second file in
+    // the same skill is unreadable when the content hash is computed.
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', alphaFixtureEntries())
+    await skillManager.install({ source: 'acme/skills', agents: [] })
+    const changedAlphaMd = ALPHA_SKILL_MD.replace(
+      '# Alpha\n',
+      '# Alpha\nAlpha changed before the unreadable file.\n',
+    )
+    routeRepo('acme/skills', [
+      ...alphaFixtureEntries().map((entry) =>
+        entry.path === 'skills/alpha-skill/SKILL.md'
+          ? fileEntry(entry.path, changedAlphaMd, entry.mode)
+          : entry,
+      ),
+      fileEntry('skills/alpha-skill/unreadable.txt', 'secret', 0o100),
+    ])
+
+    // Act
+    const outcome = await skillManager.update()
+
+    // Assert
+    expect(outcome.success).toBe(false)
+    expect(outcome.results).toHaveLength(1)
+    expect(outcome.results[0]).toMatchObject({
+      name: 'alpha-skill',
+      status: 'failed',
+    })
+    expect(outcome.results[0].userMessage).toContain(
+      '"alpha-skill" could not be updated:',
+    )
+  })
+
+  test('skips the update when an existing agent slot cannot be inspected safely', async () => {
+    // Arrange — chmod the skills parent rather than the slot itself: lstat
+    // needs execute permission on the parent, so the occupant is unreadable.
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', alphaFixtureEntries())
+    await skillManager.install({
+      source: 'acme/skills',
+      agents: ['claude-code'],
+    })
+    const changedAlphaMd = ALPHA_SKILL_MD.replace(
+      '# Alpha\n',
+      '# Alpha\nAlpha changed before the unreadable slot.\n',
+    )
+    routeRepo(
+      'acme/skills',
+      alphaFixtureEntries().map((entry) =>
+        entry.path === 'skills/alpha-skill/SKILL.md'
+          ? fileEntry(entry.path, changedAlphaMd, entry.mode)
+          : entry,
+      ),
+    )
+    const claudeSkillsDir = join(sharedHome, '.claude', 'skills')
+    await chmod(claudeSkillsDir, 0o000)
+
+    try {
+      // Act
+      const outcome = await skillManager.update()
+
+      // Assert
+      expect(outcome.success).toBe(true)
+      expect(outcome.results).toHaveLength(1)
+      expect(outcome.results[0]).toMatchObject({
+        name: 'alpha-skill',
+        status: 'skipped',
+      })
+      expect(outcome.results[0].userMessage).toContain(
+        'automatic update refused to replace it',
+      )
+    } finally {
+      await chmod(claudeSkillsDir, 0o755)
+    }
+  })
+
+  test('keeps the completed item updated when cancellation happens before the next item in the same repo group', async () => {
+    // Arrange — alpha changes upstream but beta does not. Aborting at alpha's
+    // lock write is too late to undo alpha but exactly exercises the boundary
+    // before beta begins.
+    const { skillManager } = await managerModule
+    const combinedEntries = () => [
+      ...alphaFixtureEntries(),
+      ...betaFixtureEntries(),
+    ]
+    routeRepo('acme/skills', combinedEntries())
+    await skillManager.install({ source: 'acme/skills', agents: [] })
+    const changedAlphaMd = ALPHA_SKILL_MD.replace(
+      '# Alpha\n',
+      '# Alpha\nAlpha completed before cancellation.\n',
+    )
+    routeRepo(
+      'acme/skills',
+      combinedEntries().map((entry) =>
+        entry.path === 'skills/alpha-skill/SKILL.md'
+          ? fileEntry(entry.path, changedAlphaMd, entry.mode)
+          : entry,
+      ),
+    )
+    const controller = new AbortController()
+
+    // Act
+    const outcome = await skillManager.update({
+      signal: controller.signal,
+      onProgress: (progress) => {
+        if (progress.phase === 'writing-lock') controller.abort()
+      },
+    })
+
+    // Assert
+    expect(outcome.success).toBe(false)
+    expect(outcome.userMessage).toBe('Update cancelled.')
+    expect(outcome.results).toEqual([
+      { name: 'alpha-skill', status: 'updated' },
+      {
+        name: 'Beta Skill',
+        status: 'failed',
+        userMessage: 'Update cancelled.',
+      },
+    ])
+    expect(
+      await readFile(join(sourceDir, 'alpha-skill', 'SKILL.md'), 'utf-8'),
+    ).toBe(changedAlphaMd)
+  })
+
+  test('cancels while legacy tree metadata is still fetching without reporting a successful check', async () => {
+    // Arrange
+    const { skillManager } = await managerModule
+    routeRepo('acme/skills', alphaFixtureEntries())
+    fixture.routes.set('/repos/acme/skills/git/trees/main?recursive=1', {
+      status: 200,
+      body: '',
+      hang: true,
+    })
+    await skillManager.install({ source: 'acme/skills', agents: [] })
+    const lock = await readLock()
+    lock.skills['alpha-skill'].skillFolderHash = 'a'.repeat(40)
+    await writeFile(lockPath, JSON.stringify(lock), 'utf-8')
+    const controller = new AbortController()
+    setTimeout(() => controller.abort(), 20)
+
+    // Act
+    const outcome = await skillManager.update({ signal: controller.signal })
+
+    // Assert
+    expect(outcome.success).toBe(false)
+    expect(outcome.userMessage).toBe('Update cancelled.')
+    expect(outcome.results).toEqual([
+      {
+        name: 'alpha-skill',
+        status: 'failed',
+        userMessage: 'Update cancelled.',
       },
     ])
   })
