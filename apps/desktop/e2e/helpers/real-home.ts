@@ -168,6 +168,7 @@ export async function preflightRealHome(
       protectedDirs.map(async (dir) => canonicalPathEvenIfMissing(dir)),
     )
     const canonicalLockPath = await canonicalPathEvenIfMissing(lockPath)
+    const canonicalTrashDir = await canonicalPathEvenIfMissing(trashDir)
     for (const writeDir of [sourceSkillsDir, gooseSkillsDir]) {
       const canonicalWriteDir = await canonicalPathEvenIfMissing(writeDir)
       const canonicalAzureTarget = join(canonicalWriteDir, 'azure-ai')
@@ -175,6 +176,11 @@ export async function preflightRealHome(
         if (isSameOrInside(canonicalLockPath, protectedDir)) {
           reasons.push(
             `skills lock path resolves into a protected skill directory: ${lockPath} -> ${canonicalLockPath}`,
+          )
+        }
+        if (isSameOrInside(canonicalTrashDir, protectedDir)) {
+          reasons.push(
+            `app trash directory resolves into a protected skill directory: ${trashDir} -> ${canonicalTrashDir}`,
           )
         }
         if (
