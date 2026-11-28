@@ -317,7 +317,21 @@ test('real HOME azure-ai install and delete keep app display equal to filesystem
         { timeout: 90_000 },
       )
       .toBe(true)
-    if (await entryKind(sourcePath)) {
+    const settledInstall = await getStoreState(appPage, (state) => {
+      const marketplace = (
+        state as {
+          marketplace?: {
+            status?: string
+            selectedSkill?: unknown
+          }
+        }
+      ).marketplace
+      return {
+        status: marketplace?.status,
+        hasSelectedSkill: Boolean(marketplace?.selectedSkill),
+      }
+    })
+    if (settledInstall.status !== 'error' && (await entryKind(sourcePath))) {
       createdIdentity = await filesystemIdentityForPath(sourcePath)
     }
     await expect(dialog).toHaveCount(0)
